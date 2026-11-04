@@ -1,7 +1,6 @@
 package com.tahirslist.storage.s3
 
 import aws.sdk.kotlin.services.s3.S3Client
-import aws.sdk.kotlin.services.s3.createBucket
 import aws.sdk.kotlin.services.s3.deleteObject
 import aws.sdk.kotlin.services.s3.headBucket
 import aws.sdk.kotlin.services.s3.model.GetObjectRequest
@@ -16,28 +15,38 @@ import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.ImageVariant
 import com.tahirslist.application.image.StoredImage
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * S3-compatible [ImagePort] (MinIO now, Cloudflare R2 later — both speak the S3
  * API) using the **AWS SDK for Kotlin** (suspend, coroutines-native). The
  * endpoint/region/credentials come from [S3StorageConfig]; this class uses only
- * standard S3 operations (PutObject/GetObject/CreateBucket) so no AWS-only
+ * standard S3 operations (PutObject/GetObject/HeadBucket) so no AWS-only
  * feature is relied upon (docs/design/sc-157-image-variants.md).
  *
  * Storage layout (bucket owned by this adapter):
  *   `heroes/{listingId}/{variant}`  ->  object bytes  (content-type on object)
  *
  * The application never sees keys or the bucket; that isolation is what keeps
- * the adapter swappable. The bucket is created lazily on first [save] so a
- * fresh MinIO needs no pre-provisioning step.
+ * the adapter swappable. The bucket is **provisioned out of band** (the compose
+ * stack runs a `minio-init` job; production provisioning is an ops concern), so
+ * the app's credentials never need `s3:CreateBucket` and a typo'd bucket name
+ * fails loudly at the first operation instead of silently materialising an
+ * empty bucket. Existence is checked once per process, not per request.
  */
 class S3ImagePort(
     private val s3: S3Client,
     private val bucket: String,
 ) : ImagePort {
 
+    private val verifyMutex = Mutex()
+
+    @Volatile
+    private var bucketVerified = false
+
     override suspend fun save(listingId: Uuid, variant: ImageVariant, contentType: String, bytes: ByteArray) {
-        ensureBucket()
+        requireBucket()
         val objectKey = key(listingId, variant)
         val mediaType = contentType
         s3.putObject {
@@ -49,7 +58,7 @@ class S3ImagePort(
     }
 
     override suspend fun load(listingId: Uuid, variant: ImageVariant): StoredImage? {
-        ensureBucket()
+        requireBucket()
         val objectKey = key(listingId, variant)
         val request = GetObjectRequest {
             bucket = this@S3ImagePort.bucket
@@ -69,7 +78,7 @@ class S3ImagePort(
     }
 
     override suspend fun delete(listingId: Uuid, variant: ImageVariant) {
-        ensureBucket()
+        requireBucket()
         val objectKey = key(listingId, variant)
         // S3 DeleteObject of a non-existent key is an idempotent no-op (204),
         // matching the port's "delete of unsaved variant is silent" contract.
@@ -82,15 +91,30 @@ class S3ImagePort(
     private fun key(listingId: Uuid, variant: ImageVariant): String =
         "heroes/$listingId/${variant.name}"
 
-    private suspend fun ensureBucket() {
-        val exists = try {
-            s3.headBucket { bucket = this@S3ImagePort.bucket }
-            true
-        } catch (e: S3Exception) {
-            if (e.isNotFound()) false else throw e
-        }
-        if (!exists) {
-            s3.createBucket { bucket = this@S3ImagePort.bucket }
+    /**
+     * Verify the bucket exists once, then trust it for the process lifetime.
+     *
+     * No `CreateBucket`: provisioning is a deployment step, so a wrong bucket
+     * name is an operator error that must surface (as a startup-path failure),
+     * not something the app paper over by creating an empty bucket.
+     */
+    private suspend fun requireBucket() {
+        if (bucketVerified) return
+        verifyMutex.withLock {
+            if (bucketVerified) return
+            try {
+                s3.headBucket { bucket = this@S3ImagePort.bucket }
+            } catch (e: S3Exception) {
+                if (e.isNotFound()) {
+                    throw IllegalStateException(
+                        "S3 bucket '$bucket' does not exist. Provision it before using image storage " +
+                            "(the compose stack runs minio-init; production is an ops step).",
+                        e,
+                    )
+                }
+                throw e
+            }
+            bucketVerified = true
         }
     }
 }

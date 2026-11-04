@@ -1,7 +1,9 @@
 package com.tahirslist.storage.s3
 
+import aws.sdk.kotlin.services.s3.createBucket
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.ImagePortContractSpec
+import kotlinx.coroutines.runBlocking
 import org.testcontainers.containers.MinIOContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -41,7 +43,12 @@ class S3ImagePortContractTest : ImagePortContractSpec(
                 secretKey = minio.password,
                 bucket = "contract-test",
             )
-            return createImagePort(createS3Client(config), config.bucket)
+            val client = createS3Client(config)
+            // The adapter no longer creates buckets at runtime (least privilege:
+            // the app credential must not need s3:CreateBucket). Provisioning is
+            // an ops step, so the test harness provisions it explicitly.
+            runBlocking { client.createBucket { bucket = config.bucket } }
+            return createImagePort(client, config.bucket)
         }
     }
 }
