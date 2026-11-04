@@ -1,0 +1,29 @@
+# Secrets / local only
+.cloudflared-token.txt
+.env
+*.local
+
+# Node
+node_modules/
+.next/
+npm-debug.log*
+
+# Build artifacts (repo is containerized; host artifacts shouldn't commit)
+build/
+dist/
+.gradle/
+*.class
+
+# Test / runtime
+coverage/
+test-results/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Hermes scratch / worktrees that shouldn't be versioned
+.hermes/
+.worktrees/
