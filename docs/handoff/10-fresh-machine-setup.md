@@ -2,7 +2,7 @@
 type: handoff-document
 title: "10 — Fresh Machine Setup (Docker, from zero)"
 description: "A complete, machine-independent procedure to go from a brand-new computer with nothing installed to a running Tahir's List stack: Docker setup per OS, backing services, backend, frontend, smoke tests, teardown, and troubleshooting."
-tags: [tahirs-list, setup, onboarding, docker, docker-compose, wsl2, macos, linux, postgis, minio, spring-boot, nextjs]
+tags: [tahirs-list, setup, onboarding, docker, docker-compose, wsl2, macos, linux, postgis, minio, ktor, sveltekit]
 status: active
 generated: 2026-11-02
 generated_by: adnan
@@ -283,7 +283,7 @@ in the background.
 docker logs -f tahirs-list-backend
 ```
 
-Look for `Started HalalFoodFinderApplication` or a Netty/Tomcat "started on port 8080" line.
+Look for Ktor's `Application started` / `Responding at http://0.0.0.0:8080` line.
 In a second terminal, poll:
 
 ```bash

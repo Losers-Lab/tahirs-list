@@ -57,10 +57,12 @@ U-15) and open flags (certificate expiry/revocation).
   Gradle, no Node, no npm on the host. **Docker is the only build runtime.**
 - Backend build/test: `./scripts/backend-test.sh` (Gradle + tests in
   `eclipse-temurin:21-jdk`); `./scripts/backend-test.sh test-only` for tests only.
-- Frontend build/test: `./scripts/frontend-test.sh` (`npm ci` + `next build` in
-  `node:22`); `dev-install` skips the clean install.
-- Dependencies cache in named volumes (`halal-gradle-cache`, `halal-npm-cache`),
-  never in the repo tree.
+- Frontend build/test: `./scripts/frontend-test.sh` (frozen `pnpm install` +
+  `svelte-check` + `vitest` + `vite build` in `node:24-slim`); `dev-install`
+  allows lockfile drift.
+- Dependencies cache in named volumes (`tahirs-list-gradle-test-cache`,
+  `tahirs-list-pnpm-store`, `tahirs-list-frontend-node_modules`), never in the
+  repo tree.
 - New tooling (linters, generators, migration tools) also runs in containers. If
   you reach for `apt`/`pip install -g`/`npm install -g` on the host, stop.
 

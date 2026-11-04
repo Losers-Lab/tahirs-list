@@ -83,6 +83,11 @@ The dirty tree is why the watchdog's `git checkout main` could not do its job.
 | `hff-tunnel-dev` | `cloudflare/cloudflared` | — | Up 21h |
 | `hff-webhook-tunnel` | `cloudflare/cloudflared` | — | Up 21h |
 
+> **2026-11-04 update (Ktor migration):** the app containers are now named
+> `tahirs-list-backend` / `tahirs-list-frontend` and the backend has no actuator:
+> the health probe is `GET http://localhost:8080/v1/health`. The `hff-*` rows
+> above describe the pre-migration host and are kept for history.
+
 ### Backing services (`backend/docker-compose.yml`)
 
 Project name `halal-food-finder`. Three services:
@@ -102,48 +107,43 @@ uploaded certificates are gone. Address this before anything else production-sha
 
 ### Backend launch (`scripts/backend-live.sh`)
 
-Launches the backend with `APP_PROFILE=live` plus explicit env vars.
-The two switches the live stack needs:
+Launches the Ktor backend and the two infra switches are **environment
+variables**, not a Spring profile:
 
-- `app.storage.s3.*` → the real MinIO-backed `S3ImagePort` instead of the in-memory
-  stub.
-- `app.images.seed-ingest.*` → the seed-photo ingest runner runs on boot.
+- `APP_S3_ENDPOINT` (plus `APP_S3_*` credentials/bucket) → the real
+  MinIO-backed `ImagePort` instead of the in-memory stub.
+- `APP_SEED_INGEST_ENABLED=true` → the seed-photo ingest runner runs on boot.
 
-**Without the `live` profile**, the app boots with `InMemoryImagePort` and seed
-ingest off — which is exactly why `GET /v1/listings/{id}/image` returned 404 in the
-live stack. If images are missing, check the profile first.
+**Without `APP_S3_ENDPOINT`** the app boots with `InMemoryImagePort` and seed
+ingest off — which is why `GET /v1/listings/{id}/image` 404s in that
+configuration. If images are missing, check the env vars first.
+
+`APP_PROFILE` only selects strict production behaviour for the JWT key
+(`isProduction`); `live` is descriptive and does not turn features on.
 
 The script does `docker compose up -d` for backing services, then `docker rm -f
-hff-backend` and `docker run` with:
+tahirs-list-backend` and `docker run` with:
 
 - `-v "$repo_root/backend":/workspace`
-- `-v halal-gradle-cache:/root/.gradle`
+- `-v tahirs-list-gradle-cache:/root/.gradle`
 - `-w /workspace`
-- `--network halal-food-finder_default`
+- `--network tahirs-list_default`
 - datasource `jdbc:postgresql://postgis:5432/halal`, user/pass `halal`
 - `APP_S3_*` env vars defaulting to `http://minio:9000`, `minioadmin/minioadmin`,
   region `us-east-1`, bucket `halal`
-- command `./gradlew --no-daemon :bootstrap:run`
+- `APP_SEED_INGEST_ENABLED` defaulting to `true`
+- command `./gradlew --no-daemon --project-cache-dir=/tmp/gradle-project-cache :bootstrap:run`
 
-It runs the app from source via Gradle, not from a Jib image. That is fine for
-preview, but it means startup is slow and depends on the Gradle cache volume.
+It runs the app from source via Gradle, not from a prebuilt image. That is fine
+for preview, but it means startup is slow and depends on the Gradle cache
+volume.
 
 ### Frontend launch
 
-There is no dedicated frontend script; the watchdog inlines it:
-
-```
-docker run -d --name hff-frontend --restart unless-stopped -p 3000:3000 \
-  --network halal-food-finder_default \
-  -v "$REPO/frontend":/app -w /app -v /app/node_modules \
-  -v halal-npm-cache:/npm-cache -e npm_config_cache=/npm-cache \
-  -e API_PROXY_TARGET='http://hff-backend:8080' \
-  node:22 bash -lc "npm install --no-audit --no-fund && npm run build && npm run start"
-```
-
-Note `API_PROXY_TARGET` — the Next.js app proxies API calls to the backend over the
-Docker network. If that env var is missing, the frontend cannot reach the backend
-and will fail at runtime even though it builds.
+`./scripts/frontend-dev.sh` serves the SvelteKit dev app on `:5173` inside a
+`node:24-slim` container (see AGENTS.md and the script header for the mounts and
+cache volume). The SvelteKit server proxies `/v1` API calls to the backend via
+`API_PROXY_TARGET`, so the backend must be running too.
 
 ### Build and test scripts (the only supported paths)
 
@@ -152,10 +152,12 @@ toolchains and must not get any.
 
 | Command | What it does |
 |---------|--------------|
-| `./scripts/backend-test.sh` | Full Gradle build + tests in `eclipse-temurin:21-jdk`. Mounts repo to `/app`, `halal-gradle-cache` to `/gradle-home`, and `/var/run/docker.sock` for Testcontainers. |
-| `./scripts/backend-test.sh test-only` | Faster: runs `:persistence:test` only. |
-| `./scripts/frontend-test.sh` | `npm ci && npm run build` in `node:22`. Mounts frontend to `/app`, `halal-npm-cache` to `/npm-cache`. |
-| `./scripts/frontend-test.sh dev-install` | `npm install` instead of `npm ci` (faster, tolerates lockfile drift). |
+| `./scripts/backend-test.sh` | Full `build` (compile + every module's tests + packaging) in `eclipse-temurin:21-jdk`, capped at 3 GB / 2 CPUs. Mounts repo to `/app`, `tahirs-list-gradle-test-cache` to `/gradle-home`, and `/var/run/docker.sock` for Testcontainers. |
+| `./scripts/backend-test.sh test-only` | Same container, runs all `test` tasks without packaging. |
+| `./scripts/frontend-test.sh` | Frozen `pnpm install` + `svelte-check` + `vitest run` + `vite build` in `node:24-slim`. |
+| `./scripts/frontend-test.sh dev-install` | Allows lockfile drift instead of the frozen install. |
+| `./scripts/frontend-test.sh test-only` | Skips install; runs check + tests only. |
+| `./scripts/frontend-dev.sh` | SvelteKit dev server on `:5173`, proxying `/v1` via `API_PROXY_TARGET`. |
 
 Both scripts find the nearest `backend/` or `frontend/` directory relative to their
 own location, so they work from the repo root **and** from a worktree under

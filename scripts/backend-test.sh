@@ -4,7 +4,7 @@
 #
 # Usage:
 #   ./scripts/backend-test.sh              # full build + tests
-#   ./scripts/backend-test.sh test-only    # :persistence:test only (faster)
+#   ./scripts/backend-test.sh test-only    # all test tasks, no packaging
 set -euo pipefail
 # Works from repo root OR from a worktree (e.g. .worktrees/t_xxx) — finds the nearest backend/ dir.
 if [ -d "$(dirname "$0")/../backend" ]; then
@@ -37,6 +37,7 @@ if [ "$MODE" != "test-only" ]; then
 fi
 
 docker run --rm \
+  --memory=3g --cpus=2 \
   -v "$PWD":/app \
   -w /app \
   -v tahirs-list-gradle-test-cache:/gradle-home \
