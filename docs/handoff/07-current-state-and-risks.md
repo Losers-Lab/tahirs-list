@@ -54,6 +54,7 @@ without intervention.
 | R13 | **Dev credentials are defaults** | Medium | Certain | `halal/halal`, `minioadmin/minioadmin` in compose and launch script |
 | R14 | **Image endpoints may not be on `main`** | Medium | Unknown | Last card completed 09-09, five days after last commit; verify before assuming |
 | R15 | **Duplicate and mis-assigned Kanban cards** | Low | Certain | `Review PR #64` twice; backend cards assigned to Omar |
+| R16 | **Open dependency vulnerabilities** | High | Certain | GitHub reports **47 Dependabot alerts** on the default branch: 6 critical, 13 high, 21 moderate, 7 low (observed 2026-11-02) |
 
 ### R1 — No backups (fix first)
 
@@ -164,6 +165,19 @@ assigned to Omar (the reviewer) rather than Hamza (the author). The ledger is di
 accurate but not clean. Do not use assignee counts as a performance measure without
 checking git authorship.
 
+### R16 — Open dependency vulnerabilities
+
+**Observed.** GitHub reported **47 vulnerabilities on the default branch** at push time:
+**6 critical, 13 high, 21 moderate, 7 low** (Dependabot). I did **not** triage them, so treat
+the individual severities as unverified until reviewed; the count and distribution are what
+GitHub reported.
+
+Next action: open the repository's **Security → Dependabot alerts** page and triage by
+runtime exposure, not by raw count. Many alerts are likely in development-only dependencies
+and will not be reachable in production, but "likely" is not a security decision. Prioritize
+anything reachable from the backend HTTP surface or the Next.js server, then the rest.
+This is a standing maintenance task, not a one-off patch.
+
 ## Things I could not verify
 
 Stated plainly so you do not inherit false confidence:
@@ -207,6 +221,7 @@ If you do nothing else, do these in order:
 3. Restore the preview (clean `main`, recreate backend then frontend, verify end to end).
 4. Fix the watchdog's liveness check and make it fail loudly.
 5. Add a minimal CI workflow for both test scripts.
-6. Reconcile Shortcut to reality and close or extend Sprint 6.
-7. Clear the blocked image-management card.
-8. Decide the operating model and delete the automation you are not using.
+6. Triage the Dependabot alerts (47 open, 6 critical) by runtime exposure.
+7. Reconcile Shortcut to reality and close or extend Sprint 6.
+8. Clear the blocked image-management card.
+9. Decide the operating model and delete the automation you are not using.
