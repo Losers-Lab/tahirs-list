@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, type VerificationReview } from "@/lib/api/client";
-import { getRestaurant } from "@/lib/listings/data";
+import { api, type VerificationReview } from "../api/client";
+import { getRestaurant } from "../listings/data";
 import { fetchVerificationQueue } from "./data";
 
-vi.mock("@/lib/api/client", () => ({
+vi.mock("../api/client", () => ({
   api: { getVerificationReviews: vi.fn() },
   ApiError: class ApiError extends Error {},
 }));
 
-vi.mock("@/lib/listings/data", () => ({
+vi.mock("../listings/data", () => ({
   getRestaurant: vi.fn(),
 }));
 

@@ -1,4 +1,4 @@
-import { api, ApiError, type BrowseListing, type ListingDetail } from "@/lib/api/client";
+import { api, ApiError, type BrowseListing, type ListingDetail } from "../api/client";
 import type { Restaurant, VerificationStatus } from "./restaurants";
 
 export type BrowseFilter = "ALL" | "HAND_CUT" | "DELIVERY";

@@ -1,16 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ApiError } from "@/lib/api/client";
-import type { BrowseListing, ListingDetail } from "@/lib/api/client";
+import { ApiError } from "../api/client";
+import type { BrowseListing, ListingDetail } from "../api/client";
 import type { Restaurant } from "./restaurants";
 
-vi.mock("@/lib/api/client", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@/lib/api/client")>();
+vi.mock("../api/client", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../api/client")>();
   return {
     ...original,
     api: { getListings: vi.fn(), getListing: vi.fn(), getFavorites: vi.fn() },
   };
 });
-import { api } from "@/lib/api/client";
+import { api } from "../api/client";
 import { filterListings, getFavorites, getRestaurant, searchListings } from "./data";
 
 const getListingsMock = vi.mocked(api.getListings);

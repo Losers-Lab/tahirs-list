@@ -1,9 +1,9 @@
 import {
   api,
   type VerificationReview,
-} from "@/lib/api/client";
-import { getRestaurant } from "@/lib/listings/data";
-import type { Restaurant } from "@/lib/listings/restaurants";
+} from "../api/client";
+import { getRestaurant } from "../listings/data";
+import type { Restaurant } from "../listings/restaurants";
 
 /**
  * sc-73 Verification Committee review read seam. The backend's pending-workqueue

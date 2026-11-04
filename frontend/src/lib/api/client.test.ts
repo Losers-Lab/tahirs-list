@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, setAccessToken } from "@/lib/api/client";
+import { api, ApiError, setAccessToken } from "./client";
 
 function mockFetchResponse(body: unknown, status = 200) {
   return vi.fn().mockResolvedValue({

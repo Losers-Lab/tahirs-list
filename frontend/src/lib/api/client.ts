@@ -91,10 +91,11 @@ export type VerificationReview = {
   decidedBy: string | null;
 };
 
-// Same-origin by default: Next.js rewrites proxy /v1/* to the backend (see
-// next.config.ts), so no CORS config is needed on the API. Override with
-// NEXT_PUBLIC_API_BASE to point the client at an explicit backend origin.
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? "").replace(/\/$/, "");
+// Always same-origin: SvelteKit's hooks.server.ts proxies /v1/* to the backend,
+// so no backend CORS config is needed and the HttpOnly refresh cookie stays
+// first-party. The old NEXT_PUBLIC_API_BASE cross-origin escape hatch was
+// deliberately NOT carried over — it weakened the cookie/CSP guarantees.
+const API_BASE = "";
 
 /**
  * sc-133 cookie contract: the refresh token is delivered only as an HttpOnly
