@@ -273,7 +273,7 @@ What this does, in order:
 4. Runs `./gradlew --no-daemon :bootstrap:bootRun` inside the container.
 
 **The first run downloads the Gradle wrapper and all dependencies. Budget 5–15 minutes**
-depending on network. Subsequent runs reuse the `halal-gradle-cache` volume and are much
+depending on network. Subsequent runs reuse the `tahirs-list-gradle-cache` volume and are much
 faster. The command returns immediately (the container is detached); the build continues
 in the background.
 
@@ -357,7 +357,7 @@ docker run -d \
   -v "$PWD/frontend":/app \
   -w /app \
   -v /app/node_modules \
-  -v halal-npm-cache:/npm-cache \
+  -v tahirs-list-npm-cache:/npm-cache \
   -e npm_config_cache=/npm-cache \
   -e API_PROXY_TARGET='http://tahirs-list-backend:8080' \
   node:22 bash -lc "npm install --no-audit --no-fund && npm run build && npm run start"
@@ -391,7 +391,7 @@ docker run -it --rm \
   -v "$PWD/frontend":/app \
   -w /app \
   -v /app/node_modules \
-  -v halal-npm-cache:/npm-cache \
+  -v tahirs-list-npm-cache:/npm-cache \
   -e npm_config_cache=/npm-cache \
   -e API_PROXY_TARGET='http://tahirs-list-backend:8080' \
   node:22 bash -lc "npm install --no-audit --no-fund && npm run dev"
@@ -455,8 +455,8 @@ It also mounts `/var/run/docker.sock`. That mount is **root-equivalent on the ho
 accepted deliberately so tests can manage sibling containers. Do not extend the pattern to
 untrusted code.
 
-The test suite uses its **own** Gradle cache volume (`halal-gradle-test-cache`), separate
-from the live backend's (`halal-gradle-cache`). This is deliberate: Gradle takes a lock on
+The test suite uses its **own** Gradle cache volume (`tahirs-list-gradle-test-cache`), separate
+from the live backend's (`tahirs-list-gradle-cache`). This is deliberate: Gradle takes a lock on
 its user home, so two builds sharing one volume cannot run at the same time. With separate
 volumes you can run tests while `tahirs-list-backend` is up. The first test run downloads the Gradle
 distribution and dependencies into the new volume and takes a few minutes; later runs are
@@ -558,7 +558,7 @@ docker rm -f tahirs-list-backend tahirs-list-frontend tahirs-list-tunnel-dev 2>/
 
 # DESTRUCTIVE: also delete the database and object-store data.
 docker compose -f backend/docker-compose.yml down -v
-docker volume rm halal-gradle-cache halal-npm-cache 2>/dev/null
+docker volume rm tahirs-list-gradle-cache tahirs-list-npm-cache 2>/dev/null
 
 # See what is using disk
 docker system df
@@ -583,7 +583,7 @@ docker exec tahirs-list-postgis pg_dump -U halal -d halal > ~/halal-backup-$(dat
 | Backend container exits `127` | Mount path wrong / `gradlew` not executable | Confirm you ran the script from the repo root; `chmod +x backend/gradlew`; check `docker logs tahirs-list-backend` |
 | Backend container exits with Flyway error | PostGIS not ready yet | Wait for `(healthy)`, then `docker rm -f tahirs-list-backend && ./scripts/backend-live.sh` |
 | `Connection to 172.17.0.1 refused` in tests | Testcontainers networking | Use `scripts/backend-test.sh`, which sets the host override and gateway alias. Do not call Gradle directly. |
-| `Timeout waiting to lock journal cache (/gradle-home/...)` | Two Gradle builds share one user home — commonly the live backend and the test suite on the same cache volume | Use `scripts/backend-test.sh` (separate `halal-gradle-test-cache` volume), or stop `tahirs-list-backend` before testing. |
+| `Timeout waiting to lock journal cache (/gradle-home/...)` | Two Gradle builds share one user home — commonly the live backend and the test suite on the same cache volume | Use `scripts/backend-test.sh` (separate `tahirs-list-gradle-test-cache` volume), or stop `tahirs-list-backend` before testing. |
 | Backend tests cannot find Docker socket | Running on macOS/plain container | The script expects `/var/run/docker.sock`. On Docker Desktop for Mac, symlink or run tests inside a Linux VM/WSL2. |
 | Frontend container loops with `ENOENT ... /app/package.json` | Wrong mount path, or started outside the repo root | Run the `docker run` from the repository root; verify `docker inspect tahirs-list-frontend --format '{{json .Mounts}}'` |
 | Frontend up but API calls 502 | `API_PROXY_TARGET` pointing at `localhost` | Recreate with `http://tahirs-list-backend:8080` |

@@ -147,19 +147,19 @@ cd /path/to/tahirs-list
 ### Run the stack
 
 ```bash
-# Backing services (PostGIS + MinIO)
+# Backing services (PostGIS + object store)
 docker compose -f backend/docker-compose.yml up -d
 
-# Backend with the live profile (MinIO + seed ingest)
+# Backend with the live profile (S3 + seed ingest)
 bash scripts/backend-live.sh
 
 # Frontend (inline command from the watchdog)
-docker rm -f hff-frontend
-docker run -d --name hff-frontend --restart unless-stopped -p 3000:3000 \
-  --network halal-food-finder_default \
+docker rm -f tahirs-list-frontend
+docker run -d --name tahirs-list-frontend --restart unless-stopped -p 3000:3000 \
+  --network tahirs-list_default \
   -v "$PWD/frontend":/app -w /app -v /app/node_modules \
-  -v halal-npm-cache:/npm-cache -e npm_config_cache=/npm-cache \
-  -e API_PROXY_TARGET='http://hff-backend:8080' \
+  -v tahirs-list-npm-cache:/npm-cache -e npm_config_cache=/npm-cache \
+  -e API_PROXY_TARGET='http://tahirs-list-backend:8080' \
   node:22 bash -lc "npm install --no-audit --no-fund && npm run build && npm run start"
 ```
 
@@ -169,9 +169,9 @@ docker run -d --name hff-frontend --restart unless-stopped -p 3000:3000 \
 curl -s http://localhost:8080/actuator/health        # {"status":"UP"}
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/
 curl -s -o /dev/null -w '%{http_code}\n' https://dev.tahirslist.com
-docker ps --filter name=hff-
-docker logs hff-backend --tail 50
-docker logs hff-frontend --tail 50
+docker ps --filter name=tahirs-list-
+docker logs tahirs-list-backend --tail 50
+docker logs tahirs-list-frontend --tail 50
 ```
 
 ### Kanban

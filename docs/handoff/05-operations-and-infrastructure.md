@@ -31,6 +31,15 @@ sources:
 > setup procedure, read [10 — Fresh Machine Setup](10-fresh-machine-setup.md) first. Come
 > back here for the architecture of the running stack, the deploy paths, and the diagnosis
 > of the original outage.
+>
+> **Name changes (2026-11-03):** the project was renamed from Halal Food Finder to
+> Tahir's List. Container, network and cache-volume names in the observations below are
+> the ones seen on the old host: `hff-postgis`/`hff-minio`/`hff-backend`/`hff-frontend` are
+> now `tahirs-list-*`, the compose project/network `halal-food-finder_default` is now
+> `tahirs-list_default`, data volumes are prefixed `tahirs-list_`, and the Gradle/npm cache
+> volumes are `tahirs-list-gradle-cache` / `tahirs-list-npm-cache` /
+> `tahirs-list-gradle-test-cache`. The Shortcut workspace slug and the Hermes Kanban path
+> keep their original names — they are external identifiers, not product branding.
 
 ## The short version
 
