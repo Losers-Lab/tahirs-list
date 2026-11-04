@@ -251,6 +251,37 @@ class ListingReadEndpointTest : KtorPostgresTest() {
             afterReclaim.bytes.toList() shouldBe approvedBytes
         }
 
+        test("a VERIFIED listing whose approved review has no archived key advertises no certificate") {
+            // A pre-V21 review can be APPROVED with `certificate_key = NULL` (the
+            // migration's fail-closed case). The detail payload must not promise a
+            // URL the certificate proxy will 404.
+            val session = signupAndLogin("read-cert-nokey@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+            val listingUuid = UUID.fromString(listingId)
+
+            dbUpdate(
+                "UPDATE restaurant_listings SET verification_status = 'VERIFIED' WHERE id = ?",
+                listingUuid,
+            )
+            dbUpdate(
+                """
+                INSERT INTO halal_certification_reviews
+                    (id, listing_id, submitted_by, state, decision_outcome, decision_by,
+                     decision_at, created_at, updated_at)
+                VALUES (?, ?, ?, 'APPROVED', 'APPROVED', ?, now(), now(), now())
+                """.trimIndent(),
+                UUID.randomUUID(),
+                listingUuid,
+                UUID.fromString(session.accountId),
+                UUID.fromString(session.accountId),
+            )
+
+            val detail = get("/v1/listings/$listingId").json()
+            detail["verificationStatus"].asString() shouldBe "VERIFIED"
+            detail["certificate"].stringOrNull() shouldBe null
+            get("/v1/listings/$listingId/certificate").status shouldBe 404
+        }
+
         test("public browse/detail reads need no token; writes stay authenticated (401)") {
             // Public reads (already exercised above without a token) work; a write
             // without a token is refused by the deny-by-default resource guard.

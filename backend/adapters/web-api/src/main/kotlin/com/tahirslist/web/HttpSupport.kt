@@ -305,8 +305,10 @@ internal suspend fun ApplicationCall.receiveForm(): MultipartForm {
         // in the same guard: an oversized part surfaces as a bare IOException from
         // either call, and would otherwise reach the generic 500 handler.
         val multipart = receiveMultipart(formFieldLimit = MAX_UPLOAD_BYTES)
-        // `forEachPart` disposes each part itself; an explicit release here would
-        // run the blocking `discardBlocking()` on parts we refused to drain.
+        // Disposal is the parser's job: CIOMultipartDataBase.readPart() releases
+        // the previous part on the next read, after it has been drained. An
+        // explicit release here would instead run the blocking discardBlocking()
+        // on the part we just refused to drain, stalling a CIO worker.
         multipart.forEachPart { part ->
             parts += 1
             if (parts > MAX_MULTIPART_PARTS) throw PayloadTooLargeException(MAX_MULTIPART_PARTS.toLong())

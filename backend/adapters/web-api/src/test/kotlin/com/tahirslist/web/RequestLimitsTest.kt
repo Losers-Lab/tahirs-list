@@ -22,6 +22,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeFully
 import io.ktor.utils.io.writeStringUtf8
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -255,7 +256,7 @@ class RequestLimitsTest : FunSpec({
         }
     }
 
-    test("a multipart request whose parts together exceed the request budget is refused") {
+    test("a multipart body whose declared Content-Length exceeds the budget is refused before parsing") {
         testApplication {
             application {
                 configureWebPlugins(testJson(), testJwtConfig(), testRateLimitConfig())
@@ -268,7 +269,8 @@ class RequestLimitsTest : FunSpec({
             }
 
             // Two individually-legal 5 MiB parts: the per-part cap passes, the
-            // aggregate retained-bytes budget (8 MiB + 256 KiB) must not.
+            // aggregate budget (8 MiB + 256 KiB) must not. This is the *declared
+            // length* gate: the client sends Content-Length, so nothing is parsed.
             val fiveMiB = ByteArray(5 * 1024 * 1024)
             val response = client.post("/v1/auth/logout") {
                 setBody(
@@ -285,6 +287,63 @@ class RequestLimitsTest : FunSpec({
                                 )
                             }
                         },
+                    ),
+                )
+            }
+
+            response.status shouldBe HttpStatusCode.PayloadTooLarge
+            response.bodyAsText() shouldContain "\"code\":\"payload_too_large\""
+        }
+    }
+
+    test("a chunked multipart body (no Content-Length) is bounded by the running retained-bytes total") {
+        testApplication {
+            application {
+                configureWebPlugins(testJson(), testJwtConfig(), testRateLimitConfig())
+                routing {
+                    post("/v1/auth/logout") {
+                        val form = call.receiveForm()
+                        call.respondText(form.files.keys.sorted().joinToString(","))
+                    }
+                }
+            }
+
+            // No Content-Length, so the declared-length precheck cannot fire: this
+            // is the only shape that can multiply the per-part cap by the part
+            // count, i.e. the attacker's path. It must still be refused.
+            val fiveMiB = ByteArray(5 * 1024 * 1024)
+            val response = client.post("/v1/auth/logout") {
+                setBody(
+                    chunkedMultipart(
+                        parts = listOf("image" to fiveMiB, "certImage" to fiveMiB),
+                    ),
+                )
+            }
+
+            response.status shouldBe HttpStatusCode.PayloadTooLarge
+            response.bodyAsText() shouldContain "\"code\":\"payload_too_large\""
+        }
+    }
+
+    test("a chunked multipart part over the per-part cap is refused (scanner failure shape)") {
+        testApplication {
+            application {
+                configureWebPlugins(testJson(), testJwtConfig(), testRateLimitConfig())
+                routing {
+                    post("/v1/auth/logout") {
+                        call.receiveForm()
+                        call.respondText("stored")
+                    }
+                }
+            }
+
+            // 8 MiB + 1 with no Content-Length: Ktor's multipart scanner throws the
+            // `Limit of N bytes exceeded while searching for <boundary>` IOException,
+            // which must map to 413 rather than falling through to a 500.
+            val response = client.post("/v1/auth/logout") {
+                setBody(
+                    chunkedMultipart(
+                        parts = listOf("certImage" to ByteArray(8 * 1024 * 1024 + 1)),
                     ),
                 )
             }
@@ -352,6 +411,33 @@ class RequestLimitsTest : FunSpec({
 /** A body big enough to cross [MAX_JSON_BODY_BYTES] by a comfortable margin. */
 private fun oversizedJson(): String =
     "{\"value\":\"" + "a".repeat(MAX_JSON_BODY_BYTES.toInt()) + "\"}"
+
+/**
+ * A multipart body written as a streamed [OutgoingContent.WriteChannelContent],
+ * so the client sends it **chunked** with no `Content-Length`. That is the only
+ * shape that reaches [receiveForm]'s running retained-bytes total instead of the
+ * declared-length pre-check.
+ */
+private fun chunkedMultipart(parts: List<Pair<String, ByteArray>>): OutgoingContent {
+    val boundary = "----TahirsListChunked${System.nanoTime()}"
+    return object : OutgoingContent.WriteChannelContent() {
+        override val contentType: ContentType =
+            ContentType.MultiPart.FormData.withParameter("boundary", boundary)
+
+        override suspend fun writeTo(channel: ByteWriteChannel) {
+            parts.forEach { (name, bytes) ->
+                channel.writeFully("--$boundary\r\n".toByteArray())
+                channel.writeFully(
+                    "Content-Disposition: form-data; name=\"$name\"; filename=\"$name.jpg\"\r\n".toByteArray(),
+                )
+                channel.writeFully("Content-Type: image/jpeg\r\n\r\n".toByteArray())
+                channel.writeFully(bytes)
+                channel.writeFully("\r\n".toByteArray())
+            }
+            channel.writeFully("--$boundary--\r\n".toByteArray())
+        }
+    }
+}
 
 /** Echoes the stored type straight back through the serving helper under test. */
 private fun io.ktor.server.routing.Route.storedMediaRoute() {

@@ -253,9 +253,11 @@ private val log = KotlinLogging.logger("com.tahirslist.web.WebApi")
  * ktor-http-cio signals this in two shapes, neither of which is a dedicated
  * exception type: `Multipart content length exceeds limit …` when a part's
  * declared length is known, and `Limit of N bytes exceeded while searching for
- * <boundary>` when the parser hits the cap while scanning a streamed part (the
- * latter also carries a suppressed [PayloadTooLargeException]). Both must map to
- * 413 rather than the generic 500.
+ * <boundary>` when the parser hits the cap while scanning a streamed part. Both
+ * must map to 413 rather than the generic 500. A wrapped typed refusal
+ * ([PayloadTooLargeException] as the cause or suppressed) is also accepted as
+ * defence in depth; Ktor 3.6.1 was not observed to attach one, so that branch is
+ * not part of the pinned contract.
  */
 internal fun IOException.isMultipartLimitExceeded(): Boolean {
     if (this is PayloadTooLargeException || cause is PayloadTooLargeException) return true

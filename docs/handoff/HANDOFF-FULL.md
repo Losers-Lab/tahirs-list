@@ -1440,7 +1440,10 @@ ingest off — which is why `GET /v1/listings/{id}/image` 404s in that
 configuration. If images are missing, check the env vars first.
 
 `APP_PROFILE` only selects strict production behaviour for the JWT key
-(`isProduction`); `live` is descriptive and does not turn features on.
+(`isProduction`); `live` is descriptive and does not turn features on. It is
+**not** a production profile: `live` deliberately skips the production
+credential, object-storage and JWT-key guards (the app logs a warning at boot),
+so this preview stack must never front real data.
 
 The script does `docker compose up -d` for backing services, then `docker rm -f
 tahirs-list-backend` and `docker run` with:

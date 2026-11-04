@@ -23,11 +23,14 @@ import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.routing
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.launch
 import org.koin.core.module.Module
 import org.koin.ktor.ext.get
 import org.koin.ktor.plugin.Koin
 import javax.sql.DataSource
+
+private val log = KotlinLogging.logger("com.tahirslist.bootstrap.Application")
 
 fun main() {
     val config = loadConfig()
@@ -52,6 +55,17 @@ fun Application.module(
     // profile still carrying dev-default credentials must not start at all.
     // One call site means the endpoint tests boot through the same guard.
     requireValidProductionConfig(config)
+
+    // Non-prod profiles deliberately allow the development defaults (default DB
+    // credentials, ephemeral JWT key, in-memory storage fallback). Make that
+    // visible in the log so a preview stack is never mistaken for a guarded one.
+    if (!config.isProduction) {
+        log.warn {
+            "APP_PROFILE='${config.profile}' is not a production profile: development defaults " +
+                "are permitted (default DB/S3 credentials, ephemeral JWT signing key, in-memory " +
+                "storage fallback). Never front real data with this configuration."
+        }
+    }
 
     install(Koin) {
         modules(*(appModules(config) + extraModules).toTypedArray())
