@@ -16,6 +16,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.server.application.call
 import io.ktor.server.plugins.PayloadTooLargeException
+import io.ktor.server.request.contentLength
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -298,10 +299,13 @@ class RequestLimitsTest : FunSpec({
 
     test("a chunked multipart body (no Content-Length) is bounded by the running retained-bytes total") {
         testApplication {
+            var declaredLength: Long? = -1
             application {
                 configureWebPlugins(testJson(), testJwtConfig(), testRateLimitConfig())
                 routing {
                     post("/v1/auth/logout") {
+                        // Proves the pre-check cannot be what refuses this request.
+                        declaredLength = call.request.contentLength()
                         val form = call.receiveForm()
                         call.respondText(form.files.keys.sorted().joinToString(","))
                     }
@@ -320,6 +324,7 @@ class RequestLimitsTest : FunSpec({
                 )
             }
 
+            declaredLength shouldBe null
             response.status shouldBe HttpStatusCode.PayloadTooLarge
             response.bodyAsText() shouldContain "\"code\":\"payload_too_large\""
         }
