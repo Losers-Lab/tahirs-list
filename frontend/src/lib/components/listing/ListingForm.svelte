@@ -2,10 +2,7 @@
 	import Alert from '#lib/components/auth/Alert.svelte';
 	import Button from '#lib/components/auth/Button.svelte';
 	import Field from '#lib/components/auth/Field.svelte';
-	import {
-		createListingSchema,
-		type CreateListingFormValues
-	} from '#lib/listings/schemas';
+	import { createListingSchema, type CreateListingFormValues } from '#lib/listings/schemas';
 
 	type Props = {
 		/** Awaited by the form so its submitting state is driven by the caller. */

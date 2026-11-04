@@ -39,11 +39,11 @@
 			alt={restaurant.name}
 			sizes="100vw"
 		/>
-		<div class="absolute left-3 top-3">
+		<div class="absolute top-3 left-3">
 			<FavoriteButton listingId={restaurant.id} {restaurant} variant="card" />
 		</div>
 		{#if verified}
-			<div class="absolute right-3 top-3">
+			<div class="absolute top-3 right-3">
 				<VerifiedBadge variant="on-photo" />
 			</div>
 		{/if}

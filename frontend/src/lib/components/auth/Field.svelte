@@ -39,9 +39,7 @@
 
 	const id = $props.id();
 	const hasError = $derived(Boolean(error));
-	const describedBy = $derived(
-		hasError ? `${id}-error` : helper ? `${id}-helper` : undefined
-	);
+	const describedBy = $derived(hasError ? `${id}-error` : helper ? `${id}-helper` : undefined);
 </script>
 
 <div class="space-y-2">
@@ -85,7 +83,9 @@
 				<circle cx="8" cy="8" r="6.5" />
 				<path d="M8 4.75v3.5M8 11.25h.01" />
 			</svg>
-			<span>{#if typeof error === 'string'}{error}{:else}{@render error()}{/if}</span>
+			<span
+				>{#if typeof error === 'string'}{error}{:else}{@render error()}{/if}</span
+			>
 		</p>
 	{:else if helper}
 		<p id="{id}-helper" class="text-small text-ink-500">{helper}</p>

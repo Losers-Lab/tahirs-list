@@ -47,9 +47,7 @@
 	});
 
 	const verified = $derived(restaurant ? verificationStatus(restaurant) === 'VERIFIED' : false);
-	const certState = $derived(
-		verified && restaurant ? expiryState(restaurant.certificate) : 'none'
-	);
+	const certState = $derived(verified && restaurant ? expiryState(restaurant.certificate) : 'none');
 	// An expired cert downgrades the badge everywhere (detail-page.md §1.2).
 	const showVerifiedBadge = $derived(verified && certState !== 'expired');
 
@@ -129,7 +127,9 @@
 		</div>
 	{:else}
 		<div>
-			<div class="relative aspect-[16/7] overflow-hidden rounded-lg border border-kraft-200 shadow-card">
+			<div
+				class="relative aspect-[16/7] overflow-hidden rounded-lg border border-kraft-200 shadow-card"
+			>
 				<RestaurantPhoto
 					src={restaurant.imageUrl}
 					alt={restaurant.name}
@@ -137,14 +137,14 @@
 					eager
 				/>
 				{#if showVerifiedBadge}
-					<div class="absolute right-4 top-4"><VerifiedBadge variant="on-photo" /></div>
+					<div class="absolute top-4 right-4"><VerifiedBadge variant="on-photo" /></div>
 				{/if}
 			</div>
 
 			<div class="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<div class="flex flex-wrap items-center gap-2">
-						<h1 class="font-display text-[2rem] font-extrabold leading-[2.375rem] text-ink-900">
+						<h1 class="font-display text-[2rem] leading-[2.375rem] font-extrabold text-ink-900">
 							{restaurant.name}
 						</h1>
 						{#if verified && showVerifiedBadge}
@@ -250,11 +250,17 @@
 						<h2 class="text-heading text-ink-900">Location</h2>
 						<p class="mt-2 text-body text-ink-700">{fullAddress(restaurant)}</p>
 						<div class="mt-3">
-							<MapPreview lat={restaurant.lat} lng={restaurant.lng} restaurantName={restaurant.name} />
+							<MapPreview
+								lat={restaurant.lat}
+								lng={restaurant.lng}
+								restaurantName={restaurant.name}
+							/>
 						</div>
 						<a
 							class="mt-2 inline-block text-label text-brand-500 underline-offset-2 hover:underline"
-							href="https://www.google.com/maps/search/?api=1&query={encodeURIComponent(fullAddress(restaurant))}"
+							href="https://www.google.com/maps/search/?api=1&query={encodeURIComponent(
+								fullAddress(restaurant)
+							)}"
 							target="_blank"
 							rel="noreferrer"
 						>

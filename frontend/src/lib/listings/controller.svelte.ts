@@ -26,11 +26,7 @@ export class ListingsController {
 		const generation = ++this.#generation;
 		this.status = 'loading';
 		try {
-			const list = await searchListings(
-				query,
-				filter === 'HAND_CUT',
-				filter === 'DELIVERY'
-			);
+			const list = await searchListings(query, filter === 'HAND_CUT', filter === 'DELIVERY');
 			if (generation !== this.#generation) return;
 			this.restaurants = list;
 			this.verifiedCount = list.filter((x) => verificationStatus(x) === 'VERIFIED').length;

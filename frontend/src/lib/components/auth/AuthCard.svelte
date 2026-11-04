@@ -14,7 +14,9 @@
 	let { heading, subcopy, footer, trustLine = false, children }: Props = $props();
 </script>
 
-<div class="flex min-h-screen flex-col items-center justify-center bg-cream-50 px-0 py-0 sm:px-6 sm:py-10">
+<div
+	class="flex min-h-screen flex-col items-center justify-center bg-cream-50 px-0 py-0 sm:px-6 sm:py-10"
+>
 	<div class="w-full max-w-[400px]">
 		<div
 			class="rounded-none border-0 bg-ink-0 px-5 py-8 shadow-none sm:rounded-lg sm:border sm:border-kraft-200 sm:px-8 sm:py-8 sm:shadow-card"
@@ -34,7 +36,7 @@
 			<div class="mt-6">{@render children()}</div>
 		</div>
 
-		<footer class="px-5 pb-8 pt-4 text-center text-body text-ink-500 sm:px-0">
+		<footer class="px-5 pt-4 pb-8 text-center text-body text-ink-500 sm:px-0">
 			{@render footer()}
 		</footer>
 

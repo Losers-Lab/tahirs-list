@@ -11,14 +11,14 @@
 	};
 
 	let { restaurants, status, onRetry, emptyHref = '/search' }: Props = $props();
+
+	const skeletonKeys = Array.from({ length: 8 }, (_, index) => index);
 </script>
 
 {#if status === 'loading'}
 	<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-		{#each Array.from({ length: 8 }) as _, i (i)}
-			<div
-				class="overflow-hidden rounded-lg border-[1.5px] border-kraft-200 bg-ink-0 shadow-card"
-			>
+		{#each skeletonKeys as key (key)}
+			<div class="overflow-hidden rounded-lg border-[1.5px] border-kraft-200 bg-ink-0 shadow-card">
 				<div class="aspect-video bg-ink-100"></div>
 				<div class="space-y-3 p-5">
 					<div class="h-4 w-3/4 rounded bg-ink-100"></div>

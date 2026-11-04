@@ -34,9 +34,7 @@
 	let visible = $state(false);
 
 	const hasError = $derived(Boolean(error));
-	const describedBy = $derived(
-		hasError ? `${id}-error` : helper ? `${id}-helper` : undefined
-	);
+	const describedBy = $derived(hasError ? `${id}-error` : helper ? `${id}-helper` : undefined);
 </script>
 
 <div class="space-y-2">

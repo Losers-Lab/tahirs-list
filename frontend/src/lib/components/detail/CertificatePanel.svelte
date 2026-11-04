@@ -1,11 +1,6 @@
 <script lang="ts">
 	import SealMark from '#lib/components/trust/SealMark.svelte';
-	import {
-		expiryState,
-		formatDate,
-		type Certificate,
-		type ExpiryState
-	} from '#lib/listings/restaurants';
+	import { expiryState, formatDate, type Certificate } from '#lib/listings/restaurants';
 
 	type Props = { certificate: Certificate; name: string };
 	let { certificate, name }: Props = $props();
@@ -51,7 +46,9 @@
 	</div>
 
 	{#if state === 'expiring'}
-		<p class="mt-4 flex items-start gap-2 rounded-md bg-warning-50 px-3 py-2.5 text-small text-warning-700">
+		<p
+			class="mt-4 flex items-start gap-2 rounded-md bg-warning-50 px-3 py-2.5 text-small text-warning-700"
+		>
 			<svg
 				aria-hidden="true"
 				width="16"
@@ -70,7 +67,9 @@
 			<span>Expires {formatDate(certificate.expiresOn)} — review in progress</span>
 		</p>
 	{:else if expired}
-		<p class="mt-4 flex items-start gap-2 rounded-md bg-ink-100 px-3 py-2.5 text-small text-ink-700">
+		<p
+			class="mt-4 flex items-start gap-2 rounded-md bg-ink-100 px-3 py-2.5 text-small text-ink-700"
+		>
 			<svg
 				aria-hidden="true"
 				width="16"
@@ -93,7 +92,7 @@
 	{/if}
 
 	<p class="mt-4 text-small text-ink-500">
-		Reviewed by our verification committee — not self-reported.{' '}
+		Reviewed by our verification committee — not self-reported.&#32;
 		<a href="/how-verification-works" class="text-brand-500 underline-offset-2 hover:underline">
 			Learn more
 		</a>

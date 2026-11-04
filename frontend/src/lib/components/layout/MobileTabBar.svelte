@@ -14,9 +14,7 @@
 	];
 
 	function isActive(href: string): boolean {
-		return href === '/search'
-			? pathname === '/search' || pathname === '/'
-			: pathname === href;
+		return href === '/search' ? pathname === '/search' || pathname === '/' : pathname === href;
 	}
 </script>
 

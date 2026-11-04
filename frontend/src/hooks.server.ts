@@ -33,7 +33,11 @@ const STRIPPED_REQUEST_HEADERS = new Set([
 	'content-length'
 ]);
 
-const STRIPPED_RESPONSE_HEADERS = new Set(['content-encoding', 'content-length', 'transfer-encoding']);
+const STRIPPED_RESPONSE_HEADERS = new Set([
+	'content-encoding',
+	'content-length',
+	'transfer-encoding'
+]);
 
 function contentSecurityPolicy(isDev: boolean): string {
 	return [
@@ -63,11 +67,7 @@ function applySecurityHeaders(headers: Headers, isDev: boolean): void {
 	headers.set('X-Frame-Options', 'DENY');
 }
 
-async function proxyApiRequest(
-	request: Request,
-	url: URL,
-	isDev: boolean
-): Promise<Response> {
+async function proxyApiRequest(request: Request, url: URL, isDev: boolean): Promise<Response> {
 	const target = new URL(url.pathname + url.search, PROXY_TARGET);
 
 	const headers = new Headers();

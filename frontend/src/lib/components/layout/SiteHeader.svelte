@@ -55,7 +55,7 @@
 			{#if open}
 				<div
 					id="mobile-nav"
-					class="absolute left-0 right-0 top-16 z-40 border-b-[1.5px] border-kraft-200 bg-cream-50 px-5 shadow-pop"
+					class="absolute top-16 right-0 left-0 z-40 border-b-[1.5px] border-kraft-200 bg-cream-50 px-5 shadow-pop"
 				>
 					<nav class="flex flex-col">
 						<a

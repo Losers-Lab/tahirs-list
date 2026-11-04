@@ -61,28 +61,27 @@
 </script>
 
 {#snippet footer()}
-	Already have an account?{' '}
+	Already have an account?&#32;
 	<a href="/login" class="font-medium text-brand-500 hover:text-brand-600 hover:underline">
 		Log in
 	</a>
 {/snippet}
 
 {#snippet emailConflictError()}
-	An account with this email already exists. Try{' '}
+	An account with this email already exists. Try&#32;
 	<a
 		href="/login"
 		class="font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700"
 	>
 		logging in
-	</a>{' '}
-	instead.
+	</a>&#32;instead.
 {/snippet}
 
 <AuthCard
 	heading="Create your account"
 	subcopy="Find verified halal food near you."
 	trustLine
-	footer={footer}
+	{footer}
 >
 	{#if serverError}
 		<Alert variant="banner">{serverError}</Alert>

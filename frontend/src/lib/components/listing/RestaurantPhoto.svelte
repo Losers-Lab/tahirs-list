@@ -12,9 +12,7 @@
 	// a 404 swap to the guaranteed thumbnail instead of a blank card; the
 	// placeholder appears only when every candidate has failed (or none exist).
 	const candidates = $derived(
-		[src, fallbackSrc]
-			.filter((s): s is string => !!s)
-			.filter((s, i, all) => all.indexOf(s) === i)
+		[src, fallbackSrc].filter((s): s is string => !!s).filter((s, i, all) => all.indexOf(s) === i)
 	);
 
 	let attempt = $state(0);
@@ -38,7 +36,7 @@
 	<img
 		src={current}
 		{alt}
-		sizes={sizes}
+		{sizes}
 		loading={eager ? 'eager' : 'lazy'}
 		style="object-fit: cover;"
 		class="absolute inset-0 h-full w-full"

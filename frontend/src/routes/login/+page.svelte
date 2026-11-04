@@ -47,10 +47,11 @@
 				// (anti-enumeration). Keep the email, clear + refocus the password.
 				credentialError = 'Incorrect email or password.';
 				password = '';
+				// Re-enable the form before focusing: a disabled input cannot take
+				// focus, and the field is disabled while the request is in flight.
+				submitting = false;
 				await tick();
-				document
-					.querySelector<HTMLInputElement>('input[autocomplete="current-password"]')
-					?.focus();
+				document.querySelector<HTMLInputElement>('input[autocomplete="current-password"]')?.focus();
 				return;
 			}
 			serverError = 'Something went wrong. Please try again.';
@@ -61,7 +62,7 @@
 </script>
 
 {#snippet footer()}
-	New here?{' '}
+	New here?&#32;
 	<a href="/signup" class="font-medium text-brand-500 hover:text-brand-600 hover:underline">
 		Sign up
 	</a>
@@ -77,11 +78,7 @@
 	</a>
 {/snippet}
 
-<AuthCard
-	heading="Welcome back"
-	subcopy="Log in to continue finding verified halal food."
-	footer={footer}
->
+<AuthCard heading="Welcome back" subcopy="Log in to continue finding verified halal food." {footer}>
 	{#if created}
 		<div
 			role="status"

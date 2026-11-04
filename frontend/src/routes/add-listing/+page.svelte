@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Alert from '#lib/components/auth/Alert.svelte';
 	import Button from '#lib/components/auth/Button.svelte';
 	import ListingForm from '#lib/components/listing/ListingForm.svelte';
 	import UnverifiedTag from '#lib/components/trust/UnverifiedTag.svelte';
@@ -71,8 +70,8 @@
 			</div>
 			<p class="mt-3 text-body text-ink-500">
 				<span class="font-medium text-ink-900">{created.name}</span> is now on Tahir's List. This
-				listing is currently <span class="font-medium text-ink-700">unverified</span> — the owner
-				can claim it and submit their halal certification for review.
+				listing is currently <span class="font-medium text-ink-700">unverified</span> — the owner can
+				claim it and submit their halal certification for review.
 			</p>
 			<div class="mt-6 flex flex-wrap items-center gap-3">
 				<a
@@ -110,10 +109,6 @@
 					>unverified</span
 				> and can be claimed by the owner later.
 			</p>
-
-			{#if serverError}
-				<div class="mt-4"><Alert>{serverError}</Alert></div>
-			{/if}
 
 			<div class="mt-6">
 				{#key formKey}

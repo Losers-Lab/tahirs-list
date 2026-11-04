@@ -1,581 +1,564 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, setAccessToken } from "./client";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { api, ApiError, setAccessToken } from './client';
 
 function mockFetchResponse(body: unknown, status = 200) {
-  return vi.fn().mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    text: () => Promise.resolve(body === undefined ? "" : JSON.stringify(body)),
-  });
+	return vi.fn().mockResolvedValue({
+		ok: status >= 200 && status < 300,
+		status,
+		text: () => Promise.resolve(body === undefined ? '' : JSON.stringify(body))
+	});
 }
 
 /** Return a fixed raw response body — e.g. a non-JSON HTML/proxy error. */
 function mockFetchRawText(rawBody: string, status: number) {
-  return vi.fn().mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    text: () => Promise.resolve(rawBody),
-  });
+	return vi.fn().mockResolvedValue({
+		ok: status >= 200 && status < 300,
+		status,
+		text: () => Promise.resolve(rawBody)
+	});
 }
 
-describe("api client", () => {
-  beforeEach(() => {
-    // Ensure a clean access-token slate so header assertions are deterministic.
-    setAccessToken(null);
-  });
+describe('api client', () => {
+	beforeEach(() => {
+		// Ensure a clean access-token slate so header assertions are deterministic.
+		setAccessToken(null);
+	});
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-    setAccessToken(null);
-  });
+	afterEach(() => {
+		vi.restoreAllMocks();
+		setAccessToken(null);
+	});
 
-  it("signup returns the created account on 201", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ id: "u-1", email: "a@b.co", role: "USER" }, 201));
-    const result = await api.signup({ email: "a@b.co", password: "password1" });
-    expect(result.email).toBe("a@b.co");
-    expect(result.role).toBe("USER");
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/auth/signup",
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
+	it('signup returns the created account on 201', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ id: 'u-1', email: 'a@b.co', role: 'USER' }, 201));
+		const result = await api.signup({ email: 'a@b.co', password: 'password1' });
+		expect(result.email).toBe('a@b.co');
+		expect(result.role).toBe('USER');
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/auth/signup',
+			expect.objectContaining({ method: 'POST' })
+		);
+	});
 
-  it("maps 409 to email_already_exists ApiError", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "email_already_exists" }, 409));
-    await expect(api.signup({ email: "a@b.co", password: "password1" })).rejects.toMatchObject({
-      status: 409,
-      code: "email_already_exists",
-    });
-  });
+	it('maps 409 to email_already_exists ApiError', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'email_already_exists' }, 409));
+		await expect(api.signup({ email: 'a@b.co', password: 'password1' })).rejects.toMatchObject({
+			status: 409,
+			code: 'email_already_exists'
+		});
+	});
 
-  it("maps 422 to weak_password and carries the backend message", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse({ code: "weak_password", message: "Password must be at least 8 characters." }, 422),
-    );
-    await expect(api.signup({ email: "a@b.co", password: "short" })).rejects.toMatchObject({
-      status: 422,
-      code: "weak_password",
-      detail: "Password must be at least 8 characters.",
-    });
-  });
+	it('maps 422 to weak_password and carries the backend message', async () => {
+		vi.stubGlobal(
+			'fetch',
+			mockFetchResponse(
+				{ code: 'weak_password', message: 'Password must be at least 8 characters.' },
+				422
+			)
+		);
+		await expect(api.signup({ email: 'a@b.co', password: 'short' })).rejects.toMatchObject({
+			status: 422,
+			code: 'weak_password',
+			detail: 'Password must be at least 8 characters.'
+		});
+	});
 
-  it("maps 401 to invalid_credentials (generic, no enumeration)", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "invalid_credentials" }, 401));
-    await expect(api.login({ email: "a@b.co", password: "wrong" })).rejects.toMatchObject({
-      status: 401,
-      code: "invalid_credentials",
-    });
-  });
+	it('maps 401 to invalid_credentials (generic, no enumeration)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'invalid_credentials' }, 401));
+		await expect(api.login({ email: 'a@b.co', password: 'wrong' })).rejects.toMatchObject({
+			status: 401,
+			code: 'invalid_credentials'
+		});
+	});
 
-  it("login returns the access token (sc-133: no refreshToken in the JSON body)", async () => {
-    const body = {
-      accessToken: "at",
-      tokenType: "Bearer",
-      expiresIn: 900,
-      accountId: "u-1",
-      role: "USER",
-    };
-    vi.stubGlobal("fetch", mockFetchResponse(body, 200));
-    const result = await api.login({ email: "a@b.co", password: "password1" });
-    expect(result.accessToken).toBe("at");
-    // The refresh token must never appear in the JSON response.
-    expect(result).not.toHaveProperty("refreshToken");
-  });
+	it('login returns the access token (sc-133: no refreshToken in the JSON body)', async () => {
+		const body = {
+			accessToken: 'at',
+			tokenType: 'Bearer',
+			expiresIn: 900,
+			accountId: 'u-1',
+			role: 'USER'
+		};
+		vi.stubGlobal('fetch', mockFetchResponse(body, 200));
+		const result = await api.login({ email: 'a@b.co', password: 'password1' });
+		expect(result.accessToken).toBe('at');
+		// The refresh token must never appear in the JSON response.
+		expect(result).not.toHaveProperty('refreshToken');
+	});
 
-  it("refresh sends no body and presents the cookie (credentials include)", async () => {
-    const body = {
-      accessToken: "at2",
-      tokenType: "Bearer",
-      expiresIn: 900,
-      accountId: "u-1",
-      role: "USER",
-    };
-    vi.stubGlobal("fetch", mockFetchResponse(body, 200));
-    const result = await api.refresh();
-    expect(result.accessToken).toBe("at2");
-    expect(result).not.toHaveProperty("refreshToken");
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/auth/refresh",
-      expect.objectContaining({
-        method: "POST",
-        credentials: "include",
-        // No request body — the refresh cookie is presented by the browser.
-        body: undefined,
-      }),
-    );
-  });
+	it('refresh sends no body and presents the cookie (credentials include)', async () => {
+		const body = {
+			accessToken: 'at2',
+			tokenType: 'Bearer',
+			expiresIn: 900,
+			accountId: 'u-1',
+			role: 'USER'
+		};
+		vi.stubGlobal('fetch', mockFetchResponse(body, 200));
+		const result = await api.refresh();
+		expect(result.accessToken).toBe('at2');
+		expect(result).not.toHaveProperty('refreshToken');
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/auth/refresh',
+			expect.objectContaining({
+				method: 'POST',
+				credentials: 'include',
+				// No request body — the refresh cookie is presented by the browser.
+				body: undefined
+			})
+		);
+	});
 
-  it("refresh never attaches the bearer even when an access token is set (sc-138)", async () => {
-    // Regression guard: an expired access token must not 401 the refresh call
-    // before the (valid) refresh cookie is read by the controller.
-    setAccessToken("stale-at");
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "invalid_credentials" }, 401));
-    await api.refresh().catch(() => undefined);
-    const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
-    expect(options.headers).not.toHaveProperty("Authorization");
-  });
+	it('refresh never attaches the bearer even when an access token is set (sc-138)', async () => {
+		// Regression guard: an expired access token must not 401 the refresh call
+		// before the (valid) refresh cookie is read by the controller.
+		setAccessToken('stale-at');
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'invalid_credentials' }, 401));
+		await api.refresh().catch(() => undefined);
+		const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+		expect(options.headers).not.toHaveProperty('Authorization');
+	});
 
-  it("maps a 401 refresh response to an ApiError (expired/rotated refresh cookie)", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "invalid_credentials" }, 401));
-    await expect(api.refresh()).rejects.toMatchObject({
-      status: 401,
-      code: "invalid_credentials",
-    });
-  });
+	it('maps a 401 refresh response to an ApiError (expired/rotated refresh cookie)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'invalid_credentials' }, 401));
+		await expect(api.refresh()).rejects.toMatchObject({
+			status: 401,
+			code: 'invalid_credentials'
+		});
+	});
 
-  it("logout posts no body with credentials include and resolves on 204", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse(undefined, 204));
-    await expect(api.logout()).resolves.toBeUndefined();
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/auth/logout",
-      expect.objectContaining({ method: "POST", credentials: "include", body: undefined }),
-    );
-  });
+	it('logout posts no body with credentials include and resolves on 204', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse(undefined, 204));
+		await expect(api.logout()).resolves.toBeUndefined();
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/auth/logout',
+			expect.objectContaining({ method: 'POST', credentials: 'include', body: undefined })
+		);
+	});
 
-  it("logout never attaches the bearer even when an access token is set (sc-138)", async () => {
-    // Logout is cookie-authenticated; it must rely on the refresh cookie alone.
-    setAccessToken("at-1");
-    vi.stubGlobal("fetch", mockFetchResponse(undefined, 204));
-    await api.logout();
-    const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
-    expect(options.headers).not.toHaveProperty("Authorization");
-  });
+	it('logout never attaches the bearer even when an access token is set (sc-138)', async () => {
+		// Logout is cookie-authenticated; it must rely on the refresh cookie alone.
+		setAccessToken('at-1');
+		vi.stubGlobal('fetch', mockFetchResponse(undefined, 204));
+		await api.logout();
+		const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+		expect(options.headers).not.toHaveProperty('Authorization');
+	});
 
-  it("surfaces a network failure as a network_error (never a fabricated response)", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
-    await expect(api.login({ email: "a@b.co", password: "password1" })).rejects.toThrow(
-      "network_error",
-    );
-  });
+	it('surfaces a network failure as a network_error (never a fabricated response)', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+		await expect(api.login({ email: 'a@b.co', password: 'password1' })).rejects.toThrow(
+			'network_error'
+		);
+	});
 
-  it("throws a decorated ApiError as a real Error subclass", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "invalid_credentials" }, 401));
-    await expect(api.login({ email: "a@b.co", password: "x" })).rejects.toBeInstanceOf(
-      ApiError,
-    );
-  });
+	it('throws a decorated ApiError as a real Error subclass', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'invalid_credentials' }, 401));
+		await expect(api.login({ email: 'a@b.co', password: 'x' })).rejects.toBeInstanceOf(ApiError);
+	});
 
-  // Gap 5 / Defect 5a — a non-JSON body (proxy 502 HTML, malformed JSON) must
-  // never leak a raw SyntaxError; it should normalize to a decorated error.
-  it("maps a non-JSON error body to a typed ApiError, never a bare SyntaxError", async () => {
-    vi.stubGlobal("fetch", mockFetchRawText("<html>Bad Gateway</html>", 502));
-    const err = await api.login({ email: "a@b.co", password: "password1" }).catch(
-      (e: unknown) => e,
-    );
-    expect(err).toBeInstanceOf(ApiError);
-    expect((err as ApiError).status).toBe(502);
-    expect((err as ApiError).code).toBe("invalid_input");
-  });
+	// Gap 5 / Defect 5a — a non-JSON body (proxy 502 HTML, malformed JSON) must
+	// never leak a raw SyntaxError; it should normalize to a decorated error.
+	it('maps a non-JSON error body to a typed ApiError, never a bare SyntaxError', async () => {
+		vi.stubGlobal('fetch', mockFetchRawText('<html>Bad Gateway</html>', 502));
+		const err = await api
+			.login({ email: 'a@b.co', password: 'password1' })
+			.catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(ApiError);
+		expect((err as ApiError).status).toBe(502);
+		expect((err as ApiError).code).toBe('invalid_input');
+	});
 
-  it("normalizes a non-JSON 2xx body to a typed error, not a SyntaxError escaping", async () => {
-    vi.stubGlobal("fetch", mockFetchRawText("not json at all", 200));
-    const err = await api.login({ email: "a@b.co", password: "password1" }).catch(
-      (e: unknown) => e,
-    );
-    expect(err).toBeInstanceOf(Error);
-    expect(err).not.toBeInstanceOf(SyntaxError);
-  });
+	it('normalizes a non-JSON 2xx body to a typed error, not a SyntaxError escaping', async () => {
+		vi.stubGlobal('fetch', mockFetchRawText('not json at all', 200));
+		const err = await api
+			.login({ email: 'a@b.co', password: 'password1' })
+			.catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(Error);
+		expect(err).not.toBeInstanceOf(SyntaxError);
+	});
 
-  it("createListing posts to /v1/listings and returns the created listing on 201 (sc-138)", async () => {
-    const body = {
-      id: "u-1",
-      name: "Al-Amir Grill",
-      address: "123 Main St",
-      lat: 40.7,
-      lng: -74.0,
-      cuisine: "middle eastern",
-      isHandCut: true,
-      ownerId: "acc-1",
-      verificationStatus: "UNVERIFIED",
-      createdAt: "2026-08-30T00:00:00Z",
-    };
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse(body, 201),
-    );
-    const result = await api.createListing({
-      name: "Al-Amir Grill",
-      address: "123 Main St",
-      lat: 40.7,
-      lng: -74.0,
-      cuisine: "Middle Eastern",
-      isHandCut: true,
-    });
-    expect(result.verificationStatus).toBe("UNVERIFIED");
-    expect(result.id).toBe("u-1");
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/listings",
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
+	it('createListing posts to /v1/listings and returns the created listing on 201 (sc-138)', async () => {
+		const body = {
+			id: 'u-1',
+			name: 'Al-Amir Grill',
+			address: '123 Main St',
+			lat: 40.7,
+			lng: -74.0,
+			cuisine: 'middle eastern',
+			isHandCut: true,
+			ownerId: 'acc-1',
+			verificationStatus: 'UNVERIFIED',
+			createdAt: '2026-08-30T00:00:00Z'
+		};
+		vi.stubGlobal('fetch', mockFetchResponse(body, 201));
+		const result = await api.createListing({
+			name: 'Al-Amir Grill',
+			address: '123 Main St',
+			lat: 40.7,
+			lng: -74.0,
+			cuisine: 'Middle Eastern',
+			isHandCut: true
+		});
+		expect(result.verificationStatus).toBe('UNVERIFIED');
+		expect(result.id).toBe('u-1');
+		expect(fetch).toHaveBeenCalledWith('/v1/listings', expect.objectContaining({ method: 'POST' }));
+	});
 
-  it("maps a 400 invalid_input to an ApiError carrying the backend field message (sc-138)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse(
-        { code: "invalid_input", message: "name is required; lat is required" },
-        400,
-      ),
-    );
-    await expect(
-      api.createListing({
-        name: "",
-        address: "123 Main St",
-        lat: 40.7,
-        lng: -74.0,
-        cuisine: "Middle Eastern",
-      }),
-    ).rejects.toMatchObject({
-      status: 400,
-      code: "invalid_input",
-      detail: "name is required; lat is required",
-    });
-  });
+	it('maps a 400 invalid_input to an ApiError carrying the backend field message (sc-138)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			mockFetchResponse(
+				{ code: 'invalid_input', message: 'name is required; lat is required' },
+				400
+			)
+		);
+		await expect(
+			api.createListing({
+				name: '',
+				address: '123 Main St',
+				lat: 40.7,
+				lng: -74.0,
+				cuisine: 'Middle Eastern'
+			})
+		).rejects.toMatchObject({
+			status: 400,
+			code: 'invalid_input',
+			detail: 'name is required; lat is required'
+		});
+	});
 
-  it("maps a 404 owner_not_found (auth-tied) to an ApiError for the UI to surface (sc-138)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse({ code: "owner_not_found" }, 404),
-    );
-    await expect(
-      api.createListing({
-        name: "Al-Amir Grill",
-        address: "123 Main St",
-        lat: 40.7,
-        lng: -74.0,
-        cuisine: "Middle Eastern",
-        isHandCut: true,
-      }),
-    ).rejects.toMatchObject({ status: 404, code: "owner_not_found" });
-  });
+	it('maps a 404 owner_not_found (auth-tied) to an ApiError for the UI to surface (sc-138)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'owner_not_found' }, 404));
+		await expect(
+			api.createListing({
+				name: 'Al-Amir Grill',
+				address: '123 Main St',
+				lat: 40.7,
+				lng: -74.0,
+				cuisine: 'Middle Eastern',
+				isHandCut: true
+			})
+		).rejects.toMatchObject({ status: 404, code: 'owner_not_found' });
+	});
 
-  it("maps a 401 to invalid_credentials for an unauthenticated listing submit (sc-138)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse({ code: "invalid_credentials" }, 401),
-    );
-    await expect(
-      api.createListing({
-        name: "Al-Amir Grill",
-        address: "123 Main St",
-        lat: 40.7,
-        lng: -74.0,
-        cuisine: "Middle Eastern",
-        isHandCut: true,
-      }),
-    ).rejects.toMatchObject({ status: 401, code: "invalid_credentials" });
-  });
+	it('maps a 401 to invalid_credentials for an unauthenticated listing submit (sc-138)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'invalid_credentials' }, 401));
+		await expect(
+			api.createListing({
+				name: 'Al-Amir Grill',
+				address: '123 Main St',
+				lat: 40.7,
+				lng: -74.0,
+				cuisine: 'Middle Eastern',
+				isHandCut: true
+			})
+		).rejects.toMatchObject({ status: 401, code: 'invalid_credentials' });
+	});
 
-  it("attaches an Authorization header when an access token is set (sc-138)", async () => {
-    setAccessToken("at-1");
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse(
-        {
-          id: "u-1",
-          name: "Al-Amir Grill",
-          address: "123 Main St",
-          lat: 40.7,
-          lng: -74.0,
-          cuisine: "middle eastern",
-          isHandCut: true,
-          ownerId: "acc-1",
-          verificationStatus: "UNVERIFIED",
-          createdAt: "2026-08-30T00:00:00Z",
-        },
-        201,
-      ),
-    );
-    await api.createListing({
-      name: "Al-Amir Grill",
-      address: "123 Main St",
-      lat: 40.7,
-      lng: -74.0,
-      cuisine: "Middle Eastern",
-      isHandCut: true,
-    });
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/listings",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: "Bearer at-1",
-        }),
-      }),
-    );
-  });
+	it('attaches an Authorization header when an access token is set (sc-138)', async () => {
+		setAccessToken('at-1');
+		vi.stubGlobal(
+			'fetch',
+			mockFetchResponse(
+				{
+					id: 'u-1',
+					name: 'Al-Amir Grill',
+					address: '123 Main St',
+					lat: 40.7,
+					lng: -74.0,
+					cuisine: 'middle eastern',
+					isHandCut: true,
+					ownerId: 'acc-1',
+					verificationStatus: 'UNVERIFIED',
+					createdAt: '2026-08-30T00:00:00Z'
+				},
+				201
+			)
+		);
+		await api.createListing({
+			name: 'Al-Amir Grill',
+			address: '123 Main St',
+			lat: 40.7,
+			lng: -74.0,
+			cuisine: 'Middle Eastern',
+			isHandCut: true
+		});
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/listings',
+			expect.objectContaining({
+				headers: expect.objectContaining({
+					Authorization: 'Bearer at-1'
+				})
+			})
+		);
+	});
 
-  it("sends no Authorization header when no access token is set (sc-138)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse(
-        {
-          id: "u-1",
-          name: "Al-Amir Grill",
-          address: "123 Main St",
-          lat: 40.7,
-          lng: -74.0,
-          cuisine: "middle eastern",
-          isHandCut: true,
-          ownerId: "acc-1",
-          verificationStatus: "UNVERIFIED",
-          createdAt: "2026-08-30T00:00:00Z",
-        },
-        201,
-      ),
-    );
-    await api.createListing({
-      name: "Al-Amir Grill",
-      address: "123 Main St",
-      lat: 40.7,
-      lng: -74.0,
-      cuisine: "Middle Eastern",
-      isHandCut: true,
-    });
-    const [, options] = vi.mocked(fetch).mock.calls[0] as [
-      string,
-      RequestInit,
-    ];
-    expect(options.headers).not.toHaveProperty("Authorization");
-  });
+	it('sends no Authorization header when no access token is set (sc-138)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			mockFetchResponse(
+				{
+					id: 'u-1',
+					name: 'Al-Amir Grill',
+					address: '123 Main St',
+					lat: 40.7,
+					lng: -74.0,
+					cuisine: 'middle eastern',
+					isHandCut: true,
+					ownerId: 'acc-1',
+					verificationStatus: 'UNVERIFIED',
+					createdAt: '2026-08-30T00:00:00Z'
+				},
+				201
+			)
+		);
+		await api.createListing({
+			name: 'Al-Amir Grill',
+			address: '123 Main St',
+			lat: 40.7,
+			lng: -74.0,
+			cuisine: 'Middle Eastern',
+			isHandCut: true
+		});
+		const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+		expect(options.headers).not.toHaveProperty('Authorization');
+	});
 
-  it("keeps a typed 401 on an authenticated call so sc-134 can prompt session-expired (sc-138)", async () => {
-    setAccessToken("at-1");
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse({ code: "invalid_credentials" }, 401),
-    );
-    await expect(
-      api.createListing({
-        name: "Al-Amir Grill",
-        address: "123 Main St",
-        lat: 40.7,
-        lng: -74.0,
-        cuisine: "Middle Eastern",
-        isHandCut: true,
-      }),
-    ).rejects.toMatchObject({ status: 401, code: "invalid_credentials" });
-    // The backend was reached with the bearer token even though it 401'd.
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/listings",
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: "Bearer at-1" }),
-      }),
-    );
-  });
+	it('keeps a typed 401 on an authenticated call so sc-134 can prompt session-expired (sc-138)', async () => {
+		setAccessToken('at-1');
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'invalid_credentials' }, 401));
+		await expect(
+			api.createListing({
+				name: 'Al-Amir Grill',
+				address: '123 Main St',
+				lat: 40.7,
+				lng: -74.0,
+				cuisine: 'Middle Eastern',
+				isHandCut: true
+			})
+		).rejects.toMatchObject({ status: 401, code: 'invalid_credentials' });
+		// The backend was reached with the bearer token even though it 401'd.
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/listings',
+			expect.objectContaining({
+				headers: expect.objectContaining({ Authorization: 'Bearer at-1' })
+			})
+		);
+	});
 
-  it("getListings issues a GET to /v1/listings with no body (sc-171 live read)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse(
-        [
-          {
-            id: "12ca4fe9-2884-4cac-9528-cc38fc0efa2f",
-            name: "Afrah",
-            address: "E Main St",
-            lat: 32.94807,
-            lng: -96.728031,
-            cuisine: null,
-            isHandCut: null,
-            isDelivery: null,
-            verificationStatus: "UNVERIFIED",
-            imageThumbnailUrl:
-              "http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=thumbnail",
-          },
-        ],
-        200,
-      ),
-    );
-    const result = await api.getListings();
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("12ca4fe9-2884-4cac-9528-cc38fc0efa2f");
-    expect(result[0].isDelivery).toBeNull();
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/listings",
-      expect.objectContaining({ method: "GET", body: undefined }),
-    );
-  });
+	it('getListings issues a GET to /v1/listings with no body (sc-171 live read)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			mockFetchResponse(
+				[
+					{
+						id: '12ca4fe9-2884-4cac-9528-cc38fc0efa2f',
+						name: 'Afrah',
+						address: 'E Main St',
+						lat: 32.94807,
+						lng: -96.728031,
+						cuisine: null,
+						isHandCut: null,
+						isDelivery: null,
+						verificationStatus: 'UNVERIFIED',
+						imageThumbnailUrl:
+							'http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=thumbnail'
+					}
+				],
+				200
+			)
+		);
+		const result = await api.getListings();
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe('12ca4fe9-2884-4cac-9528-cc38fc0efa2f');
+		expect(result[0].isDelivery).toBeNull();
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/listings',
+			expect.objectContaining({ method: 'GET', body: undefined })
+		);
+	});
 
-  it("getListing issues a GET to /v1/listings/{id} and returns the detail (sc-171)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse(
-        {
-          id: "12ca4fe9-2884-4cac-9528-cc38fc0efa2f",
-          name: "Afrah",
-          address: "E Main St",
-          lat: 32.94807,
-          lng: -96.728031,
-          cuisine: null,
-          isHandCut: null,
-          verificationStatus: "UNVERIFIED",
-          imageThumbnailUrl:
-            "http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=thumbnail",
-          imageUrl:
-            "http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=full",
-        },
-        200,
-      ),
-    );
-    const result = await api.getListing("12ca4fe9-2884-4cac-9528-cc38fc0efa2f");
-    expect(result.imageUrl).toContain("variant=full");
-    // The id is URL-encoded into the path; no body on a GET.
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f",
-      expect.objectContaining({ method: "GET", body: undefined }),
-    );
-  });
+	it('getListing issues a GET to /v1/listings/{id} and returns the detail (sc-171)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			mockFetchResponse(
+				{
+					id: '12ca4fe9-2884-4cac-9528-cc38fc0efa2f',
+					name: 'Afrah',
+					address: 'E Main St',
+					lat: 32.94807,
+					lng: -96.728031,
+					cuisine: null,
+					isHandCut: null,
+					verificationStatus: 'UNVERIFIED',
+					imageThumbnailUrl:
+						'http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=thumbnail',
+					imageUrl:
+						'http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=full'
+				},
+				200
+			)
+		);
+		const result = await api.getListing('12ca4fe9-2884-4cac-9528-cc38fc0efa2f');
+		expect(result.imageUrl).toContain('variant=full');
+		// The id is URL-encoded into the path; no body on a GET.
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f',
+			expect.objectContaining({ method: 'GET', body: undefined })
+		);
+	});
 
-  it("getListing maps a 404 to an ApiError with status 404 for the detail not-found state", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse(undefined, 404));
-    await expect(api.getListing("missing")).rejects.toMatchObject({
-      status: 404,
-    });
-  });
+	it('getListing maps a 404 to an ApiError with status 404 for the detail not-found state', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse(undefined, 404));
+		await expect(api.getListing('missing')).rejects.toMatchObject({
+			status: 404
+		});
+	});
 
-  it("issues a GET to /v1/favorites and returns browse-card objects (sc-50)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetchResponse(
-        [
-          {
-            id: "12ca4fe9-2884-4cac-9528-cc38fc0efa2f",
-            name: "Afrah",
-            address: "E Main St",
-            lat: 32.94807,
-            lng: -96.728031,
-            cuisine: null,
-            isHandCut: null,
-            isDelivery: true,
-            verificationStatus: "UNVERIFIED",
-            imageThumbnailUrl:
-              "http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=thumbnail",
-          },
-        ],
-        200,
-      ),
-    );
-    const result = await api.getFavorites();
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("12ca4fe9-2884-4cac-9528-cc38fc0efa2f");
-    expect(result[0].isDelivery).toBe(true);
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/favorites",
-      expect.objectContaining({ method: "GET", body: undefined }),
-    );
-  });
+	it('issues a GET to /v1/favorites and returns browse-card objects (sc-50)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			mockFetchResponse(
+				[
+					{
+						id: '12ca4fe9-2884-4cac-9528-cc38fc0efa2f',
+						name: 'Afrah',
+						address: 'E Main St',
+						lat: 32.94807,
+						lng: -96.728031,
+						cuisine: null,
+						isHandCut: null,
+						isDelivery: true,
+						verificationStatus: 'UNVERIFIED',
+						imageThumbnailUrl:
+							'http://localhost:8080/v1/listings/12ca4fe9-2884-4cac-9528-cc38fc0efa2f/image?variant=thumbnail'
+					}
+				],
+				200
+			)
+		);
+		const result = await api.getFavorites();
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe('12ca4fe9-2884-4cac-9528-cc38fc0efa2f');
+		expect(result[0].isDelivery).toBe(true);
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/favorites',
+			expect.objectContaining({ method: 'GET', body: undefined })
+		);
+	});
 
-  it("attaches the bearer and maps a 401 to an ApiError for an anonymous favorites read", async () => {
-    setAccessToken("at-1");
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "invalid_credentials" }, 401));
-    await expect(api.getFavorites()).rejects.toMatchObject({
-      status: 401,
-      code: "invalid_credentials",
-    });
-    const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
-    expect(options.headers).toMatchObject({ Authorization: "Bearer at-1" });
-  });
+	it('attaches the bearer and maps a 401 to an ApiError for an anonymous favorites read', async () => {
+		setAccessToken('at-1');
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'invalid_credentials' }, 401));
+		await expect(api.getFavorites()).rejects.toMatchObject({
+			status: 401,
+			code: 'invalid_credentials'
+		});
+		const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+		expect(options.headers).toMatchObject({ Authorization: 'Bearer at-1' });
+	});
 
-  it("favoriteListing POSTs to /v1/favorites/{id} and resolves on 204 (no body) (sc-50)", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse(undefined, 204));
-    await expect(api.favoriteListing("l-1")).resolves.toBeUndefined();
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/favorites/l-1",
-      expect.objectContaining({ method: "POST", body: undefined }),
-    );
-  });
+	it('favoriteListing POSTs to /v1/favorites/{id} and resolves on 204 (no body) (sc-50)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse(undefined, 204));
+		await expect(api.favoriteListing('l-1')).resolves.toBeUndefined();
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/favorites/l-1',
+			expect.objectContaining({ method: 'POST', body: undefined })
+		);
+	});
 
-  it("unfavoriteListing DELETEs to /v1/favorites/{id} and resolves on 204 (no body) (sc-51)", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse(undefined, 204));
-    await expect(api.unfavoriteListing("l-1")).resolves.toBeUndefined();
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/favorites/l-1",
-      expect.objectContaining({ method: "DELETE", body: undefined }),
-    );
-  });
+	it('unfavoriteListing DELETEs to /v1/favorites/{id} and resolves on 204 (no body) (sc-51)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse(undefined, 204));
+		await expect(api.unfavoriteListing('l-1')).resolves.toBeUndefined();
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/favorites/l-1',
+			expect.objectContaining({ method: 'DELETE', body: undefined })
+		);
+	});
 
-  it("maps a 404 to an ApiError on an unfavorite of a missing listing (sc-51)", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "not_found" }, 404));
-    await expect(api.unfavoriteListing("missing")).rejects.toMatchObject({
-      status: 404,
-      code: "not_found",
-    });
-  });
+	it('maps a 404 to an ApiError on an unfavorite of a missing listing (sc-51)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'not_found' }, 404));
+		await expect(api.unfavoriteListing('missing')).rejects.toMatchObject({
+			status: 404,
+			code: 'not_found'
+		});
+	});
 });
 
-describe("verification-committee review APIs (sc-73)", () => {
-  const reviewBody = {
-    reviewId: "r-1",
-    listingId: "l-1",
-    submittedBy: "u-1",
-    state: "AI_SUGGESTED",
-    suggestedVerdict: "APPROVE",
-    suggestionConfidence: 0.97,
-    suggestionReasoning: null,
-    decisionOutcome: null,
-    decisionReason: null,
-    decidedBy: null,
-  };
+describe('verification-committee review APIs (sc-73)', () => {
+	const reviewBody = {
+		reviewId: 'r-1',
+		listingId: 'l-1',
+		submittedBy: 'u-1',
+		state: 'AI_SUGGESTED',
+		suggestedVerdict: 'APPROVE',
+		suggestionConfidence: 0.97,
+		suggestionReasoning: null,
+		decisionOutcome: null,
+		decisionReason: null,
+		decidedBy: null
+	};
 
-  it("GET /v1/verification-committee/reviews returns the pending queue", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse([reviewBody], 200));
-    const result = await api.getVerificationReviews();
-    expect(result).toHaveLength(1);
-    expect(result[0].reviewId).toBe("r-1");
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/verification-committee/reviews",
-      expect.objectContaining({ method: "GET" }),
-    );
-  });
+	it('GET /v1/verification-committee/reviews returns the pending queue', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse([reviewBody], 200));
+		const result = await api.getVerificationReviews();
+		expect(result).toHaveLength(1);
+		expect(result[0].reviewId).toBe('r-1');
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/verification-committee/reviews',
+			expect.objectContaining({ method: 'GET' })
+		);
+	});
 
-  it("maps a non-VC 403 to a forbidden ApiError (frontend gate handles it)", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "forbidden" }, 403));
-    await expect(api.getVerificationReviews()).rejects.toMatchObject({
-      status: 403,
-      code: "forbidden",
-    });
-  });
+	it('maps a non-VC 403 to a forbidden ApiError (frontend gate handles it)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'forbidden' }, 403));
+		await expect(api.getVerificationReviews()).rejects.toMatchObject({
+			status: 403,
+			code: 'forbidden'
+		});
+	});
 
-  it("approve POSTs /approve with an optional reason", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse(reviewBody, 200));
-    const result = await api.approveVerificationReview("r-1");
-    expect(result.reviewId).toBe("r-1");
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/verification-committee/reviews/r-1/approve",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ reason: undefined }),
-      }),
-    );
-  });
+	it('approve POSTs /approve with an optional reason', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse(reviewBody, 200));
+		const result = await api.approveVerificationReview('r-1');
+		expect(result.reviewId).toBe('r-1');
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/verification-committee/reviews/r-1/approve',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({ reason: undefined })
+			})
+		);
+	});
 
-  it("omit a blank approve reason (sends no reason key)", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse(reviewBody, 200));
-    await api.approveVerificationReview("r-1", " ");
-    expect(fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ body: JSON.stringify({ reason: undefined }) }),
-    );
-  });
+	it('omit a blank approve reason (sends no reason key)', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse(reviewBody, 200));
+		await api.approveVerificationReview('r-1', ' ');
+		expect(fetch).toHaveBeenCalledWith(
+			expect.any(String),
+			expect.objectContaining({ body: JSON.stringify({ reason: undefined }) })
+		);
+	});
 
-  it("deny POSTs /deny and includes the required reason", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse(reviewBody, 200));
-    const result = await api.denyVerificationReview("r-1", "Cert expired.");
-    expect(result.reviewId).toBe("r-1");
-    expect(fetch).toHaveBeenCalledWith(
-      "/v1/verification-committee/reviews/r-1/deny",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ reason: "Cert expired." }),
-      }),
-    );
-  });
+	it('deny POSTs /deny and includes the required reason', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse(reviewBody, 200));
+		const result = await api.denyVerificationReview('r-1', 'Cert expired.');
+		expect(result.reviewId).toBe('r-1');
+		expect(fetch).toHaveBeenCalledWith(
+			'/v1/verification-committee/reviews/r-1/deny',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({ reason: 'Cert expired.' })
+			})
+		);
+	});
 
-  it("maps a 409 re-decision to review_not_pending", async () => {
-    vi.stubGlobal("fetch", mockFetchResponse({ code: "review_not_pending" }, 409));
-    await expect(api.denyVerificationReview("r-1", "nope")).rejects.toMatchObject({
-      status: 409,
-      code: "review_not_pending",
-    });
-  });
+	it('maps a 409 re-decision to review_not_pending', async () => {
+		vi.stubGlobal('fetch', mockFetchResponse({ code: 'review_not_pending' }, 409));
+		await expect(api.denyVerificationReview('r-1', 'nope')).rejects.toMatchObject({
+			status: 409,
+			code: 'review_not_pending'
+		});
+	});
 });

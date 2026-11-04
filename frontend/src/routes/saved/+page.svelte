@@ -12,9 +12,7 @@
 <SiteShell>
 	<header>
 		<h1 class="text-title text-ink-900">Saved spots</h1>
-		<p class="mt-2 text-body text-ink-500">
-			Restaurants you've favourited, ready to revisit.
-		</p>
+		<p class="mt-2 text-body text-ink-500">Restaurants you've favourited, ready to revisit.</p>
 	</header>
 
 	<div class="mt-8">

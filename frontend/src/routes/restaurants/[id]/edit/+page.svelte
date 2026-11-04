@@ -35,7 +35,11 @@
 
 	$effect(() => {
 		const id = page.params.id ?? '';
+		const accountId = session?.accountId ?? null;
 		void reload;
+		// Never fetch while anonymous/restoring: the read is only useful to a
+		// signed-in owner, and the legacy screen deliberately made no request.
+		if (!accountId) return;
 		void load(id);
 	});
 

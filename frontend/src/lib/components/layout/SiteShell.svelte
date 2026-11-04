@@ -9,10 +9,8 @@
 		mainClass?: string;
 	};
 
-	let {
-		children,
-		mainClass = 'mx-auto max-w-[1200px] px-5 py-12 pb-32 lg:pb-12'
-	}: Props = $props();
+	let { children, mainClass = 'mx-auto max-w-[1200px] px-5 py-12 pb-32 lg:pb-12' }: Props =
+		$props();
 </script>
 
 <div class="min-h-screen bg-cream-50">

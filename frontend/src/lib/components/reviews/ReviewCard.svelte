@@ -43,9 +43,7 @@
 		}`
 	);
 	const confidence = $derived(
-		review.suggestionConfidence != null
-			? `${Math.round(review.suggestionConfidence * 100)}%`
-			: null
+		review.suggestionConfidence != null ? `${Math.round(review.suggestionConfidence * 100)}%` : null
 	);
 
 	function openDeny() {
@@ -102,7 +100,7 @@
 	</div>
 
 	{#if review.suggestionReasoning}
-		<p class="mt-3 border-l-2 border-kraft-200 pl-3 text-small italic text-ink-500">
+		<p class="mt-3 border-l-2 border-kraft-200 pl-3 text-small text-ink-500 italic">
 			{review.suggestionReasoning}
 		</p>
 	{/if}
@@ -122,9 +120,7 @@
 			>
 				Approve verification
 			</Button>
-			<Button type="button" variant="ghost" disabled={isDeciding} onclick={openDeny}>
-				Deny
-			</Button>
+			<Button type="button" variant="ghost" disabled={isDeciding} onclick={openDeny}>Deny</Button>
 		{:else}
 			<label for="deny-reason-{review.reviewId}" class="sr-only">
 				Reason for denying this verification

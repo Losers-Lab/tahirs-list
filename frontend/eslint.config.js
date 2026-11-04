@@ -20,7 +20,7 @@ export default defineConfig(
 		rules: {
 			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			"no-undef": 'off'
+			'no-undef': 'off'
 		}
 	},
 	{
@@ -36,6 +36,15 @@ export default defineConfig(
 	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			// The app is served at the origin root (no `paths.base`). Adding
+			// resolve() to every internal link would be noise without a base path
+			// to honour; re-enable this rule if a base path is introduced.
+			'svelte/no-navigation-without-resolve': 'off',
+			// Set/Map state is treated as immutable here (a new instance is
+			// assigned into $state), which is reactive by design; SvelteSet is a
+			// performance optimisation, not a correctness requirement.
+			'svelte/prefer-svelte-reactivity': 'off'
+		}
 	}
 );

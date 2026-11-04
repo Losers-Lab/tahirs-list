@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /**
  * Zod schema for the Add Restaurant Listing form (sc-138).
@@ -15,40 +15,40 @@ import { z } from "zod";
  * submit (the API body expects doubles).
  */
 const coordinateSchema = (min: number, max: number, label: string) =>
-  z
-    .string()
-    .trim()
-    .min(1, `${label} is required.`)
-    .refine((s) => s !== "" && !Number.isNaN(Number(s)), `${label} must be a number.`)
-    .refine((s) => {
-      const n = Number(s);
-      return n >= min && n <= max;
-    }, `${label} must be between ${min} and ${max}.`);
+	z
+		.string()
+		.trim()
+		.min(1, `${label} is required.`)
+		.refine((s) => s !== '' && !Number.isNaN(Number(s)), `${label} must be a number.`)
+		.refine((s) => {
+			const n = Number(s);
+			return n >= min && n <= max;
+		}, `${label} must be between ${min} and ${max}.`);
 
 export const createListingSchema = z.object({
-  name: z.string().trim().min(1, "Restaurant name is required."),
-  address: z.string().trim().min(1, "Address is required."),
-  lat: coordinateSchema(-90, 90, "Latitude"),
-  lng: coordinateSchema(-180, 180, "Longitude"),
-  cuisine: z
-    .string()
-    .trim()
-    .min(1, "Cuisine is required.")
-    .max(64, "Cuisine must be 64 characters or fewer."),
-  /**
-   * sc-42: hand-cut is an optional on/off extra. `undefined` (unchecked) leaves
-   * the listing's hand-cut state unknown to the backend; `true` records hand-cut
-   * (Zabiha). The either/or cutting-method enum was dropped upstream.
-   */
-  isHandCut: z.boolean().optional(),
-  /**
-   * sc-184: service-mode delivery flag, on the same optional on/off tri-state
-   * pattern as `isHandCut`. `undefined` (unchecked) leaves delivery unknown /
-   * not claimed; `true` records that the listing offers delivery. Pickup is the
-   * implicit baseline. Both flags round-trip through the edit form so an
-   * unrelated edit never silently clears a claimed flag.
-   */
-  isDelivery: z.boolean().optional(),
+	name: z.string().trim().min(1, 'Restaurant name is required.'),
+	address: z.string().trim().min(1, 'Address is required.'),
+	lat: coordinateSchema(-90, 90, 'Latitude'),
+	lng: coordinateSchema(-180, 180, 'Longitude'),
+	cuisine: z
+		.string()
+		.trim()
+		.min(1, 'Cuisine is required.')
+		.max(64, 'Cuisine must be 64 characters or fewer.'),
+	/**
+	 * sc-42: hand-cut is an optional on/off extra. `undefined` (unchecked) leaves
+	 * the listing's hand-cut state unknown to the backend; `true` records hand-cut
+	 * (Zabiha). The either/or cutting-method enum was dropped upstream.
+	 */
+	isHandCut: z.boolean().optional(),
+	/**
+	 * sc-184: service-mode delivery flag, on the same optional on/off tri-state
+	 * pattern as `isHandCut`. `undefined` (unchecked) leaves delivery unknown /
+	 * not claimed; `true` records that the listing offers delivery. Pickup is the
+	 * implicit baseline. Both flags round-trip through the edit form so an
+	 * unrelated edit never silently clears a claimed flag.
+	 */
+	isDelivery: z.boolean().optional()
 });
 
 export type CreateListingFormValues = z.infer<typeof createListingSchema>;

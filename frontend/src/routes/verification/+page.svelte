@@ -29,7 +29,9 @@
 	{/if}
 
 	{#if !restoring && !session}
-		<div class="mt-8 rounded-lg border-[1.5px] border-kraft-200 bg-ink-0 p-10 text-center shadow-card">
+		<div
+			class="mt-8 rounded-lg border-[1.5px] border-kraft-200 bg-ink-0 p-10 text-center shadow-card"
+		>
 			<SealMark class="mx-auto h-12 w-12 text-ink-300" srLabel="Signed out" />
 			<h2 class="mt-4 text-title text-ink-900">Verification Committee sign in</h2>
 			<p class="mx-auto mt-2 max-w-md text-body text-ink-500">
@@ -48,8 +50,8 @@
 		<div class="mt-8 rounded-lg border-[1.5px] border-danger-100 bg-danger-50 p-10 text-center">
 			<h2 class="text-title text-ink-900">No access to this queue</h2>
 			<p class="mx-auto mt-2 max-w-md text-body text-ink-500">
-				This screen is for the Verification Committee only. If you think this is a mistake,
-				contact an administrator.
+				This screen is for the Verification Committee only. If you think this is a mistake, contact
+				an administrator.
 			</p>
 		</div>
 	{/if}
