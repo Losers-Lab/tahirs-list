@@ -7,7 +7,7 @@ import com.tahirslist.domain.restaurant.HalalItem
 import com.tahirslist.domain.restaurant.HalalScope
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.RestaurantListing
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Add Listing use case. Creates a brand-new, always-**unverified** restaurant
@@ -30,7 +30,7 @@ class CreateListing(
     private val accounts: AccountRepository,
 ) {
 
-    fun execute(
+    suspend fun execute(
         name: String,
         address: String,
         city: String? = null,
@@ -41,7 +41,7 @@ class CreateListing(
         cuisine: Cuisine,
         isHandCut: Boolean? = null,
         isDelivery: Boolean? = null,
-        ownerId: UUID,
+        ownerId: Uuid,
         halalScope: HalalScope = HalalScope.DEFAULT,
         halalItems: Set<HalalItem> = emptySet(),
         crossContamination: CrossContamination = CrossContamination.DEFAULT,

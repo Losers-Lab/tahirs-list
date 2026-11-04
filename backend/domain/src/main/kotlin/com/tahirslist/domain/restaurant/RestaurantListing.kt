@@ -1,7 +1,8 @@
 package com.tahirslist.domain.restaurant
 
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * A restaurant listing.
@@ -61,7 +62,7 @@ import java.util.UUID
  * decided — do not resolve it in code.
  */
 data class RestaurantListing(
-    val id: UUID,
+    val id: Uuid,
     val name: String,
     val address: String,
     val city: String? = null,
@@ -74,8 +75,8 @@ data class RestaurantListing(
     val isDelivery: Boolean?,
     val price: Price?,
     val rating: Rating?,
-    val ownerId: UUID?,
-    val brandId: UUID?,
+    val ownerId: Uuid?,
+    val brandId: Uuid?,
     val provenance: Provenance?,
     val verificationStatus: VerificationStatus,
     val createdAt: Instant,
@@ -180,7 +181,7 @@ data class RestaurantListing(
             cuisine: Cuisine,
             isHandCut: Boolean? = null,
             isDelivery: Boolean? = null,
-            ownerId: UUID,
+            ownerId: Uuid,
             price: Price? = null,
             rating: Rating? = null,
             halalScope: HalalScope = HalalScope.DEFAULT,
@@ -193,7 +194,7 @@ data class RestaurantListing(
             require(trimmedName.isNotBlank()) { "Listing name must not be blank." }
             require(trimmedAddress.isNotBlank()) { "Listing address must not be blank." }
             return RestaurantListing(
-                id = UUID.randomUUID(),
+                id = Uuid.random(),
                 name = trimmedName,
                 address = trimmedAddress,
                 city = trimAddressField("city", city, CITY_MAX_LENGTH),
@@ -210,7 +211,7 @@ data class RestaurantListing(
                 brandId = null,
                 provenance = null,
                 verificationStatus = VerificationStatus.DEFAULT,
-                createdAt = Instant.now(),
+                createdAt = Clock.System.now(),
                 halalScope = halalScope,
                 halalItems = halalItems,
                 crossContamination = crossContamination,
@@ -224,7 +225,7 @@ data class RestaurantListing(
          * how unclaimed, no-cuisine community seed rows are materialised.
          */
         fun fromStorage(
-            id: UUID,
+            id: Uuid,
             name: String,
             address: String,
             city: String? = null,
@@ -237,8 +238,8 @@ data class RestaurantListing(
             isDelivery: Boolean? = null,
             price: Price? = null,
             rating: Rating? = null,
-            ownerId: UUID?,
-            brandId: UUID?,
+            ownerId: Uuid?,
+            brandId: Uuid?,
             provenance: Provenance?,
             verificationStatus: VerificationStatus,
             createdAt: Instant,

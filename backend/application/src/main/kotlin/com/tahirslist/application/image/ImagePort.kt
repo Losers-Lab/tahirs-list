@@ -1,6 +1,6 @@
 package com.tahirslist.application.image
 
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * The object-storage seam for restaurant hero images (hexagonal "out" port).
@@ -25,14 +25,14 @@ import java.util.UUID
  *    affects any other variant.
  */
 interface ImagePort {
-    fun save(listingId: UUID, variant: ImageVariant, contentType: String, bytes: ByteArray)
+    suspend fun save(listingId: Uuid, variant: ImageVariant, contentType: String, bytes: ByteArray)
 
-    fun load(listingId: UUID, variant: ImageVariant): StoredImage?
+    suspend fun load(listingId: Uuid, variant: ImageVariant): StoredImage?
 
     /**
      * Remove the stored variant (sc-53/54 owner remove-image path). Idempotent:
      * deleting a variant that was never saved is a silent no-op. Only the
      * given variant is removed — sibling variants remain untouched.
      */
-    fun delete(listingId: UUID, variant: ImageVariant)
+    suspend fun delete(listingId: Uuid, variant: ImageVariant)
 }

@@ -1,46 +1,62 @@
-description = "Bootstrap: Spring Boot application assembly and entrypoint."
+description = "Composition root: Ktor server entrypoint, Koin modules, configuration and infrastructure adapters."
 
 plugins {
-    alias(libs.plugins.spring.boot)
+    application
+}
+
+application {
+    mainClass.set("com.tahirslist.bootstrap.ApplicationKt")
 }
 
 dependencies {
     implementation(project(":domain"))
     implementation(project(":application"))
     implementation(project(":web-api"))
-    // Persistence adapter on the runtime classpath so its @Repository beans and the
-    // Flyway auto-migration (users table) are picked up by component scan.
     implementation(project(":persistence"))
-    // Object storage adapter (sc-157): provides the S3ImagePort bean when
-    // `app.storage.s3.endpoint` is configured; bootstrap falls back to in-memory.
     implementation(project(":storage-s3"))
-    // Hosted vision verification provider (sc-117 seam): active when
-    // `app.verification.hosted.endpoint` is configured; bootstrap falls back to
-    // the safe DeferToHumanProvider otherwise (sc-46).
     implementation(project(":verification-ai"))
+    implementation(project(":geocoding"))
 
-    implementation(libs.spring.boot.starter.web)
-    implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.springdoc)
-    // Argon2id password hashing (ratified auth stack).
-    implementation(libs.spring.security.crypto)
+    implementation(platform(libs.ktor.bom))
+    implementation(platform(libs.koin.bom))
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.server.status.pages)
+    implementation(libs.ktor.serialization.kotlinx.json)
+
+    implementation(libs.koin.core)
+    implementation(libs.koin.ktor)
+
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.kotlin.logging.jvm)
+    implementation(libs.kotlinx.coroutines.core)
+
+    // Compile-time types leaked by adapter APIs wired here (Gradle `implementation`
+    // is not transitive): Exposed Database, HikariCP, Flyway result, S3 client, Ktor client.
+    implementation(platform(libs.exposed.bom))
+    implementation(libs.exposed.jdbc)
+    implementation(libs.hikaricp)
+    implementation(libs.flyway.core)
+    implementation(platform(libs.aws.kotlin.bom))
+    implementation(libs.aws.kotlin.s3)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+
+    // Argon2id (BouncyCastle behind PasswordHasher) + RS256 JWT (Nimbus behind TokenIssuer).
     implementation(libs.bouncycastle)
-    // RS256 JWT access-token issuance (ratified auth stack, short access JWT).
     implementation(libs.nimbus.jose.jwt)
-    // OAuth2 resource server: verifies the RS256 access JWT at the HTTP edge and
-    // enforces deny-by-default (sc-131). Brings in Spring Security + request matcher support.
-    implementation(libs.spring.boot.starter.oauth2.resource.server)
-    // PostgreSQL JDBC driver at runtime (datasource for the users table).
-    runtimeOnly(libs.postgresql)
 
-    testImplementation(libs.spring.boot.starter.test)
-    testImplementation(libs.kotest.spring)
-    // JdbcTemplate for asserting persisted rows in integration tests.
-    testImplementation(libs.spring.boot.starter.jdbc)
-    // Testcontainers PostGIS for full-context boot tests (see PostgresBootTest).
+    // JDBC driver + logging at runtime.
+    runtimeOnly(libs.postgresql)
+    runtimeOnly(libs.logback.classic)
+
+    // Full-stack endpoint tests: in-process Ktor app + real PostGIS container.
+    testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.koin.test)
     testImplementation(libs.testcontainers)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.postgresql)
-    // Apache HC5 client so tests can read 401 responses (JDK client cannot).
-    testImplementation(libs.httpclient5)
 }

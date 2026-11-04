@@ -1,96 +1,122 @@
 package com.tahirslist.geocoding
 
 import com.tahirslist.application.geo.GeocodedPlace
-import com.tahirslist.application.geo.GeocodingException
 import com.tahirslist.application.geo.GeocoderPort
+import com.tahirslist.application.geo.GeocodingException
 import com.tahirslist.domain.restaurant.LatLng
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
 import java.io.IOException
-import java.net.URI
 import java.net.URLEncoder
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
-import java.time.Duration
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 /**
  * [GeocoderPort] adapter for **Photon** (photon.komoot.io) — the $0, no-key,
  * OSM-backed default geocoder (docs/reviews/sc-138-external-services.md §2.1).
  *
- * Server-side only; the JDK HttpClient means no new production dependency. The
- * adapter is cheap to configure (constructor-injected [baseUrl] + [timeout]) so
+ * Server-side only. The transport is a **Ktor client (CIO)** with the response
+ * decoded through kotlinx.serialization's JSON tree, so no blocking JDK client
+ * or Jackson is involved. The adapter is cheap to configure
+ * (constructor-injected [baseUrl] + [timeout], or an injected [HttpClient]) so
  * swapping to the premium Google adapter later is config, not code — see the
  * GeocoderPort KDoc for the swap contract. The public service is best-effort
  * (no SLA); production self-hosting Photon is a later scaling decision, not this
  * task. OSM data is ODbL — attribution/share-alike on derived fields is an open
  * founder decision, flagged not decided here.
+ *
+ * The GeoJSON body is read as a [JsonElement] tree rather than bound to DTOs on
+ * purpose: the port's contract (pinned by tests) treats a non-array `features`
+ * member or a first feature without geometry as "no match" (null), while only
+ * unparseable JSON / an empty body are provider failures.
  */
 class PhotonGeocoder(
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
     private val baseUrl: String = "https://photon.komoot.io/api/",
-    private val timeout: Duration = Duration.ofSeconds(5),
+    private val timeout: Duration = 5.seconds,
+    httpClient: HttpClient? = null,
 ) : GeocoderPort {
 
-    private val objectMapper = ObjectMapper()
+    /** Owned client (when not injected); NO follow-redirects-by-default surprises, plain GET only. */
+    private val client: HttpClient = httpClient ?: HttpClient(CIO) {
+        // Status handling is explicit below: only HTTP 200 counts as success.
+        expectSuccess = false
+        // Match the previous JDK client's default (never follow redirects):
+        // a redirect is a non-200 provider response, not a transparent success.
+        followRedirects = false
+        install(HttpTimeout) {
+            requestTimeoutMillis = timeout.inWholeMilliseconds
+            connectTimeoutMillis = timeout.inWholeMilliseconds
+        }
+    }
 
-    override fun geocode(address: String): GeocodedPlace? {
+    override suspend fun geocode(address: String): GeocodedPlace? {
         val encoded = URLEncoder.encode(address, StandardCharsets.UTF_8)
-        val uri = URI.create("${baseUrl.trimEnd('/')}/?q=$encoded")
-        val request = HttpRequest.newBuilder(uri)
-            .timeout(timeout)
-            .GET()
-            .build()
+        val url = "${baseUrl.trimEnd('/')}/?q=$encoded"
 
-        val response = try {
-            httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        val (status, body) = try {
+            val response = client.get(url)
+            response.status to response.bodyAsText()
         } catch (e: IOException) {
-            // Covers connect failures, response timeouts (HttpTimeoutException is
-            // an IOException), and body-read failures.
+            // Covers connect failures (java.net.ConnectException), Ktor's
+            // request/connect timeouts, and body-read failures.
             throw GeocodingException("Photon geocoder request failed for address: $address", e)
-        } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
-            throw GeocodingException("Photon geocoder request interrupted for address: $address", e)
+        } catch (e: CancellationException) {
+            // Caller cancelled: preserve structured concurrency, do not mask it
+            // as a provider outage.
+            throw e
         }
 
-        if (response.statusCode() != 200) {
-            throw GeocodingException("Photon geocoder returned HTTP ${response.statusCode()} for address: $address")
+        if (status != HttpStatusCode.OK) {
+            throw GeocodingException("Photon geocoder returned HTTP ${status.value} for address: $address")
         }
 
-        return parse(response.body().orEmpty(), address)
+        return parse(body, address)
     }
 
     /** Maps Photon's GeoJSON FeatureCollection to a [GeocodedPlace] (or null for no match). */
     private fun parse(body: String, address: String): GeocodedPlace? {
-        // readTree("") yields a MissingNode rather than throwing, so treat an empty
-        // body as a provider failure explicitly instead of a silent "no match".
+        // An empty body is a provider failure, not a silent "no match".
         if (body.isBlank()) {
             throw GeocodingException("Photon geocoder returned an empty response for address: $address")
         }
 
-        val root = try {
-            objectMapper.readTree(body)
-        } catch (e: IOException) {
+        val root: JsonElement = try {
+            Json.parseToJsonElement(body)
+        } catch (e: SerializationException) {
             throw GeocodingException("Photon geocoder returned an unparseable response for address: $address", e)
         }
 
-        val features = root.get("features")
-        if (features == null || !features.isArray || features.size() == 0) return null
+        // A JSON value that is not a FeatureCollection object has no features.
+        val features = (root as? JsonObject)?.get("features") as? JsonArray ?: return null
+        val feature = features.firstOrNull() as? JsonObject ?: return null
 
-        val coordinates = features.first().get("geometry")?.get("coordinates")
-        if (coordinates == null || !coordinates.isArray || coordinates.size() < 2) return null
+        val coordinates = ((feature["geometry"] as? JsonObject)?.get("coordinates")) as? JsonArray ?: return null
+        if (coordinates.size < 2) return null
 
         // GeoJSON coordinates are [longitude, latitude].
-        val lng = coordinates.get(0).asDouble()
-        val lat = coordinates.get(1).asDouble()
+        val lng = coordinates[0].asDoubleOrZero()
+        val lat = coordinates[1].asDoubleOrZero()
         val location = try {
             LatLng(lat = lat, lng = lng)
         } catch (e: IllegalArgumentException) {
             throw GeocodingException("Photon geocoder returned invalid coordinates [$lat, $lng] for address: $address", e)
         }
 
-        val props = features.first().get("properties")
+        val props = feature["properties"] as? JsonObject
         return GeocodedPlace(
             location = location,
             displayName = displayName(props),
@@ -99,7 +125,7 @@ class PhotonGeocoder(
     }
 
     /** Best-effort human label: the OSM name, else a "street, city" fallback. */
-    private fun displayName(props: JsonNode?): String {
+    private fun displayName(props: JsonObject?): String {
         val name = text(props, "name")
         if (!name.isNullOrBlank()) return name
         return listOfNotNull(text(props, "street"), text(props, "city"))
@@ -108,12 +134,16 @@ class PhotonGeocoder(
     }
 
     /** A stable provider reference (e.g. "N/123456" for OSM node 123456) if present. */
-    private fun providerRef(props: JsonNode?): String? {
+    private fun providerRef(props: JsonObject?): String? {
         val osmType = text(props, "osm_type")
         val osmId = text(props, "osm_id")
         return if (!osmType.isNullOrBlank() && !osmId.isNullOrBlank()) "$osmType/$osmId" else null
     }
 
-    private fun text(props: JsonNode?, field: String): String? =
-        props?.get(field)?.takeUnless { it.isNull }?.asText()
+    private fun text(props: JsonObject?, field: String): String? =
+        (props?.get(field) as? JsonPrimitive)?.contentOrNull
+
+    /** Jackson-compatible tolerance: non-numeric/missing coordinate members read as 0.0. */
+    private fun JsonElement?.asDoubleOrZero(): Double =
+        (this as? JsonPrimitive)?.doubleOrNull ?: 0.0
 }

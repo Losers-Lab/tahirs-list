@@ -2,7 +2,7 @@ package com.tahirslist.application.verification
 
 import com.tahirslist.domain.verification.HalalCertificationReview
 import com.tahirslist.domain.verification.VerificationState
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Persistence port (hexagonal "out" port) for certification reviews. Implemented
@@ -20,13 +20,13 @@ import java.util.UUID
  * or the aggregate has advanced through a state transition (VC decision path).
  */
 interface HalalCertificationReviewRepository {
-    fun save(review: HalalCertificationReview): HalalCertificationReview
+    suspend fun save(review: HalalCertificationReview): HalalCertificationReview
 
     /** The review with the given id, or null if none. */
-    fun findById(id: UUID): HalalCertificationReview?
+    suspend fun findById(id: Uuid): HalalCertificationReview?
 
     /** All reviews currently in [state] (the VC workqueue reads AI_SUGGESTED). */
-    fun findByState(state: VerificationState): List<HalalCertificationReview>
+    suspend fun findByState(state: VerificationState): List<HalalCertificationReview>
 
     /**
      * The most recently APPROVED review for [listingId], or null if the listing
@@ -34,5 +34,5 @@ interface HalalCertificationReviewRepository {
      * metadata (sc-73 follow-up): a VERIFIED listing's Certifier / reviewedOn /
      * expiresOn come from its latest approval.
      */
-    fun findLatestApprovedByListing(listingId: UUID): HalalCertificationReview?
+    suspend fun findLatestApprovedByListing(listingId: Uuid): HalalCertificationReview?
 }

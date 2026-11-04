@@ -5,7 +5,7 @@ import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.IngestHeroImage
 import com.tahirslist.application.image.StoredImage
 import com.tahirslist.application.verification.NotListingOwnerException
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Add / replace a listing's hero image (sc-53). An authenticated listing owner
@@ -20,10 +20,11 @@ import java.util.UUID
  *     ([NotListingOwnerException] → 403) — the same owner guard as
  *     [UpdateListing]. RBAC is enforced at the edge (deny-by-default resource
  *     server, JWT `sub`); this is the second, owner-scoped guard.
- *  3. The bytes must be a decodable image; [IngestHeroImage] resizes and stores
- *     every thumbnail width FIRST and rejects an undecodable upload with an
- *     [IllegalArgumentException] (→ 400) before anything is persisted — a
- *     half-written row is impossible.
+ *  3. The bytes must be a decodable image; [IngestHeroImage] derives the stored
+ *     media type from the bytes (never from the upload's `Content-Type` header),
+ *     resizes and stores every thumbnail width FIRST and rejects an undecodable
+ *     upload with an [IllegalArgumentException] (→ 400) before anything is
+ *     persisted — a half-written row is impossible.
  *
  * This is a **last-write-wins replace**: the listing has exactly ONE hero
  * image (the sc-157 read surface exposes a single hero), so uploading again
@@ -38,7 +39,7 @@ class AddListingImage(
 
     private val ingest: IngestHeroImage = IngestHeroImage(images)
 
-    fun execute(listingId: UUID, ownerId: UUID, original: StoredImage) {
+    suspend fun execute(listingId: Uuid, ownerId: Uuid, original: StoredImage) {
         val listing = listings.findById(listingId)
             ?: throw ListingNotFoundException(listingId)
 

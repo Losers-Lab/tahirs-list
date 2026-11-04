@@ -1,4 +1,4 @@
-description = "Application layer: orchestration of use cases (ports in, ports out), framework-free."
+description = "Application layer: orchestration of use cases (ports in, ports out), framework-free and coroutine-based."
 
 plugins {
     // Exposes application-layer contract specs (ImagePortContractSpec) as test
@@ -9,6 +9,10 @@ plugins {
 
 dependencies {
     implementation(project(":domain"))
+
+    // Use cases and out-ports are suspend-based; consumers see those types.
+    api(libs.kotlinx.coroutines.core)
+    api(libs.kotlinx.datetime)
 
     // This module's own tests run the contract spec against the in-memory fake.
     testImplementation(testFixtures(project(":application")))

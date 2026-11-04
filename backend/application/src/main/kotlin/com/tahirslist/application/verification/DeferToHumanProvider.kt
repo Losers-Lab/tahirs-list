@@ -13,7 +13,7 @@ import com.tahirslist.domain.verification.VerificationSuggestion
  * (dev/test, or deployments that deliberately run review fully manual).
  */
 class DeferToHumanProvider : VerificationProvider {
-    override fun suggest(image: CertificationImage): VerificationSuggestion =
+    override suspend fun suggest(image: CertificationImage): VerificationSuggestion =
         VerificationSuggestion(
             verdict = SuggestionVerdict.NEEDS_REVIEW,
             confidence = 0.0,

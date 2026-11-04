@@ -1,6 +1,6 @@
 package com.tahirslist.application.favorite
 
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Unfavorite a listing (sc-51): removes the user↔listing relation. Idempotent —
@@ -8,7 +8,7 @@ import java.util.UUID
  */
 class UnfavoriteListing(private val favorites: FavoritesRepository) {
 
-    fun execute(userId: UUID, listingId: UUID) {
+    suspend fun execute(userId: Uuid, listingId: Uuid) {
         favorites.remove(userId, listingId)
     }
 }

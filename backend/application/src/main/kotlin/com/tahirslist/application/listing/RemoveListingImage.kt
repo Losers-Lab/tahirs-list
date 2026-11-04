@@ -4,7 +4,7 @@ import com.tahirslist.application.favorite.ListingNotFoundException
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.ImageVariant
 import com.tahirslist.application.verification.NotListingOwnerException
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Remove a listing's hero image (sc-54). An authenticated listing owner removes
@@ -35,7 +35,7 @@ class RemoveListingImage(
     private val allVariants: List<ImageVariant> =
         listOf(ImageVariant.FULL) + ImageVariant.thumbnailVariants
 
-    fun execute(listingId: UUID, ownerId: UUID) {
+    suspend fun execute(listingId: Uuid, ownerId: Uuid) {
         val listing = listings.findById(listingId)
             ?: throw ListingNotFoundException(listingId)
 

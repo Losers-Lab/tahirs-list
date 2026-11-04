@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging defaults for the server process.
+
+  Deliberately quiet: INFO at the root and for our own code, so a production
+  deployment does not emit framework DEBUG chatter (which can include SQL with
+  parameter values, storage request details and stack traces of expected
+  failures). There is intentionally no request/header logging here and the app
+  does not install Ktor's CallLogging plugin: URLs, cookies and Authorization
+  headers would put bearer tokens and refresh cookies into log files.
+
+  Stack traces stay enabled — they are written to the log only, never into an
+  HTTP response (see the web-api error mapping).
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.tahirslist" level="INFO"/>
+
+    <!-- Third-party libraries that otherwise log at DEBUG/TRACE when Ktor's
+         development defaults or a debugger is attached. -->
+    <logger name="io.ktor" level="INFO"/>
+    <logger name="org.eclipse.jetty" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="org.flywaydb" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

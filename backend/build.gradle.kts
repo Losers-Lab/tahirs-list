@@ -4,18 +4,15 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     java
     alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.kotlin.spring)
-    alias(libs.plugins.spring.boot) apply false
-    alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.kotlin.serialization)
 }
 
-// Version-catalog accessors are generated for the root script scope; capture the
-// BOM version here so subprojects can reference it without the `libs` extension.
-val springBootVersion = libs.versions.spring.boot.get()
-// Same for the shared test deps applied to every subproject below.
+// Version-catalog accessors are only generated for the root script scope; capture
+// the shared test dependencies here so `subprojects {}` can reference them.
 val testKotestRunner = libs.kotest.runner.junit5
 val testKotestAssertions = libs.kotest.assertions.core
 val testMockk = libs.mockk
+val testCoroutinesTest = libs.kotlinx.coroutines.test
 
 allprojects {
     group = "com.tahirslist"
@@ -29,22 +26,13 @@ allprojects {
 subprojects {
     apply(plugin = "java")
     apply(plugin = "org.jetbrains.kotlin.jvm")
-    // Kotlin-spring (all-open) preconfigured: opens classes annotated with
-    // @Component/@Configuration/@SpringBootApplication etc. so CGLIB proxying works.
-    apply(plugin = "org.jetbrains.kotlin.plugin.spring")
-    // Enables the Spring Boot dependencyManagement BOM import below in each module.
-    apply(plugin = "io.spring.dependency-management")
+    // kotlinx.serialization compiler plugin: compile-time generated serializers,
+    // no reflection (the Kotlin-first replacement for Jackson).
+    apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
 
     java {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(21))
-        }
-    }
-
-    // Import the Spring Boot BOM so library versions are managed centrally.
-    dependencyManagement {
-        imports {
-            mavenBom("org.springframework.boot:spring-boot-dependencies:$springBootVersion")
         }
     }
 
@@ -64,8 +52,6 @@ subprojects {
         systemProperty("api.version", "1.44")
         testLogging {
             events("passed", "skipped", "failed")
-            // Surface Testcontainers' docker-client diagnostics (which it writes to
-            // stderr) so harness failures are explainable rather than opaque.
             showStandardStreams = true
             showStackTraces = true
         }
@@ -76,5 +62,6 @@ subprojects {
         "testImplementation"(testKotestRunner)
         "testImplementation"(testKotestAssertions)
         "testImplementation"(testMockk)
+        "testImplementation"(testCoroutinesTest)
     }
 }

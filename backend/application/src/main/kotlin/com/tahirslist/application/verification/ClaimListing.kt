@@ -5,8 +5,9 @@ import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.domain.verification.CertificationImage
 import com.tahirslist.domain.verification.HalalCertificationReview
 import com.tahirslist.domain.verification.VerificationState
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * Owner claim (sc-46): an authenticated listing **owner** submits proof of
@@ -24,10 +25,13 @@ import java.util.UUID
  *     enforced at the edge (deny-by-default resource server, JWT `sub`); this is
  *     the second, owner-scoped guard. Never act on a client-supplied owner.
  *  4. Store the certification image via [CertificationImageStorage] (MinIO/S3).
+ *     The store returns the object key, which is recorded on the review as the
+ *     immutable identity of the evidence.
  *  5. Drive [RequestVerification] (SUBMITTED → AI_REVIEW → AI_SUGGESTED). The AI
  *     only ever *suggests* — the review is never auto-APPROVED here.
  *  6. Persist the resulting review ([HalalCertificationReviewRepository]).
- *     Consent is recorded on the review (repository) with the request.
+ *     Consent is recorded on the review (repository) with the request, and so is
+ *     the certificate key.
  *
  * On a [VerificationProviderException]: the claim is NOT dropped. A review held in
  * [VerificationState.AI_REVIEW] is persisted so it can be retried later, and the
@@ -41,14 +45,14 @@ class ClaimListing(
     private val requestVerification: RequestVerification,
 ) {
 
-    fun execute(
-        listingId: UUID,
-        claimerId: UUID,
+    suspend fun execute(
+        listingId: Uuid,
+        claimerId: Uuid,
         proof: String,
         aiConsentGiven: Boolean,
         contentType: String,
         imageBytes: ByteArray,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview {
         require(proof.trim().isNotBlank()) { "Ownership proof must not be blank." }
         // sc-120 privacy guard: the certification image may be sent to the hosted
@@ -61,8 +65,12 @@ class ClaimListing(
             throw NotListingOwnerException(listingId, claimerId)
         }
 
-        // Evidence archived first, so a later AI outage still leaves the cert on record.
-        certificates.save(listingId, contentType, imageBytes)
+        // Evidence archived first, so a later AI outage still leaves the cert on
+        // record. The returned key is the immutable identity of THIS evidence: it
+        // is recorded on every review row we persist here, so the public display
+        // can serve exactly the artifact the committee saw (never a later
+        // replacement, never unreviewed evidence).
+        val certificateKey = certificates.save(listingId, contentType, imageBytes)
 
         return try {
             val suggested = requestVerification.execute(
@@ -72,12 +80,14 @@ class ClaimListing(
                 now = now,
                 aiConsentGivenAt = now,
             )
-            reviews.save(suggested)
+            reviews.save(suggested.copy(certificateKey = certificateKey))
         } catch (e: VerificationProviderException) {
             // Provider outage: hold a durable AI_REVIEW record for a retry. Never
-            // drop the claim, never auto-grant.
+            // drop the claim, never auto-grant. The archived evidence still has an
+            // identity, so the retry reviews the same artifact.
             val held = HalalCertificationReview.create(listingId, claimerId, now, now)
                 .beginAiReview(now)
+                .copy(certificateKey = certificateKey)
             reviews.save(held)
             throw VerificationUnavailableException(
                 "Verification provider unavailable; review held in AI_REVIEW for retry.",

@@ -2,6 +2,8 @@ package com.tahirslist.application.account
 
 import com.tahirslist.domain.account.Account
 import com.tahirslist.domain.account.Email
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Create Account use case. Validates the submitted password, canonicalises the
@@ -13,7 +15,7 @@ class CreateAccount(
     private val hasher: PasswordHasher,
 ) {
 
-    fun execute(emailRaw: String, password: String): Account {
+    suspend fun execute(emailRaw: String, password: String): Account {
         // Validate strength first (cheap) before any I/O or hashing.
         PasswordPolicy.validate(password)
 
@@ -24,7 +26,8 @@ class CreateAccount(
             throw EmailAlreadyExistsException(email)
         }
 
-        val hashed = hasher.hash(password)
+        // Argon2id hashing is CPU-bound: keep it off the caller's thread.
+        val hashed = withContext(Dispatchers.Default) { hasher.hash(password) }
         val account = Account.new(email = email, passwordHash = hashed)
 
         return repository.save(account)

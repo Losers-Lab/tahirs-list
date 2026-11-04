@@ -1,8 +1,9 @@
 package com.tahirslist.domain.verification
 
-import java.time.Instant
-import java.time.LocalDate
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDate
 
 /**
  * The certification-review aggregate. Owns the verification state machine:
@@ -20,7 +21,8 @@ import java.util.UUID
  * [decision] is the human's final (or reversal) record. [aiConsentGivenAt]
  * records when the submitter explicitly consented to the certification image
  * being analysed by the hosted AI (sc-120) — it may be null for reviews that
- * predate consent (no consent was ever given).
+ * predate consent (no consent was ever given). [certificateKey] identifies the
+ * exact archived evidence this review is about (sc-73 public read surface).
  *
  * NOTE: sc-117 ships the forward path (SUBMITTED -> ... -> AI_SUGGESTED), the
  * human actions (HUMAN_REVIEW -> APPROVED/DENIED) and reversal (APPROVED/DENIED
@@ -28,9 +30,9 @@ import java.util.UUID
  * commands/endpoints land in sc-46/sc-73.
  */
 data class HalalCertificationReview(
-    val id: UUID,
-    val listingId: UUID,
-    val submittedBy: UUID,
+    val id: Uuid,
+    val listingId: Uuid,
+    val submittedBy: Uuid,
     val state: VerificationState,
     val createdAt: Instant,
     val updatedAt: Instant,
@@ -39,17 +41,30 @@ data class HalalCertificationReview(
     val aiConsentGivenAt: Instant? = null,
     val certifier: String? = null,
     val expiresOn: LocalDate? = null,
+    /**
+     * The immutable identity of the certification evidence this review is about:
+     * the object-storage key returned when the claim archived the image (the key
+     * is opaque to the domain; only the storage adapter interprets it).
+     *
+     * The committee decides on *these* bytes, so the public verification display
+     * must resolve this key — never "the most recent upload" — otherwise an owner
+     * could expose still-unreviewed evidence or swap the displayed certificate
+     * after approval without re-review. Set at claim time and preserved by every
+     * transition (approve/deny/reverse copy the aggregate). Null for reviews that
+     * predate identity-tracked evidence.
+     */
+    val certificateKey: String? = null,
 ) {
     companion object {
 
         /** Start a review in [VerificationState.SUBMITTED] for [listingId]. */
         fun create(
-            listingId: UUID,
-            submittedBy: UUID,
-            now: Instant = Instant.now(),
+            listingId: Uuid,
+            submittedBy: Uuid,
+            now: Instant = Clock.System.now(),
             aiConsentGivenAt: Instant? = null,
         ): HalalCertificationReview = HalalCertificationReview(
-            id = UUID.randomUUID(),
+            id = Uuid.random(),
             listingId = listingId,
             submittedBy = submittedBy,
             state = VerificationState.SUBMITTED,
@@ -60,7 +75,7 @@ data class HalalCertificationReview(
     }
 
     /** SUBMITTED -> AI_REVIEW (the hosted model now reviews the certification). */
-    fun beginAiReview(now: Instant = Instant.now()): HalalCertificationReview =
+    fun beginAiReview(now: Instant = Clock.System.now()): HalalCertificationReview =
         transition(setOf(VerificationState.SUBMITTED), "begin AI review") {
             copy(state = VerificationState.AI_REVIEW, updatedAt = now)
         }
@@ -68,7 +83,7 @@ data class HalalCertificationReview(
     /** AI_REVIEW -> AI_SUGGESTED (records the AI's conservative [suggestion]). */
     fun recordAiSuggestion(
         suggestion: VerificationSuggestion,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview =
         transition(setOf(VerificationState.AI_REVIEW), "record an AI suggestion") {
             copy(
@@ -79,16 +94,16 @@ data class HalalCertificationReview(
         }
 
     /** AI_SUGGESTED -> HUMAN_REVIEW (a committee member takes the review up). */
-    fun beginHumanReview(now: Instant = Instant.now()): HalalCertificationReview =
+    fun beginHumanReview(now: Instant = Clock.System.now()): HalalCertificationReview =
         transition(setOf(VerificationState.AI_SUGGESTED), "begin human review") {
             copy(state = VerificationState.HUMAN_REVIEW, updatedAt = now)
         }
 
     /** AI_SUGGESTED -> HUMAN_REVIEW -> APPROVED (the listing may become VERIFIED — sc-46/73). */
     fun approve(
-        decidedBy: UUID,
+        decidedBy: Uuid,
         reason: String? = null,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
         certifier: String? = null,
         expiresOn: LocalDate? = null,
     ): HalalCertificationReview =
@@ -104,9 +119,9 @@ data class HalalCertificationReview(
 
     /** HUMAN_REVIEW -> DENIED (verification refused). */
     fun deny(
-        decidedBy: UUID,
+        decidedBy: Uuid,
         reason: String? = null,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview =
         transition(setOf(VerificationState.HUMAN_REVIEW), "deny") {
             copy(
@@ -123,9 +138,9 @@ data class HalalCertificationReview(
      * posture (a separate, caller concern); it never reopens this review.
      */
     fun reverse(
-        decidedBy: UUID,
+        decidedBy: Uuid,
         reason: String? = null,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview =
         transition(setOf(VerificationState.APPROVED, VerificationState.DENIED), "reverse") {
             copy(

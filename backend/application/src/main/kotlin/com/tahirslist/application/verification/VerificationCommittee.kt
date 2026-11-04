@@ -4,9 +4,10 @@ import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.domain.restaurant.VerificationStatus
 import com.tahirslist.domain.verification.HalalCertificationReview
 import com.tahirslist.domain.verification.VerificationState
-import java.time.Instant
-import java.time.LocalDate
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDate
 
 /**
  * sc-73: the human Verification Committee decision loop.
@@ -30,7 +31,7 @@ class VerificationCommittee(
 ) {
 
     /** The VC workqueue: every review awaiting a human decision. */
-    fun listPending(): List<HalalCertificationReview> =
+    suspend fun listPending(): List<HalalCertificationReview> =
         reviews.findByState(VerificationState.AI_SUGGESTED)
 
     /**
@@ -46,11 +47,11 @@ class VerificationCommittee(
      *         a now-missing listing)
      * @throws ReviewNotPendingException if the review is not in a decidable state
      */
-    fun approve(
-        reviewId: UUID,
-        decidedBy: UUID,
+    suspend fun approve(
+        reviewId: Uuid,
+        decidedBy: Uuid,
         reason: String? = null,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
         certifier: String? = null,
         expiresOn: LocalDate? = null,
     ): HalalCertificationReview {
@@ -73,11 +74,11 @@ class VerificationCommittee(
      * @throws ReviewNotFoundException if no review has [reviewId]
      * @throws ReviewNotPendingException if the review is not in a decidable state
      */
-    fun deny(
-        reviewId: UUID,
-        decidedBy: UUID,
+    suspend fun deny(
+        reviewId: Uuid,
+        decidedBy: Uuid,
         reason: String,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview {
         require(reason.trim().isNotBlank()) { "A denial must record a reason." }
         return decide(reviewId, decidedBy, reason, now) {
@@ -86,9 +87,9 @@ class VerificationCommittee(
     }
 
     /** Load the review, walk HUMAN_REVIEW, apply [finalize], and persist it. */
-    private fun decide(
-        reviewId: UUID,
-        decidedBy: UUID,
+    private suspend fun decide(
+        reviewId: Uuid,
+        decidedBy: Uuid,
         reason: String?,
         now: Instant,
         finalize: (HalalCertificationReview) -> HalalCertificationReview,

@@ -13,5 +13,5 @@ package com.tahirslist.application.image
  *    caller treats that as a per-row ingest failure, not a silent skip.
  */
 fun interface ImageFetcher {
-    fun fetch(url: String): ByteArray
+    suspend fun fetch(url: String): ByteArray
 }

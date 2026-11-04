@@ -2,7 +2,7 @@
 type: handoff-document
 title: "02 — Architecture: How Tahir's List Is Built"
 description: "The ratified stack, hexagonal module layout, repository structure, data model, API surface, and the architecture decisions that are settled versus still open."
-tags: [tahirs-list, architecture, backend, frontend, kotlin, spring-boot, postgis, nextjs]
+tags: [tahirs-list, architecture, backend, frontend, kotlin, ktor, postgis, nextjs]
 status: active
 generated: 2026-11-02
 generated_by: adnan
@@ -34,20 +34,20 @@ U-15) and open flags (certificate expiry/revocation).
 
 | Layer | Decision |
 |-------|----------|
-| Backend language | **Kotlin** 2.x |
-| Backend framework | **Spring Boot 3.3+**, blocking thread-per-request with **virtual threads** (explicitly **not** WebFlux) |
-| Build | **Gradle (Kotlin DSL)**, JDK 21 LTS (Temurin), **Jib** OCI images |
+| Backend language | **Kotlin** 2.4 |
+| Backend framework | **Ktor 3.6** (coroutines, CIO engine; Kotlin-first rework 2026-11-03) |
+| Build | **Gradle 9.8 (Kotlin DSL)**, JDK 21 LTS (Temurin), configuration cache |
 | Database | **PostgreSQL 16/17 + PostGIS 3.4** |
-| Data access | **jOOQ** (search) + **Spring Data JDBC** (CRUD); **Flyway** migrations. JPA/Hibernate and Mongo are explicitly denied. |
-| API contract | Code-first REST via **springdoc-openapi**; committed, CI-linted, versioned **OpenAPI 3.1** at `/v1` |
-| Auth | Spring Security OAuth2 resource server; email/password with **Argon2id**; short **JWT (RS256)** access tokens + **rotating hashed refresh** tokens in HttpOnly cookies; RBAC for 6 roles + anonymous + extension API keys |
+| Data access | **Exposed 1.6** (suspend transactions; raw SQL for PostGIS); **Flyway** migrations. JPA/Hibernate and Mongo are explicitly denied. |
+| API contract | Committed **OpenAPI 3.1** at `/v1`, validated against Ktor routes; runtime generation is a follow-up |
+| Auth | Ktor JWT authentication (Nimbus verification); email/password with **Argon2id**; short **JWT (RS256)** access tokens + **rotating hashed refresh** tokens in HttpOnly cookies; RBAC for 6 roles + anonymous + extension API keys |
 | Geo | PostGIS `geography(Point,4326)` + GiST; one query using `ST_DWithin` (filter) and `ST_DistanceSphere` (order); denormalized `listing_search` table; offset paging; **straight-line haversine, miles** |
 | Object storage | **MinIO self-hosted** (S3-compatible) for MVP; private bucket, presigned PUT/GET, namespaced keys, versioning + SHA-256 audit. **Cloudflare R2 is the target later**; build against the S3 SDK on a configurable endpoint. |
 | Verification | **Hosted multimodal vision API** (Gemini 2.5 Flash, paid tier) behind a `VerificationProvider` port; conservative verdict; **human review mandatory**. Alternative considered: Claude Haiku 4.5. |
 | Frontend | **Next.js (TypeScript)**, SSR/SEO; later wrapped in **Capacitor** for mobile. Typed client generated from OpenAPI. |
 | Extensions | MV3 thin content-script overlays for Google + Yelp, shared TS core, address matching. In MVP scope; not built. |
-| Hosting | **Hetzner VPS** (CX/CAX line, ~US$6–7/mo) self-hosting Postgres+PostGIS, MinIO, the Spring Boot image, and the async verification worker. **Ratified but not provisioned.** |
-| Testing | **Kotest + MockK + Testcontainers (PostGIS)** + Spring Test slices; hexagonal modules `:domain → :application → adapters → :bootstrap` |
+| Hosting | **Hetzner VPS** (CX/CAX line, ~US$6–7/mo) self-hosting Postgres+PostGIS, MinIO, the Ktor app image, and the async verification worker. **Ratified but not provisioned.** |
+| Testing | **Kotest + MockK + Testcontainers (PostGIS)** + Ktor testApplication; hexagonal modules `:domain → :application → adapters → :bootstrap` |
 
 ### Deliberate constraints you must not violate
 
@@ -57,10 +57,12 @@ U-15) and open flags (certificate expiry/revocation).
   Gradle, no Node, no npm on the host. **Docker is the only build runtime.**
 - Backend build/test: `./scripts/backend-test.sh` (Gradle + tests in
   `eclipse-temurin:21-jdk`); `./scripts/backend-test.sh test-only` for tests only.
-- Frontend build/test: `./scripts/frontend-test.sh` (`npm ci` + `next build` in
-  `node:22`); `dev-install` skips the clean install.
-- Dependencies cache in named volumes (`halal-gradle-cache`, `halal-npm-cache`),
-  never in the repo tree.
+- Frontend build/test: `./scripts/frontend-test.sh` (frozen `pnpm install` +
+  `svelte-check` + `vitest` + `vite build` in `node:24-slim`); `dev-install`
+  allows lockfile drift.
+- Dependencies cache in named volumes (`tahirs-list-gradle-test-cache`,
+  `tahirs-list-pnpm-store`, `tahirs-list-frontend-node_modules`), never in the
+  repo tree.
 - New tooling (linters, generators, migration tools) also runs in containers. If
   you reach for `apt`/`pip install -g`/`npm install -g` on the host, stop.
 
@@ -88,17 +90,17 @@ halal-food-finder/
 ├── README.md                  product overview + personas
 ├── ARCHITECTURE.md            agreed architecture + open decisions
 ├── AGENTS.md                  engineering rules (read before coding)
-├── backend/                   Kotlin/Spring Boot, Gradle multi-module
+├── backend/                   Kotlin/Ktor, Gradle multi-module
 │   ├── domain/                entities, value objects, domain rules
 │   ├── application/           use cases, ports
 │   ├── adapters/
-│   │   ├── persistence/       jOOQ/Spring Data JDBC repos + Flyway migrations
+│   │   ├── persistence/       Exposed repos + Flyway migrations
 │   │   ├── geocoding/         Photon/Google geocoder adapters
 │   │   ├── storage-s3/        MinIO/S3 image port
 │   │   ├── verification-ai/   hosted vision adapter
 │   │   ├── verification-committee/  human review adapter
 │   │   └── web-api/           controllers, security, error handling
-│   ├── bootstrap/             Spring Boot application entry point
+│   ├── bootstrap/             Ktor composition root (Koin modules + entrypoint)
 │   ├── openapi/               committed OpenAPI spec
 │   ├── docker-compose.yml     PostGIS + MinIO (+ minio-init)
 │   └── settings.gradle.kts    module graph
@@ -134,29 +136,24 @@ Registered projects: `:domain`, `:application`, `:persistence`, `:geocoding`,
 
 This is a genuine hexagonal layout: domain and application do not depend on
 frameworks; adapters do. Keep it that way. If a change makes `:domain` import
-Spring, the architecture has been violated.
+Ktor/Exposed, the architecture has been violated.
 
 ## API surface
 
-**Established** from controllers in `backend/adapters/web-api`:
+**Established** from the Ktor route modules in `backend/adapters/web-api`:
 
-| Controller | Responsibility |
+| Route module | Responsibility |
 |------------|----------------|
-| `SignupController` | Account creation |
-| `LoginController` | Login, token issuance |
-| `RefreshController` | Refresh-token rotation |
-| `LogoutController` | Server-side logout |
-| `MeController` | Current-user identity |
-| `ListingController` | Create/update listing, owner operations |
-| `ListingReadController` | Listing read surface |
-| `FavoritesController` | Favorites |
-| `VerificationClaimController` | Owner claim + verification submission |
-| `VerificationCommitteeController` | VC queue, approve/deny |
-| `HealthController` | Health endpoint |
+| `AuthRoutes` | Signup, login, refresh, logout |
+| `MeRoutes` | Current-user identity |
+| `ListingRoutes` | Listing read surface, create/update, owner image operations |
+| `FavoriteRoutes` | Favorites |
+| `VerificationRoutes` | Owner claim + committee queue, approve/deny |
+| `HealthRoutes` | Liveness probe (`GET /v1/health`) |
 
-Plus image endpoints on listings (`sc-53`/`sc-54`, merged) and `/actuator/health`
-for readiness. The OpenAPI spec is committed under `backend/openapi/`; regenerate
-frontend types with `npm run codegen:api`.
+Plus image endpoints on listings (`sc-53`/`sc-54`, merged) and `/v1/health`
+for readiness. The OpenAPI spec is committed under `backend/openapi/`; frontend
+types are generated from it by the SvelteKit frontend.
 
 ## Data model and migrations
 
@@ -221,7 +218,7 @@ favorites provider, listing data/schemas, review data, verification queue).
 **Built and merged:**
 
 - Auth end-to-end (signup, login, refresh, logout, me, JWT filter, rate limiting,
-  security headers, actuator lockdown, fail-fast config).
+  security headers, deny-by-default 401 lockdown, fail-fast config).
 - Listings create/read/update, owner edit, owner image add/remove (backend).
 - Search with PostGIS geo filtering and filters for hand-cut, price, cuisine,
   rating, distance, pickup/delivery.

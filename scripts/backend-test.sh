@@ -4,7 +4,7 @@
 #
 # Usage:
 #   ./scripts/backend-test.sh              # full build + tests
-#   ./scripts/backend-test.sh test-only    # :persistence:test only (faster)
+#   ./scripts/backend-test.sh test-only    # all test tasks, no packaging
 set -euo pipefail
 # Works from repo root OR from a worktree (e.g. .worktrees/t_xxx) — finds the nearest backend/ dir.
 if [ -d "$(dirname "$0")/../backend" ]; then
@@ -31,12 +31,13 @@ MODE="${1:-full}"
 #   - TESTCONTAINERS_RYUK_DISABLED=true: Ryuk reaper has the same cross-container
 #     networking problem. Cleanup falls to --rm on the sibling containers.
 
-GRADLE_TASKS="./gradlew --no-daemon test"
+GRADLE_TASKS="./gradlew --no-daemon --project-cache-dir=/tmp/gradle-project-cache test"
 if [ "$MODE" != "test-only" ]; then
-  GRADLE_TASKS="./gradlew --no-daemon build"
+  GRADLE_TASKS="./gradlew --no-daemon --project-cache-dir=/tmp/gradle-project-cache build"
 fi
 
 docker run --rm \
+  --memory=3g --cpus=2 \
   -v "$PWD":/app \
   -w /app \
   -v tahirs-list-gradle-test-cache:/gradle-home \

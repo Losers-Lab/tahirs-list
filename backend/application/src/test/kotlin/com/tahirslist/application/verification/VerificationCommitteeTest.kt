@@ -14,11 +14,14 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.clearMocks
-import io.mockk.every
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.verify
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 
 /**
  * sc-73 application use case, TDD:
@@ -32,15 +35,15 @@ import java.util.UUID
 class VerificationCommitteeTest : FunSpec({
 
     val now = Instant.parse("2026-09-01T12:00:00Z")
-    val vcId = UUID.randomUUID()
-    val listingId = UUID.randomUUID()
-    val ownerId = UUID.randomUUID()
+    val vcId = Uuid.random()
+    val listingId = Uuid.random()
+    val ownerId = Uuid.random()
 
     val reviews = mockk<HalalCertificationReviewRepository>()
     val listings = mockk<RestaurantListingRepository>()
     val committee = VerificationCommittee(reviews, listings)
 
-    fun pendingReview(id: UUID): HalalCertificationReview = HalalCertificationReview(
+    fun pendingReview(id: Uuid): HalalCertificationReview = HalalCertificationReview(
         id = id,
         listingId = listingId,
         submittedBy = ownerId,
@@ -63,116 +66,132 @@ class VerificationCommitteeTest : FunSpec({
             brandId = null,
             provenance = null,
             verificationStatus = status,
-            createdAt = Instant.now(),
+            createdAt = Clock.System.now(),
         )
 
     beforeTest { clearMocks(reviews, listings) }
 
     test("listPending returns every review awaiting a human decision") {
-        val r1 = pendingReview(UUID.randomUUID())
-        val r2 = pendingReview(UUID.randomUUID())
-        every { reviews.findByState(VerificationState.AI_SUGGESTED) } returns listOf(r1, r2)
+        runTest {
+            val r1 = pendingReview(Uuid.random())
+            val r2 = pendingReview(Uuid.random())
+            coEvery { reviews.findByState(VerificationState.AI_SUGGESTED) } returns listOf(r1, r2)
 
-        committee.listPending() shouldBe listOf(r1, r2)
-        verify { reviews.findByState(VerificationState.AI_SUGGESTED) }
+            committee.listPending() shouldBe listOf(r1, r2)
+            coVerify { reviews.findByState(VerificationState.AI_SUGGESTED) }
+        }
     }
 
     test("approve walks the review to APPROVED and promotes the listing to VERIFIED") {
-        val reviewId = UUID.randomUUID()
-        val pending = pendingReview(reviewId)
-        every { reviews.findById(reviewId) } returns pending
-        every { reviews.save(any()) } returnsArgument 0
-        every { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) } returns aListing(VerificationStatus.VERIFIED)
+        runTest {
+            val reviewId = Uuid.random()
+            val pending = pendingReview(reviewId)
+            coEvery { reviews.findById(reviewId) } returns pending
+            coEvery { reviews.save(any()) } coAnswers { firstArg() }
+            coEvery { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) } returns aListing(VerificationStatus.VERIFIED)
 
-        val result = committee.approve(reviewId, vcId, reason = "cert matches listing", now = now)
+            val result = committee.approve(reviewId, vcId, reason = "cert matches listing", now = now)
 
-        result.state shouldBe VerificationState.APPROVED
-        val decision = result.decision!!
-        decision.outcome shouldBe VerificationOutcome.APPROVED
-        decision.decidedBy shouldBe vcId
-        decision.reason shouldBe "cert matches listing"
-        verify { reviews.save(match { it.state == VerificationState.APPROVED }) }
-        verify { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) }
+            result.state shouldBe VerificationState.APPROVED
+            val decision = result.decision!!
+            decision.outcome shouldBe VerificationOutcome.APPROVED
+            decision.decidedBy shouldBe vcId
+            decision.reason shouldBe "cert matches listing"
+            coVerify { reviews.save(match { it.state == VerificationState.APPROVED }) }
+            coVerify { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) }
+        }
     }
 
     test("approve records the certifier and expiry on the approved review (sc-73 read surface)") {
-        val reviewId = UUID.randomUUID()
-        val expiresOn = java.time.LocalDate.of(2027, 1, 12)
-        every { reviews.findById(reviewId) } returns pendingReview(reviewId)
-        every { reviews.save(any()) } returnsArgument 0
-        every { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) } returns aListing(VerificationStatus.VERIFIED)
+        runTest {
+            val reviewId = Uuid.random()
+            val expiresOn = LocalDate(2027, 1, 12)
+            coEvery { reviews.findById(reviewId) } returns pendingReview(reviewId)
+            coEvery { reviews.save(any()) } coAnswers { firstArg() }
+            coEvery { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) } returns aListing(VerificationStatus.VERIFIED)
 
-        val result = committee.approve(reviewId, vcId, now = now, certifier = "HFSAA", expiresOn = expiresOn)
+            val result = committee.approve(reviewId, vcId, now = now, certifier = "HFSAA", expiresOn = expiresOn)
 
-        result.certifier shouldBe "HFSAA"
-        result.expiresOn shouldBe expiresOn
-        verify { reviews.save(match { it.certifier == "HFSAA" && it.expiresOn == expiresOn }) }
+            result.certifier shouldBe "HFSAA"
+            result.expiresOn shouldBe expiresOn
+            coVerify { reviews.save(match { it.certifier == "HFSAA" && it.expiresOn == expiresOn }) }
+        }
     }
 
     test("approve rejects a review that is not pending") {
-        val reviewId = UUID.randomUUID()
-        val alreadyApproved = pendingReview(reviewId)
-            .beginHumanReview(now)
-            .approve(decidedBy = vcId, now = now)
-        every { reviews.findById(reviewId) } returns alreadyApproved
+        runTest {
+            val reviewId = Uuid.random()
+            val alreadyApproved = pendingReview(reviewId)
+                .beginHumanReview(now)
+                .approve(decidedBy = vcId, now = now)
+            coEvery { reviews.findById(reviewId) } returns alreadyApproved
 
-        val ex = shouldThrow<ReviewNotPendingException> {
-            committee.approve(reviewId, vcId, now = now)
+            val ex = shouldThrow<ReviewNotPendingException> {
+                committee.approve(reviewId, vcId, now = now)
+            }
+
+            ex.state shouldBe VerificationState.APPROVED
+            coVerify(exactly = 0) { reviews.save(any()) }
+            coVerify(exactly = 0) { listings.updateVerificationStatus(any(), any()) }
         }
-
-        ex.state shouldBe VerificationState.APPROVED
-        verify(exactly = 0) { reviews.save(any()) }
-        verify(exactly = 0) { listings.updateVerificationStatus(any(), any()) }
     }
 
     test("approve of a nonexistent review is rejected") {
-        val reviewId = UUID.randomUUID()
-        every { reviews.findById(reviewId) } returns null
+        runTest {
+            val reviewId = Uuid.random()
+            coEvery { reviews.findById(reviewId) } returns null
 
-        shouldThrow<ReviewNotFoundException> {
-            committee.approve(reviewId, vcId, now = now)
+            shouldThrow<ReviewNotFoundException> {
+                committee.approve(reviewId, vcId, now = now)
+            }
+
+            coVerify(exactly = 0) { reviews.save(any()) }
+            coVerify(exactly = 0) { listings.updateVerificationStatus(any(), any()) }
         }
-
-        verify(exactly = 0) { reviews.save(any()) }
-        verify(exactly = 0) { listings.updateVerificationStatus(any(), any()) }
     }
 
     test("approve fails loudly if the listing was removed after the review was created") {
-        val reviewId = UUID.randomUUID()
-        every { reviews.findById(reviewId) } returns pendingReview(reviewId)
-        every { reviews.save(any()) } returnsArgument 0
-        every { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) } returns null
+        runTest {
+            val reviewId = Uuid.random()
+            coEvery { reviews.findById(reviewId) } returns pendingReview(reviewId)
+            coEvery { reviews.save(any()) } coAnswers { firstArg() }
+            coEvery { listings.updateVerificationStatus(listingId, VerificationStatus.VERIFIED) } returns null
 
-        shouldThrow<ReviewNotFoundException> {
-            committee.approve(reviewId, vcId, now = now)
+            shouldThrow<ReviewNotFoundException> {
+                committee.approve(reviewId, vcId, now = now)
+            }
         }
     }
 
     test("deny walks the review to DENIED with the reason and does NOT promote the listing") {
-        val reviewId = UUID.randomUUID()
-        val pending = pendingReview(reviewId)
-        every { reviews.findById(reviewId) } returns pending
-        every { reviews.save(any()) } returnsArgument 0
+        runTest {
+            val reviewId = Uuid.random()
+            val pending = pendingReview(reviewId)
+            coEvery { reviews.findById(reviewId) } returns pending
+            coEvery { reviews.save(any()) } coAnswers { firstArg() }
 
-        val result = committee.deny(reviewId, vcId, reason = "cert image unreadable", now = now)
+            val result = committee.deny(reviewId, vcId, reason = "cert image unreadable", now = now)
 
-        result.state shouldBe VerificationState.DENIED
-        val decision = result.decision!!
-        decision.outcome shouldBe VerificationOutcome.DENIED
-        decision.decidedBy shouldBe vcId
-        decision.reason shouldBe "cert image unreadable"
-        verify { reviews.save(match { it.state == VerificationState.DENIED }) }
-        verify(exactly = 0) { listings.updateVerificationStatus(any(), any()) }
+            result.state shouldBe VerificationState.DENIED
+            val decision = result.decision!!
+            decision.outcome shouldBe VerificationOutcome.DENIED
+            decision.decidedBy shouldBe vcId
+            decision.reason shouldBe "cert image unreadable"
+            coVerify { reviews.save(match { it.state == VerificationState.DENIED }) }
+            coVerify(exactly = 0) { listings.updateVerificationStatus(any(), any()) }
+        }
     }
 
     test("deny rejects a blank reason") {
-        val reviewId = UUID.randomUUID()
-        every { reviews.findById(reviewId) } returns pendingReview(reviewId)
+        runTest {
+            val reviewId = Uuid.random()
+            coEvery { reviews.findById(reviewId) } returns pendingReview(reviewId)
 
-        shouldThrow<IllegalArgumentException> {
-            committee.deny(reviewId, vcId, reason = "   ", now = now)
+            shouldThrow<IllegalArgumentException> {
+                committee.deny(reviewId, vcId, reason = "   ", now = now)
+            }
+
+            coVerify(exactly = 0) { reviews.save(any()) }
         }
-
-        verify(exactly = 0) { reviews.save(any()) }
     }
 })

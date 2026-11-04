@@ -1,26 +1,36 @@
 package com.tahirslist.storage.s3
 
+import aws.sdk.kotlin.services.s3.S3Client
+import aws.sdk.kotlin.services.s3.createBucket
+import aws.sdk.kotlin.services.s3.listObjectsV2
+import aws.sdk.kotlin.services.s3.model.GetObjectRequest
+import aws.sdk.kotlin.services.s3.model.NoSuchKey
+import aws.smithy.kotlin.runtime.content.toByteArray
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.testcontainers.containers.MinIOContainer
 import org.testcontainers.utility.DockerImageName
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.GetObjectRequest
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException
-import java.util.UUID
 
 /**
  * MinIO-backed proof that the certification-image adapter (sc-46) persists under
  * its own `certifications/` key namespace and round-trips bytes + content type.
+ * Also pins the sc-73 identity contract: `save` returns the object key and
+ * `load(key)` reads exactly that object (and only that object), so the public
+ * certificate display cannot drift to "whatever was uploaded last".
  * Runs in the containerized test (CI); no live storage is touched.
+ *
+ * The adapter and its [S3Client] come from the production Kotlin-SDK factories
+ * ([createS3Client] / [createCertificationStorage]); the port is suspend, so the
+ * scenarios run inside [runTest].
  */
 class S3CertificationImageStorageTest : FunSpec() {
+
+    private val bucket = "certification-test"
 
     private val s3: S3Client = run {
         val minio: MinIOContainer = MinIOContainer(
@@ -30,83 +40,152 @@ class S3CertificationImageStorageTest : FunSpec() {
                 .asCompatibleSubstituteFor("minio/minio"),
         )
         minio.start()
-        S3Client.builder()
-            .endpointOverride(java.net.URI.create(minio.s3URL))
-            .credentialsProvider(
-                StaticCredentialsProvider.create(AwsBasicCredentials.create(minio.userName, minio.password)),
-            )
-            .region(Region.of("us-east-1"))
-            .serviceConfiguration(
-                software.amazon.awssdk.services.s3.S3Configuration.builder()
-                    .pathStyleAccessEnabled(true)
-                    .build(),
-            )
-            .build()
+        createS3Client(
+            S3StorageConfig(
+                endpoint = minio.s3URL,
+                region = "us-east-1",
+                accessKey = minio.userName,
+                secretKey = minio.password,
+                bucket = bucket,
+            ),
+        )
     }
 
-    private val bucket = "certification-test"
-    private val storage = S3CertificationImageStorage(s3 = s3, bucket = bucket)
+    private val storage = createCertificationStorage(s3, bucket)
 
     init {
+        beforeSpec {
+            // The "missing key yields NoSuchKey" scenario must not accidentally hit
+            // a missing bucket (which surfaces as a different modeled 404 error).
+            runTest {
+                s3.createBucket { bucket = this@S3CertificationImageStorageTest.bucket }
+            }
+        }
+
         test("save writes the certification image under the certifications/ namespace and round-trips it") {
-            val listingId = UUID.randomUUID()
-            val bytes = byteArrayOf(1, 2, 3, 4)
+            runTest {
+                val listingId = Uuid.random()
+                val bytes = byteArrayOf(1, 2, 3, 4)
 
-            storage.save(listingId, "image/jpeg", bytes)
+                storage.save(listingId, "image/jpeg", bytes)
 
-            val listingObjects = s3.listObjectsV2(
-                ListObjectsV2Request.builder().bucket(bucket).prefix("certifications/$listingId/").build(),
-            ).contents()
-            listingObjects.size shouldBe 1
-            val key = listingObjects[0].key()
-            key.startsWith("certifications/$listingId/") shouldBe true
+                val listingObjects = s3.listObjectsV2 {
+                    bucket = this@S3CertificationImageStorageTest.bucket
+                    prefix = "certifications/$listingId/"
+                }.contents.orEmpty()
+                listingObjects.size shouldBe 1
+                val key = requireNotNull(listingObjects[0].key)
+                key.startsWith("certifications/$listingId/") shouldBe true
 
-            val got = s3.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())
-            got.readAllBytes() shouldBe bytes
-            got.response().contentType() shouldBe "image/jpeg"
+                val (storedBytes, storedType) = s3.getObject(
+                    GetObjectRequest {
+                        bucket = this@S3CertificationImageStorageTest.bucket
+                        this.key = key
+                    },
+                ) { response ->
+                    (response.body?.toByteArray() ?: ByteArray(0)) to response.contentType
+                }
+                storedBytes shouldBe bytes
+                storedType shouldBe "image/jpeg"
+            }
         }
 
         test("each upload for the same listing gets a fresh key (history is not overwritten)") {
-            val listingId = UUID.randomUUID()
+            runTest {
+                val listingId = Uuid.random()
 
-            storage.save(listingId, "image/jpeg", byteArrayOf(1))
-            storage.save(listingId, "image/png", byteArrayOf(2))
+                storage.save(listingId, "image/jpeg", byteArrayOf(1))
+                storage.save(listingId, "image/png", byteArrayOf(2))
 
-            val listingObjects = s3.listObjectsV2(
-                ListObjectsV2Request.builder().bucket(bucket).prefix("certifications/$listingId/").build(),
-            ).contents()
-            listingObjects.size shouldBe 2
-            listingObjects.map { it.key() }.toSet().size shouldBe 2
+                val listingObjects = s3.listObjectsV2 {
+                    bucket = this@S3CertificationImageStorageTest.bucket
+                    prefix = "certifications/$listingId/"
+                }.contents.orEmpty()
+                listingObjects.size shouldBe 2
+                listingObjects.mapNotNull { it.key }.toSet().size shouldBe 2
+            }
         }
 
-        test("a missing certification image key yields NoSuchKeyException (no silent empty read)") {
-            val phantom = "certifications/${UUID.randomUUID()}/${UUID.randomUUID()}"
+        test("a missing certification image key yields NoSuchKey (no silent empty read)") {
+            runTest {
+                val phantom = "certifications/${Uuid.random()}/${Uuid.random()}"
 
-            shouldThrow<NoSuchKeyException> {
-                s3.getObject(GetObjectRequest.builder().bucket(bucket).key(phantom).build())
+                shouldThrow<NoSuchKey> {
+                    // shouldThrow's block is non-suspend; bridge the suspend SDK call.
+                    runBlocking {
+                        s3.getObject(
+                            GetObjectRequest {
+                                bucket = this@S3CertificationImageStorageTest.bucket
+                                key = phantom
+                            },
+                        ) { }
+                    }
+                }
+            }
+        }
+
+        test("load returns null for a key that does not exist") {
+            runTest {
+                val phantom = "certifications/${Uuid.random()}/${Uuid.random()}"
+
+                storage.load(phantom) shouldBe null
+            }
+        }
+
+        test("save returns the object key and load(key) reads exactly that object (approved-artifact addressing)") {
+            runTest {
+                val listingId = Uuid.random()
+                val bytes = byteArrayOf(5, 6, 7)
+
+                val key = storage.save(listingId, "image/png", bytes)
+
+                key.startsWith("certifications/$listingId/") shouldBe true
+                val loaded = storage.load(key)
+                loaded shouldNotBe null
+                loaded!!.contentType shouldBe "image/png"
+                loaded.bytes shouldBe bytes
+            }
+        }
+
+        test("load(key) keeps addressing the reviewed object after a later re-claim uploads new evidence") {
+            runTest {
+                val listingId = Uuid.random()
+                val reviewed = byteArrayOf(1, 1, 1)
+
+                val reviewedKey = storage.save(listingId, "image/jpeg", reviewed)
+                // owner replaces the certificate after approval: a new object, new key
+                storage.save(listingId, "image/png", byteArrayOf(2, 2, 2))
+
+                val stillReviewed = storage.load(reviewedKey)
+                stillReviewed!!.contentType shouldBe "image/jpeg"
+                stillReviewed.bytes shouldBe reviewed
             }
         }
 
         test("loadLatest reads back the most recently saved certification image, round-tripping bytes + content type") {
-            val listingId = UUID.randomUUID()
+            runTest {
+                val listingId = Uuid.random()
 
-            storage.save(listingId, "image/png", byteArrayOf(9, 8, 7))
+                storage.save(listingId, "image/png", byteArrayOf(9, 8, 7))
 
-            val latest = storage.loadLatest(listingId)
+                val latest = storage.loadLatest(listingId)
 
-            latest shouldNotBe null
-            latest!!.contentType shouldBe "image/png"
-            latest.bytes shouldBe byteArrayOf(9, 8, 7)
+                latest shouldNotBe null
+                latest!!.contentType shouldBe "image/png"
+                latest.bytes shouldBe byteArrayOf(9, 8, 7)
+            }
         }
 
         test("loadLatest returns non-null across re-claims (history kept) and null for a listing with no cert") {
-            val listingId = UUID.randomUUID()
+            runTest {
+                val listingId = Uuid.random()
 
-            storage.save(listingId, "image/jpeg", byteArrayOf(1, 2))
-            storage.save(listingId, "image/png", byteArrayOf(3, 4))
+                storage.save(listingId, "image/jpeg", byteArrayOf(1, 2))
+                storage.save(listingId, "image/png", byteArrayOf(3, 4))
 
-            storage.loadLatest(listingId) shouldNotBe null
-            storage.loadLatest(UUID.randomUUID()) shouldBe null
+                storage.loadLatest(listingId) shouldNotBe null
+                storage.loadLatest(Uuid.random()) shouldBe null
+            }
         }
     }
 }

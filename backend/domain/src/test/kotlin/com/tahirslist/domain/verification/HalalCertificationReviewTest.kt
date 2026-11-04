@@ -3,8 +3,9 @@ package com.tahirslist.domain.verification
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDate
 
 /**
  * Pins the SUBMITTED -> AI_REVIEW -> AI_SUGGESTED -> HUMAN_REVIEW ->
@@ -19,8 +20,8 @@ class HalalCertificationReviewTest : FunSpec({
     val now = Instant.parse("2026-08-31T12:00:00Z")
     fun review(state: VerificationState = VerificationState.SUBMITTED) =
         HalalCertificationReview.create(
-            listingId = UUID.randomUUID(),
-            submittedBy = UUID.randomUUID(),
+            listingId = Uuid.random(),
+            submittedBy = Uuid.random(),
             now = now,
         ).let {
             when (state) {
@@ -43,8 +44,8 @@ class HalalCertificationReviewTest : FunSpec({
     test("consent is recorded on the review and survives every transition") {
         val consentGivenAt = now
         val started = HalalCertificationReview.create(
-            listingId = UUID.randomUUID(),
-            submittedBy = UUID.randomUUID(),
+            listingId = Uuid.random(),
+            submittedBy = Uuid.random(),
             now = now,
             aiConsentGivenAt = consentGivenAt,
         )
@@ -54,12 +55,12 @@ class HalalCertificationReviewTest : FunSpec({
             .recordAiSuggestion(VerificationSuggestion(SuggestionVerdict.NEEDS_REVIEW, 0.5), now)
         suggested.aiConsentGivenAt shouldBe consentGivenAt
 
-        val human = suggested.beginHumanReview(now).approve(UUID.randomUUID(), "ok", now)
+        val human = suggested.beginHumanReview(now).approve(Uuid.random(), "ok", now)
         human.aiConsentGivenAt shouldBe consentGivenAt
     }
 
     test("a review can be created without consent (null when not given)") {
-        HalalCertificationReview.create(UUID.randomUUID(), UUID.randomUUID(), now)
+        HalalCertificationReview.create(Uuid.random(), Uuid.random(), now)
             .aiConsentGivenAt shouldBe null
     }
 
@@ -77,7 +78,7 @@ class HalalCertificationReviewTest : FunSpec({
         val human = review(VerificationState.AI_SUGGESTED).beginHumanReview()
         human.state shouldBe VerificationState.HUMAN_REVIEW
 
-        val vc = UUID.randomUUID()
+        val vc = Uuid.random()
         val approved = human.approve(vc, "cert matches the listed restaurant", now)
         approved.state shouldBe VerificationState.APPROVED
         approved.decision!!.outcome shouldBe VerificationOutcome.APPROVED
@@ -88,7 +89,7 @@ class HalalCertificationReviewTest : FunSpec({
     test("AI_SUGGESTED -> HUMAN_REVIEW -> DENIED records the denying decision") {
         val human = review(VerificationState.AI_SUGGESTED).beginHumanReview()
 
-        val denied = human.deny(UUID.randomUUID(), "cert expired", now)
+        val denied = human.deny(Uuid.random(), "cert expired", now)
 
         denied.state shouldBe VerificationState.DENIED
         denied.decision!!.outcome shouldBe VerificationOutcome.DENIED
@@ -96,16 +97,16 @@ class HalalCertificationReviewTest : FunSpec({
 
     test("APPROVED can be REVERSED (grant revoked later)") {
         val approved = review(VerificationState.AI_SUGGESTED)
-            .beginHumanReview().approve(UUID.randomUUID(), "ok", now)
+            .beginHumanReview().approve(Uuid.random(), "ok", now)
 
-        val reversed = approved.reverse(UUID.randomUUID(), "cert revoked by issuer", now)
+        val reversed = approved.reverse(Uuid.random(), "cert revoked by issuer", now)
 
         reversed.state shouldBe VerificationState.REVERSED
     }
 
     test("approve records the certifier and expiry transcribed from the certificate (sc-73 read surface)") {
-        val vc = UUID.randomUUID()
-        val expiresOn = java.time.LocalDate.of(2027, 1, 12)
+        val vc = Uuid.random()
+        val expiresOn = LocalDate(2027, 1, 12)
 
         val approved = review(VerificationState.AI_SUGGESTED)
             .beginHumanReview()
@@ -118,26 +119,45 @@ class HalalCertificationReviewTest : FunSpec({
     test("approve with a blank certifier stores null (omit unknown fields, detail-page.md §1.2)") {
         val approved = review(VerificationState.AI_SUGGESTED)
             .beginHumanReview()
-            .approve(UUID.randomUUID(), "ok", now, certifier = "   ", expiresOn = null)
+            .approve(Uuid.random(), "ok", now, certifier = "   ", expiresOn = null)
 
         approved.certifier shouldBe null
         approved.expiresOn shouldBe null
     }
 
+    test("the certificate key survives every transition (the approved evidence keeps its identity)") {
+        val key = "certifications/${Uuid.random()}/${Uuid.random()}"
+
+        val suggested = review(VerificationState.AI_SUGGESTED).copy(certificateKey = key)
+        suggested.certificateKey shouldBe key
+
+        val approved = suggested.beginHumanReview(now).approve(Uuid.random(), "ok", now)
+        approved.certificateKey shouldBe key
+        approved.reverse(Uuid.random(), "cert revoked", now).certificateKey shouldBe key
+
+        val denied = suggested.beginHumanReview(now).deny(Uuid.random(), "unreadable", now)
+        denied.certificateKey shouldBe key
+        denied.reverse(Uuid.random(), "overturned", now).certificateKey shouldBe key
+    }
+
+    test("a review created without a certificate key has none (pre-identity evidence)") {
+        review().certificateKey shouldBe null
+    }
+
     test("DENIED can be REVERSED (wrongful denial overturned)") {
         val denied = review(VerificationState.AI_SUGGESTED)
-            .beginHumanReview().deny(UUID.randomUUID(), "mistaken denial", now)
+            .beginHumanReview().deny(Uuid.random(), "mistaken denial", now)
 
-        denied.reverse(UUID.randomUUID(), "overturned", now).state shouldBe VerificationState.REVERSED
+        denied.reverse(Uuid.random(), "overturned", now).state shouldBe VerificationState.REVERSED
     }
 
     test("REVERSED is terminal — no forward transition is legal") {
         val reversed = review(VerificationState.AI_SUGGESTED)
-            .beginHumanReview().deny(UUID.randomUUID(), "mistaken denial", now)
-            .reverse(UUID.randomUUID(), "overturned", now)
+            .beginHumanReview().deny(Uuid.random(), "mistaken denial", now)
+            .reverse(Uuid.random(), "overturned", now)
 
         shouldThrow<IllegalStateException> { reversed.beginHumanReview() }
-        shouldThrow<IllegalStateException> { reversed.approve(UUID.randomUUID(), "x", now) }
+        shouldThrow<IllegalStateException> { reversed.approve(Uuid.random(), "x", now) }
     }
 
     test("a suggestion records the provider's conservative suggestion") {
@@ -149,14 +169,14 @@ class HalalCertificationReviewTest : FunSpec({
 
     test("APPROVED does NOT accept another approval (already terminal)") {
         val approved = review(VerificationState.AI_SUGGESTED)
-            .beginHumanReview().approve(UUID.randomUUID(), "ok", now)
+            .beginHumanReview().approve(Uuid.random(), "ok", now)
 
-        shouldThrow<IllegalStateException> { approved.approve(UUID.randomUUID(), "again", now) }
+        shouldThrow<IllegalStateException> { approved.approve(Uuid.random(), "again", now) }
     }
 
     test("reversing before a review was human-decided is illegal") {
         val suggested = review(VerificationState.AI_SUGGESTED)
 
-        shouldThrow<IllegalStateException> { suggested.reverse(UUID.randomUUID(), "nope", now) }
+        shouldThrow<IllegalStateException> { suggested.reverse(Uuid.random(), "nope", now) }
     }
 })

@@ -5,12 +5,13 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import java.math.BigDecimal
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 class RestaurantListingTest : FunSpec({
 
     test("new() creates an unverified listing with the given fields") {
-        val owner = UUID.randomUUID()
+        val owner = Uuid.random()
         val listing = RestaurantListing.new(
             name = "  Halal Grill  ",
             address = " 123 Main St  ",
@@ -37,7 +38,7 @@ class RestaurantListingTest : FunSpec({
             address = "9 St",
             location = LatLng(0.0, 0.0),
             cuisine = Cuisine("x"),
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
         listing.isHandCut shouldBe null
     }
@@ -51,7 +52,7 @@ class RestaurantListingTest : FunSpec({
             location = LatLng(0.0, 0.0),
             cuisine = Cuisine("x"),
             isHandCut = handCut,
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
         build(true).isHandCut shouldBe true
         build(false).isHandCut shouldBe false
@@ -61,11 +62,11 @@ class RestaurantListingTest : FunSpec({
     test("new() assigns a random id and a createdAt timestamp") {
         val a = RestaurantListing.new(
             name = "A", address = "1 St", location = LatLng(0.0, 0.0),
-            cuisine = Cuisine("x"), isHandCut = false, ownerId = UUID.randomUUID(),
+            cuisine = Cuisine("x"), isHandCut = false, ownerId = Uuid.random(),
         )
         val b = RestaurantListing.new(
             name = "B", address = "2 St", location = LatLng(1.0, 1.0),
-            cuisine = Cuisine("x"), isHandCut = false, ownerId = UUID.randomUUID(),
+            cuisine = Cuisine("x"), isHandCut = false, ownerId = Uuid.random(),
         )
 
         a.id shouldNotBe b.id
@@ -79,7 +80,7 @@ class RestaurantListingTest : FunSpec({
             location = LatLng(0.0, 0.0),
             cuisine = Cuisine("x"),
             isHandCut = true,
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
             price = Price(BigDecimal("9.99")),
         )
 
@@ -93,7 +94,7 @@ class RestaurantListingTest : FunSpec({
             location = LatLng(0.0, 0.0),
             cuisine = Cuisine("x"),
             isHandCut = true,
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
             rating = Rating(BigDecimal("4.5")),
         )
 
@@ -101,7 +102,7 @@ class RestaurantListingTest : FunSpec({
         // Default is no rating (null).
         RestaurantListing.new(
             name = "Y", address = "2 St", location = LatLng(0.0, 0.0),
-            cuisine = Cuisine("x"), isHandCut = false, ownerId = UUID.randomUUID(),
+            cuisine = Cuisine("x"), isHandCut = false, ownerId = Uuid.random(),
         ).rating shouldBe null
     }
 
@@ -114,7 +115,7 @@ class RestaurantListingTest : FunSpec({
             address = "9 St",
             location = LatLng(0.0, 0.0),
             cuisine = Cuisine("x"),
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
         listing.isDelivery shouldBe null
     }
@@ -127,7 +128,7 @@ class RestaurantListingTest : FunSpec({
             cuisine = Cuisine("x"),
             isHandCut = true,
             isDelivery = true,
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
         listing.isDelivery shouldBe true
     }
@@ -142,7 +143,7 @@ class RestaurantListingTest : FunSpec({
             cuisine = Cuisine("x"),
             isHandCut = true,
             isDelivery = delivery,
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
         build(true).isDelivery shouldBe true
         build(false).isDelivery shouldBe false
@@ -152,7 +153,7 @@ class RestaurantListingTest : FunSpec({
     test("new() defaults alcoholServed to false") {
         val listing = RestaurantListing.new(
             name = "Y", address = "2 St", location = LatLng(0.0, 0.0),
-            cuisine = Cuisine("x"), isHandCut = false, ownerId = UUID.randomUUID(),
+            cuisine = Cuisine("x"), isHandCut = false, ownerId = Uuid.random(),
         )
         listing.alcoholServed shouldBe false
     }
@@ -164,7 +165,7 @@ class RestaurantListingTest : FunSpec({
             location = LatLng(0.0, 0.0),
             cuisine = Cuisine("x"),
             isHandCut = true,
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
             alcoholServed = true,
         )
         listing.alcoholServed shouldBe true
@@ -178,7 +179,7 @@ class RestaurantListingTest : FunSpec({
                 location = LatLng(0.0, 0.0),
                 cuisine = Cuisine("x"),
                 isHandCut = true,
-                ownerId = UUID.randomUUID(),
+                ownerId = Uuid.random(),
             )
         }
     }
@@ -191,7 +192,7 @@ class RestaurantListingTest : FunSpec({
                 location = LatLng(0.0, 0.0),
                 cuisine = Cuisine("x"),
                 isHandCut = true,
-                ownerId = UUID.randomUUID(),
+                ownerId = Uuid.random(),
             )
         }
     }
@@ -226,8 +227,8 @@ class RestaurantListingTest : FunSpec({
     }
 
     test("fromStorage materialises a seed-style row with nullable cuisine/owner and provenance") {
-        val seedId = UUID.randomUUID()
-        val brandId = UUID.randomUUID()
+        val seedId = Uuid.random()
+        val brandId = Uuid.random()
         val listing = RestaurantListing.fromStorage(
             id = seedId,
             name = "The Halal Guys",
@@ -239,7 +240,7 @@ class RestaurantListingTest : FunSpec({
             brandId = brandId,
             provenance = Provenance.RESEARCH_SEED_PHOTON_GEOCODE,
             verificationStatus = VerificationStatus.UNVERIFIED,
-            createdAt = java.time.Instant.now(),
+            createdAt = Clock.System.now(),
         )
 
         listing.id shouldBe seedId
@@ -251,7 +252,7 @@ class RestaurantListingTest : FunSpec({
 
     test("fromStorage reconstitutes the alcoholServed flag") {
         val listing = RestaurantListing.fromStorage(
-            id = UUID.randomUUID(),
+            id = Uuid.random(),
             name = "Steak House",
             address = "1 Grill Ave",
             location = LatLng(40.0, -74.0),
@@ -262,7 +263,7 @@ class RestaurantListingTest : FunSpec({
             brandId = null,
             provenance = null,
             verificationStatus = VerificationStatus.UNVERIFIED,
-            createdAt = java.time.Instant.now(),
+            createdAt = Clock.System.now(),
             alcoholServed = true,
         )
 
@@ -280,7 +281,7 @@ class RestaurantListingTest : FunSpec({
             country = " US ",
             location = LatLng(32.953530, -96.849844),
             cuisine = Cuisine("lebanese"),
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
 
         listing.address shouldBe "3885 Belt Line Rd"      // street line untouched (backward compat)
@@ -296,7 +297,7 @@ class RestaurantListingTest : FunSpec({
             address = "9 St",
             location = LatLng(0.0, 0.0),
             cuisine = Cuisine("x"),
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
         listing.city shouldBe null
         listing.province shouldBe null
@@ -315,7 +316,7 @@ class RestaurantListingTest : FunSpec({
             country = "CA",
             location = LatLng(43.682921, -79.418493),
             cuisine = Cuisine("shwarma"),
-            ownerId = UUID.randomUUID(),
+            ownerId = Uuid.random(),
         )
         listing.province shouldBe "ON"
         listing.postal shouldBe "M6C 1A1"   // NOT a US 5-digit zip — no US-only assumption
@@ -326,13 +327,13 @@ class RestaurantListingTest : FunSpec({
         shouldThrow<IllegalArgumentException> {
             RestaurantListing.new(
                 name = "X", address = "1 St", location = LatLng(0.0, 0.0), cuisine = Cuisine("x"),
-                city = "   ", ownerId = UUID.randomUUID(),
+                city = "   ", ownerId = Uuid.random(),
             )
         }
         shouldThrow<IllegalArgumentException> {
             RestaurantListing.new(
                 name = "X", address = "1 St", location = LatLng(0.0, 0.0), cuisine = Cuisine("x"),
-                country = " ", ownerId = UUID.randomUUID(),
+                country = " ", ownerId = Uuid.random(),
             )
         }
     }
@@ -341,20 +342,20 @@ class RestaurantListingTest : FunSpec({
         shouldThrow<IllegalArgumentException> {
             RestaurantListing.new(
                 name = "X", address = "1 St", location = LatLng(0.0, 0.0), cuisine = Cuisine("x"),
-                city = "c".repeat(RestaurantListing.CITY_MAX_LENGTH + 1), ownerId = UUID.randomUUID(),
+                city = "c".repeat(RestaurantListing.CITY_MAX_LENGTH + 1), ownerId = Uuid.random(),
             )
         }
         shouldThrow<IllegalArgumentException> {
             RestaurantListing.new(
                 name = "X", address = "1 St", location = LatLng(0.0, 0.0), cuisine = Cuisine("x"),
-                postal = "p".repeat(RestaurantListing.POSTAL_MAX_LENGTH + 1), ownerId = UUID.randomUUID(),
+                postal = "p".repeat(RestaurantListing.POSTAL_MAX_LENGTH + 1), ownerId = Uuid.random(),
             )
         }
     }
 
     test("fromStorage reconstitutes the structured address fields (sc-187)") {
         val listing = RestaurantListing.fromStorage(
-            id = UUID.randomUUID(),
+            id = Uuid.random(),
             name = "Caspian Grill",
             address = "12518 Research Blvd",
             city = "Austin",
@@ -367,7 +368,7 @@ class RestaurantListingTest : FunSpec({
             brandId = null,
             provenance = null,
             verificationStatus = VerificationStatus.UNVERIFIED,
-            createdAt = java.time.Instant.now(),
+            createdAt = Clock.System.now(),
         )
         listing.city shouldBe "Austin"
         listing.province shouldBe "TX"

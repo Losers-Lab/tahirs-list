@@ -64,7 +64,7 @@ setup instructions.
 
 Tahir's List is a listing-first directory that helps Muslims find halal food,
 differentiated by a hand-cut filter and a formal verification process for
-restaurant halal certification. The backend (Kotlin/Spring Boot 3 + PostgreSQL/PostGIS,
+restaurant halal certification. The backend (Kotlin/Ktor 3 + PostgreSQL/PostGIS,
 hexagonal modules, TDD) and frontend (Next.js/TypeScript) are substantially built,
 with 115 completed work items across auth, listings, search/filters, verification,
 images, favorites, and owner tools. The project went dormant around 2026-09-09

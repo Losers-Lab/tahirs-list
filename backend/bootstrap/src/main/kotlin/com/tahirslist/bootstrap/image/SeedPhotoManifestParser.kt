@@ -1,33 +1,39 @@
 package com.tahirslist.bootstrap.image
 
 import com.tahirslist.application.image.SeedHeroPhoto
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.springframework.stereotype.Component
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Parses Aisha's seed hero-photo manifest
  * (docs/research/seed-photos-2026-08-30.json) into [SeedHeroPhoto] rows for
- * ingest. Jackson tree model (like the Photon geocoder) — tolerant of the
+ * ingest. kotlinx.serialization tree model (replaces Jackson) — tolerant of the
  * research artifact's shape, extracting only the fields backend ingest needs.
  */
-@Component
-class SeedPhotoManifestParser(private val objectMapper: ObjectMapper) {
+class SeedPhotoManifestParser(private val json: Json = Json) {
 
-    /** @param json the raw manifest JSON text (not a path). */
-    fun parse(json: String): List<SeedHeroPhoto> {
-        val root: JsonNode = objectMapper.readTree(json)
-        val seeds = root.path("seeds")
-        check(seeds.isArray) { "manifest must contain a 'seeds' array" }
-        return seeds.map { seed ->
+    /** @param text the raw manifest JSON text (not a path). */
+    fun parse(text: String): List<SeedHeroPhoto> {
+        val root = json.parseToJsonElement(text).jsonObject
+        val seeds = root["seeds"]?.jsonArray ?: error("manifest must contain a 'seeds' array")
+        return seeds.map { element ->
+            val seed = element.jsonObject
             SeedHeroPhoto(
-                name = seed.path("name").asText(),
-                city = seed.path("city").takeIf { !it.isMissingNode && !it.isNull }?.asText(),
-                addressGiven = seed.path("address_given").takeIf { !it.isMissingNode && !it.isNull }?.asText(),
-                heroUrl = seed.path("hero_url").asText(),
+                name = seed.string("name").orEmpty(),
+                city = seed.string("city"),
+                addressGiven = seed.string("address_given"),
+                heroUrl = seed.string("hero_url").orEmpty(),
             ).also {
                 check(it.heroUrl.isNotBlank()) { "manifest row '${it.name}' has no hero_url" }
             }
         }
     }
+
+    private fun JsonObject.string(key: String): String? =
+        this[key]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content
 }

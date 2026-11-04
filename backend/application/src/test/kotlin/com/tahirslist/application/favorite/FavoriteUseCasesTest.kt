@@ -8,11 +8,12 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.clearMocks
-import io.mockk.every
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.verify
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.test.runTest
 
 /** Favorite a listing (sc-50): idempotent add, with a 404-style guard for a missing listing. */
 class FavoriteListingTest : FunSpec({
@@ -21,26 +22,30 @@ class FavoriteListingTest : FunSpec({
     val listings = mockk<RestaurantListingRepository>()
     val favorite = FavoriteListing(favorites, listings)
 
-    val userId = UUID.randomUUID()
-    val listingId = UUID.randomUUID()
+    val userId = Uuid.random()
+    val listingId = Uuid.random()
 
     beforeTest { clearMocks(favorites, listings) }
 
     test("favourites a listing that exists") {
-        every { listings.findById(listingId) } returns aListing(listingId)
-        every { favorites.add(userId, listingId) } returns Unit
+        runTest {
+            coEvery { listings.findById(listingId) } returns aListing(listingId)
+            coEvery { favorites.add(userId, listingId) } returns Unit
 
-        favorite.execute(userId, listingId)
+            favorite.execute(userId, listingId)
 
-        verify { favorites.add(userId, listingId) }
+            coVerify { favorites.add(userId, listingId) }
+        }
     }
 
     test("throws ListingNotFoundException when the listing does not exist and adds nothing") {
-        every { listings.findById(listingId) } returns null
+        runTest {
+            coEvery { listings.findById(listingId) } returns null
 
-        shouldThrow<ListingNotFoundException> { favorite.execute(userId, listingId) }
+            shouldThrow<ListingNotFoundException> { favorite.execute(userId, listingId) }
 
-        verify(exactly = 0) { favorites.add(any(), any()) }
+            coVerify(exactly = 0) { favorites.add(any(), any()) }
+        }
     }
 })
 
@@ -50,15 +55,17 @@ class UnfavoriteListingTest : FunSpec({
     val favorites = mockk<FavoritesRepository>()
     val unfavorite = UnfavoriteListing(favorites)
 
-    val userId = UUID.randomUUID()
-    val listingId = UUID.randomUUID()
+    val userId = Uuid.random()
+    val listingId = Uuid.random()
 
     test("removes the user-listing relation") {
-        every { favorites.remove(userId, listingId) } returns Unit
+        runTest {
+            coEvery { favorites.remove(userId, listingId) } returns Unit
 
-        unfavorite.execute(userId, listingId)
+            unfavorite.execute(userId, listingId)
 
-        verify { favorites.remove(userId, listingId) }
+            coVerify { favorites.remove(userId, listingId) }
+        }
     }
 })
 
@@ -68,35 +75,39 @@ class ListFavoritesTest : FunSpec({
     val favorites = mockk<FavoritesRepository>()
     val listFavorites = ListFavorites(favorites)
 
-    val userId = UUID.randomUUID()
+    val userId = Uuid.random()
 
     test("returns the authenticated user's favourited listings") {
-        val expected = listOf(aListing(UUID.randomUUID()), aListing(UUID.randomUUID()))
-        every { favorites.findFavoriteListings(userId) } returns expected
+        runTest {
+            val expected = listOf(aListing(Uuid.random()), aListing(Uuid.random()))
+            coEvery { favorites.findFavoriteListings(userId) } returns expected
 
-        val result = listFavorites.execute(userId)
+            val result = listFavorites.execute(userId)
 
-        result shouldBe expected
-        verify { favorites.findFavoriteListings(userId) }
+            result shouldBe expected
+            coVerify { favorites.findFavoriteListings(userId) }
+        }
     }
 
     test("returns an empty list when the user has no favourites") {
-        every { favorites.findFavoriteListings(userId) } returns emptyList()
+        runTest {
+            coEvery { favorites.findFavoriteListings(userId) } returns emptyList()
 
-        listFavorites.execute(userId) shouldBe emptyList()
+            listFavorites.execute(userId) shouldBe emptyList()
+        }
     }
 })
 
-private fun aListing(id: UUID): RestaurantListing = RestaurantListing.fromStorage(
+private fun aListing(id: Uuid): RestaurantListing = RestaurantListing.fromStorage(
     id = id,
     name = "Halal Grill",
     address = "123 Main St",
     location = LatLng(40.7128, -74.0060),
     cuisine = Cuisine("mediterranean"),
     isHandCut = true,
-    ownerId = UUID.randomUUID(),
+    ownerId = Uuid.random(),
     brandId = null,
     provenance = null,
     verificationStatus = com.tahirslist.domain.restaurant.VerificationStatus.UNVERIFIED,
-    createdAt = Instant.now(),
+    createdAt = Clock.System.now(),
 )

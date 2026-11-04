@@ -1,17 +1,13 @@
-description = "S3-compatible object storage adapter (MinIO local / Cloudflare R2 future)."
+description = "S3-compatible object storage adapter (MinIO local / Cloudflare R2 future) using the AWS SDK for Kotlin."
 
 dependencies {
     implementation(project(":domain"))
     implementation(project(":application"))
 
-    // AWS SDK v2 S3 client, pointed at a configurable endpoint. MinIO now, R2
-    // later by endpoint/region change — no AWS-only features (signed requests only).
-    implementation(libs.aws.sdk.s3)
-    implementation(libs.aws.sdk.url.connection.client)
-
-    // Spring beans (configuration + adapter wiring) picked up by component scan.
-    implementation(libs.spring.context)
-    implementation(libs.spring.boot.autoconfigure)
+    // AWS SDK for Kotlin (coroutines) — S3 client pointed at a configurable
+    // endpoint. MinIO now, R2 later by config change; no AWS-only features.
+    implementation(platform(libs.aws.kotlin.bom))
+    implementation(libs.aws.kotlin.s3)
 
     // Contract spec shared from the application layer + Testcontainers MinIO for
     // the adapter-swap test.

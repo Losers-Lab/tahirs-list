@@ -23,5 +23,5 @@ import com.tahirslist.domain.verification.VerificationSuggestion
  *    not as a verdict — the review stays AI_REVIEW and can be retried.
  */
 interface VerificationProvider {
-    fun suggest(image: CertificationImage): VerificationSuggestion
+    suspend fun suggest(image: CertificationImage): VerificationSuggestion
 }

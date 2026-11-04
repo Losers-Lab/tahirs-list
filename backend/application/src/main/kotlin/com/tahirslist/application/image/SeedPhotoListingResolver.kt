@@ -1,6 +1,6 @@
 package com.tahirslist.application.image
 
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * The result of resolving one [SeedHeroPhoto] to a seed listing id.
@@ -13,7 +13,7 @@ import java.util.UUID
  */
 sealed class SeedPhotoResolution {
     /** Resolved to exactly one listing; ingest proceeds. */
-    data class Resolved(val listingId: UUID) : SeedPhotoResolution()
+    data class Resolved(val listingId: Uuid) : SeedPhotoResolution()
 
     /** The seed photo could not be matched to any seed listing. */
     data class Unresolved(val reason: String) : SeedPhotoResolution()
@@ -27,5 +27,5 @@ sealed class SeedPhotoResolution {
  * [SeedPhotoResolution.Unresolved], not an arbitrary pick.
  */
 fun interface SeedPhotoListingResolver {
-    fun resolve(photo: SeedHeroPhoto): SeedPhotoResolution
+    suspend fun resolve(photo: SeedHeroPhoto): SeedPhotoResolution
 }

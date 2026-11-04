@@ -1,7 +1,7 @@
 package com.tahirslist.application.account
 
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * Persistence port for refresh tokens (hexagonal "out" port), implemented by
@@ -19,19 +19,19 @@ import java.util.UUID
 interface RefreshTokenStore {
 
     /** Persist a hashed refresh token in [familyId], expiring at [expiresAt]. */
-    fun store(token: String, accountId: UUID, familyId: UUID, expiresAt: Instant)
+    suspend fun store(token: String, accountId: Uuid, familyId: Uuid, expiresAt: Instant)
 
     /** Resolve a live (not-yet-consumed) refresh token, if any. */
-    fun findByToken(token: String): StoredRefreshToken?
+    suspend fun findByToken(token: String): StoredRefreshToken?
 
     /** Resolve a refresh token that exists but is already consumed (reuse signal). */
-    fun findConsumedByToken(token: String): StoredRefreshToken?
+    suspend fun findConsumedByToken(token: String): StoredRefreshToken?
 
     /** Irrevocably invalidate a single refresh token (logout / expiry). */
-    fun revoke(token: String)
+    suspend fun revoke(token: String)
 
     /** Irrevocably invalidate EVERY token (live or already consumed) in the family. */
-    fun revokeFamily(familyId: UUID)
+    suspend fun revokeFamily(familyId: Uuid)
 
     /**
      * Atomically consume-and-rotate a refresh token in a single transactional
@@ -44,18 +44,18 @@ interface RefreshTokenStore {
      * conditional update is what makes the rotation race-safe: exact-one-winner
      * under concurrency (sc-133 baseline preserved).
      */
-    fun consumeAndRotate(
+    suspend fun consumeAndRotate(
         presentedToken: String,
         newToken: String,
-        accountId: UUID,
-        familyId: UUID,
+        accountId: Uuid,
+        familyId: Uuid,
         expiresAt: Instant,
     ): Boolean
 }
 
 /** A refresh-token record as read back from storage (live or consumed). */
 data class StoredRefreshToken(
-    val accountId: UUID,
-    val familyId: UUID,
+    val accountId: Uuid,
+    val familyId: Uuid,
     val expiresAt: Instant,
 )

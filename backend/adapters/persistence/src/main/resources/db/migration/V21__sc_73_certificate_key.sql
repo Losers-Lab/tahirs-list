@@ -1,0 +1,24 @@
+-- Certificate evidence identity (sc-73 public certificate read surface).
+-- Scope: Trust & Verification (Sprint 4, epic 112).
+--
+-- GET /v1/listings/{id}/certificate used to serve "the most recently modified
+-- object under certifications/{listingId}/", which is wrong in two ways:
+--   * it exposed a pending / still-in-review certificate before the committee
+--     decided, and
+--   * an owner could upload a replacement after approval and silently change the
+--     evidence shown as verified, without re-review.
+--
+-- The committee approves ONE artifact, so the review now records that artifact's
+-- immutable object-storage key at claim time:
+--
+--   * certificate_key VARCHAR(300) -- the key returned by
+--                                     CertificationImageStorage.save; NULL for
+--                                     reviews that predate identity-tracked
+--                                     evidence (for those, no public certificate
+--                                     image may be served).
+--
+-- Additive + nullable: existing rows carry NULL and are treated as "no
+-- addressable approved evidence", which is the safe (fail-closed) reading. The
+-- object-store layout (certifications/{listingId}/{uuid}) is unchanged.
+ALTER TABLE halal_certification_reviews
+    ADD COLUMN certificate_key VARCHAR(300) NULL;

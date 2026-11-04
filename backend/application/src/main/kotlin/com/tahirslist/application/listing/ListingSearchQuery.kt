@@ -13,7 +13,7 @@ import com.tahirslist.domain.restaurant.LatLng
  * location-only search.
  */
 interface ListingSearchQuery {
-    fun searchNearby(
+    suspend fun searchNearby(
         center: LatLng,
         radiusMiles: Double,
         filters: ListingSearchFilters = ListingSearchFilters(),

@@ -1,39 +1,20 @@
 package com.tahirslist.bootstrap.verification
 
-import com.tahirslist.bootstrap.PostgresBootTest
+import com.tahirslist.bootstrap.KtorPostgresTest
+import com.tahirslist.bootstrap.asString
+import com.tahirslist.bootstrap.dbString
+import com.tahirslist.bootstrap.dbUpdate
+import com.tahirslist.bootstrap.stringOrNull
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.boot.test.util.TestPropertyValues
-import org.springframework.boot.test.web.client.TestRestTemplate
-import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.context.ApplicationContextInitializer
-import org.springframework.context.ConfigurableApplicationContext
-import org.springframework.core.io.ByteArrayResource
-import org.springframework.core.io.ClassPathResource
-import org.springframework.http.HttpEntity
-import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpMethod
-import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
-import org.springframework.http.ResponseEntity
-import org.springframework.http.client.ClientHttpResponse
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
-import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.test.context.ContextConfiguration
-import org.springframework.util.LinkedMultiValueMap
-import org.springframework.web.client.ResponseErrorHandler
-import org.springframework.web.client.RestTemplate
+import kotlinx.serialization.json.jsonObject
 import java.util.UUID
 
 /**
  * Verification Committee HTTP surface (sc-73): the human review loop.
  *
- * End-to-end against the full application graph (controller -> VerificationCommittee
- * -> JdbcHalalCertificationReviewRepository -> JdbcRestaurantListingRepository ->
- * real Flyway V13 + V15). Covers:
+ * End-to-end against the full application graph (route -> VerificationCommittee
+ * -> Exposed review + listing repositories -> real Flyway V13/V15/V16). Covers:
  *   - a VC member lists the pending (AI_SUGGESTED) workqueue;
  *   - approve promotes the listing to VERIFIED (source + read mirror);
  *   - deny records the reason and leaves the listing UNVERIFIED;
@@ -44,332 +25,222 @@ import java.util.UUID
  * and logging back in (the issuer reads the role from the stored account), which
  * exercises the real JWT role claim rather than hand-minting a token.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ContextConfiguration(initializers = [VerificationCommitteeEndpointTest.JwtKeyInitializer::class])
-class VerificationCommitteeEndpointTest : PostgresBootTest() {
-
-    @Autowired
-    lateinit var restTemplate: TestRestTemplate
-
-    @Autowired
-    lateinit var jdbc: JdbcTemplate
-
-    @Autowired
-    lateinit var objectMapper: com.fasterxml.jackson.databind.ObjectMapper
-
-    @LocalServerPort
-    var port: Int = 0
-
-    private val client: RestTemplate by lazy {
-        RestTemplate().apply {
-            requestFactory = HttpComponentsClientHttpRequestFactory()
-            setErrorHandler(object : ResponseErrorHandler {
-                override fun hasError(response: ClientHttpResponse): Boolean = false
-                override fun handleError(response: ClientHttpResponse) { /* return body as-is */ }
-            })
-        }
-    }
+class VerificationCommitteeEndpointTest : KtorPostgresTest() {
 
     private val certBytes = byteArrayOf(1, 2, 3, 4)
 
-    private fun url(path: String) = "http://localhost:$port$path"
+    private data class Session(val id: String, val bearer: String)
 
-    init {
-        test("a Verification Committee member lists pending AI_SUGGESTED reviews") {
-            val owner = signupAndLogin("vc-list-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
-            val vc = signupPromoteLogin("vc-list-member@example.com")
-
-            val resp = client.exchange(
-                url("/v1/verification-committee/reviews"),
-                HttpMethod.GET,
-                authed(vc.bearer),
-                List::class.java,
-            )
-
-            resp.statusCode shouldBe HttpStatus.OK
-            @Suppress("UNCHECKED_CAST")
-            val reviews = resp.body as List<Map<String, Any>>
-            reviews.map { it["reviewId"].toString() } shouldContain reviewId.toString()
-            val thisOne = reviews.first { it["reviewId"].toString() == reviewId.toString() }
-            thisOne["listingId"].toString() shouldBe listingId.toString()
-            thisOne["state"] shouldBe "AI_SUGGESTED"
-            thisOne["suggestedVerdict"] shouldBe "NEEDS_REVIEW"
-            thisOne["decisionOutcome"] shouldBe null
-        }
-
-        test("approve promotes the listing to VERIFIED in source and read mirror") {
-            val owner = signupAndLogin("vc-approve-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
-            val vc = signupPromoteLogin("vc-approve-member@example.com")
-
-            val resp = client.exchange(
-                url("/v1/verification-committee/reviews/$reviewId/approve"),
-                HttpMethod.POST,
-                authed(vc.bearer, body = mapOf("reason" to "cert matches listing")),
-                Map::class.java,
-            )
-
-            resp.statusCode shouldBe HttpStatus.OK
-            resp.body!!["state"] shouldBe "APPROVED"
-            resp.body!!["decisionOutcome"] shouldBe "APPROVED"
-            resp.body!!["decisionReason"] shouldBe "cert matches listing"
-
-            val listingStatus = jdbc.queryForObject(
-                "SELECT verification_status FROM restaurant_listings WHERE id = ?",
-                String::class.java,
-                listingId,
-            )
-            listingStatus shouldBe "VERIFIED"
-            val mirrorStatus = jdbc.queryForObject(
-                "SELECT verification_status FROM listing_search WHERE id = ?",
-                String::class.java,
-                listingId,
-            )
-            mirrorStatus shouldBe "VERIFIED"
-        }
-
-        test("deny records the reason and leaves the listing UNVERIFIED") {
-            val owner = signupAndLogin("vc-deny-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
-            val vc = signupPromoteLogin("vc-deny-member@example.com")
-
-            val resp = client.exchange(
-                url("/v1/verification-committee/reviews/$reviewId/deny"),
-                HttpMethod.POST,
-                authed(vc.bearer, body = mapOf("reason" to "cert image unreadable")),
-                Map::class.java,
-            )
-
-            resp.statusCode shouldBe HttpStatus.OK
-            resp.body!!["state"] shouldBe "DENIED"
-            resp.body!!["decisionOutcome"] shouldBe "DENIED"
-            resp.body!!["decisionReason"] shouldBe "cert image unreadable"
-
-            val listingStatus = jdbc.queryForObject(
-                "SELECT verification_status FROM restaurant_listings WHERE id = ?",
-                String::class.java,
-                listingId,
-            )
-            listingStatus shouldBe "UNVERIFIED"
-        }
-
-        test("approve records certifier + expiry and the public detail renders them from live data (sc-73 read surface)") {
-            val owner = signupAndLogin("vc-certattr-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
-            val vc = signupPromoteLogin("vc-certattr-member@example.com")
-
-            val approve = client.exchange(
-                url("/v1/verification-committee/reviews/$reviewId/approve"),
-                HttpMethod.POST,
-                authed(vc.bearer, body = mapOf(
-                    "reason" to "cert matches listing",
-                    "certifier" to "HFSAA",
-                    "expiresOn" to "2027-01-12",
-                )),
-                Map::class.java,
-            )
-            approve.statusCode shouldBe HttpStatus.OK
-            approve.body!!["state"] shouldBe "APPROVED"
-
-            // The public detail drive renders the CertificatePanel from live data.
-            val detail = restTemplate.getForEntity("/v1/listings/$listingId", String::class.java).body!!
-            val node = objectMapper.readTree(detail)
-            node.get("verificationStatus").asText() shouldBe "VERIFIED"
-            node.get("certificate").isNull shouldBe false
-            node.get("certificate").get("certifier").asText() shouldBe "HFSAA"
-            node.get("certificate").get("reviewedOn").asText().isNotBlank() shouldBe true
-            node.get("certificate").get("expiresOn").asText() shouldBe "2027-01-12"
-            node.get("certificate").get("certificateUrl").asText().contains("/v1/listings/$listingId/certificate") shouldBe true
-
-            // The certificate image proxy serves the archived bytes (View certificate).
-            val cert = client.exchange(
-                url("/v1/listings/$listingId/certificate"),
-                HttpMethod.GET,
-                HttpEntity.EMPTY,
-                ByteArray::class.java,
-            )
-            cert.statusCode shouldBe HttpStatus.OK
-            cert.body!!.contentEquals(certBytes) shouldBe true
-        }
-
-        test("an unverified listing carries no certificate in the detail payload") {
-            val owner = signupAndLogin("vc-nocert-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-
-            val detail = restTemplate.getForEntity("/v1/listings/$listingId", String::class.java).body!!
-            val node = objectMapper.readTree(detail)
-            node.get("verificationStatus").asText() shouldBe "UNVERIFIED"
-            node.get("certificate").isNull shouldBe true
-        }
-
-        test("approve rejects a malformed expiresOn") {
-            val owner = signupAndLogin("vc-badexp-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
-            val vc = signupPromoteLogin("vc-badexp-member@example.com")
-
-            val resp = client.exchange(
-                url("/v1/verification-committee/reviews/$reviewId/approve"),
-                HttpMethod.POST,
-                authed(vc.bearer, body = mapOf("reason" to "x", "expiresOn" to "not-a-date")),
-                Map::class.java,
-            )
-
-            resp.statusCode shouldBe HttpStatus.BAD_REQUEST
-        }
-
-        test("deciding an already-decided review is a 409 conflict") {
-            val owner = signupAndLogin("vc-twice-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
-            val vc = signupPromoteLogin("vc-twice-member@example.com")
-
-            client.exchange(
-                url("/v1/verification-committee/reviews/$reviewId/deny"),
-                HttpMethod.POST,
-                authed(vc.bearer, body = mapOf("reason" to "first")),
-                Map::class.java,
-            )
-            val resp = client.exchange(
-                url("/v1/verification-committee/reviews/$reviewId/approve"),
-                HttpMethod.POST,
-                authed(vc.bearer, body = mapOf("reason" to "second")),
-                Map::class.java,
-            )
-
-            resp.statusCode shouldBe HttpStatus.CONFLICT
-            codeOf(resp) shouldBe "review_not_pending"
-        }
-
-        test("a non-committee (USER) caller is forbidden from the workqueue") {
-            val owner = signupAndLogin("vc-forbidden-owner@example.com")
-            val listingId = createListing(owner.bearer, owner.id)
-            claimAndGetReviewId(listingId, owner.bearer)
-
-            val resp = client.exchange(
-                url("/v1/verification-committee/reviews"),
-                HttpMethod.GET,
-                authed(owner.bearer),
-                Map::class.java,
-            )
-
-            resp.statusCode shouldBe HttpStatus.FORBIDDEN
-            codeOf(resp) shouldBe "forbidden"
-        }
-
-        test("unauthenticated calls are a generic 401") {
-            val resp = client.exchange(
-                url("/v1/verification-committee/reviews"),
-                HttpMethod.GET,
-                authed(null),
-                Map::class.java,
-            )
-            resp.statusCode shouldBe HttpStatus.UNAUTHORIZED
-            codeOf(resp) shouldBe "unauthorized"
-        }
-    }
-
-    /* ---- helpers ---- */
-
-    private data class Session(val id: UUID, val bearer: String)
-
-    private fun signupAndLogin(email: String): Session {
-        val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
-        val signup = restTemplate.postForEntity(
-            "/v1/auth/signup",
-            HttpEntity(mapOf("email" to email, "password" to "s3cr3t-password"), headers),
-            Map::class.java,
-        )
-        signup.statusCode shouldBe HttpStatus.CREATED
-        val bearer = login(email)
-        return Session(UUID.fromString(signup.body!!["id"].toString()), bearer)
+    private suspend fun session(email: String): Session {
+        val signedUp = signupAndLogin(email)
+        return Session(signedUp.accountId, signedUp.accessToken)
     }
 
     /** Promote the account to VERIFICATION_COMMITTEE in the DB, then mint a token. */
-    private fun signupPromoteLogin(email: String): Session {
-        val session = signupAndLogin(email)
-        jdbc.update("UPDATE users SET role = 'VERIFICATION_COMMITTEE' WHERE id = ?", session.id)
-        return Session(session.id, login(email))
-    }
-
-    private fun login(email: String): String {
-        val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
-        val resp = client.postForEntity(
-            url("/v1/auth/login"),
-            HttpEntity(mapOf("email" to email, "password" to "s3cr3t-password"), headers),
-            Map::class.java,
+    private suspend fun signupPromoteLogin(email: String): Session {
+        val initial = session(email)
+        dbUpdate(
+            "UPDATE users SET role = 'VERIFICATION_COMMITTEE' WHERE id = ?",
+            UUID.fromString(initial.id),
         )
-        resp.statusCode shouldBe HttpStatus.OK
-        return resp.body!!["accessToken"].toString()
+        val loginResponse = login(email)
+        loginResponse.status shouldBe 200
+        return Session(initial.id, loginResponse.json()["accessToken"].asString())
     }
 
-    private fun createListing(bearer: String, ownerId: UUID): UUID {
-        val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON; setBearerAuth(bearer) }
-        val body = linkedMapOf(
-            "name" to "Halal Grill",
-            "address" to "123 Main St",
-            "lat" to 40.7128,
-            "lng" to -74.0060,
-            "cuisine" to "mediterranean",
-            "isHandCut" to true,
-            "crossContamination" to "NO_CROSS_CONTAMINATION",
+    private suspend fun claimAndGetReviewId(listingId: String, bearer: String): String {
+        val resp = post(
+            "/v1/listings/$listingId/claim",
+            token = bearer,
+            multipart = multipart {
+                field("proof", " I own this; license TAH-2024-118. ")
+                field("aiConsent", "true")
+                file("certImage", certBytes, "image/jpeg", "cert.jpg")
+            },
         )
-        val resp = client.exchange(url("/v1/listings"), HttpMethod.POST, HttpEntity<Any>(body, headers), Map::class.java)
-        resp.statusCode shouldBe HttpStatus.CREATED
-        resp.body!!["ownerId"].toString() shouldBe ownerId.toString()
-        return UUID.fromString(resp.body!!["id"].toString())
+        resp.status shouldBe 201
+        return resp.json()["reviewId"].asString()
     }
 
-    private fun claimAndGetReviewId(listingId: UUID, bearer: String): UUID {
-        val headers = HttpHeaders().apply { contentType = MediaType.MULTIPART_FORM_DATA; setBearerAuth(bearer) }
-        val parts = LinkedMultiValueMap<String, Any>()
-        parts.add("proof", " I own this; license TAH-2024-118. ")
-        parts.add("aiConsent", "true")
-        parts.add("certImage", CertImageResource(certBytes, "cert.jpg"))
-        val resp = client.exchange(
-            url("/v1/listings/$listingId/claim"),
-            HttpMethod.POST,
-            HttpEntity<Any>(parts, headers),
-            Map::class.java,
+    private suspend fun reviews(bearer: String?) =
+        get("/v1/verification-committee/reviews", token = bearer)
+
+    /**
+     * A listing created through the API that is index-qualified
+     * (NO_CROSS_CONTAMINATION), so the approve path's `listing_search` mirror
+     * assertions have a row to read — exactly what the previous spec pinned.
+     */
+    private suspend fun createIndexedListing(bearer: String, ownerId: String): String =
+        createListing(
+            bearer,
+            ownerId,
+            listingBody(overrides = mapOf("crossContamination" to "NO_CROSS_CONTAMINATION")),
         )
-        resp.statusCode shouldBe HttpStatus.CREATED
-        return UUID.fromString(resp.body!!["reviewId"].toString())
-    }
 
-    private fun authed(bearer: String?, body: Any? = null): HttpEntity<Any?> {
-        val headers = HttpHeaders()
-        if (bearer != null) headers.setBearerAuth(bearer)
-        headers.contentType = MediaType.APPLICATION_JSON
-        return HttpEntity(body, headers)
-    }
+    init {
+        test("a Verification Committee member lists pending AI_SUGGESTED reviews") {
+            val owner = session("vc-list-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
+            val vc = signupPromoteLogin("vc-list-member@example.com")
 
-    @Suppress("UNCHECKED_CAST")
-    private fun codeOf(resp: ResponseEntity<Map<*, *>>): String? =
-        resp.body?.let { it["code"] as? String }
+            val resp = reviews(vc.bearer)
 
-    @TestConfiguration
-    class JwtKeyInitializer : ApplicationContextInitializer<ConfigurableApplicationContext> {
-        override fun initialize(context: ConfigurableApplicationContext) {
-            TestPropertyValues.of(
-                "app.jwt.rsa-private-key-base64=$TEST_PRIVATE_KEY_B64",
-                "app.jwt.issuer=tahirs-list",
-            ).applyTo(context.environment)
+            resp.status shouldBe 200
+            val entries = resp.jsonArray().map { it.jsonObject }
+            entries.map { it["reviewId"].asString() } shouldContain reviewId
+            val thisOne = entries.first { it["reviewId"].asString() == reviewId }
+            thisOne["listingId"].asString() shouldBe listingId
+            thisOne["state"].asString() shouldBe "AI_SUGGESTED"
+            thisOne["suggestedVerdict"].asString() shouldBe "NEEDS_REVIEW"
+            thisOne["decisionOutcome"].stringOrNull() shouldBe null
+        }
+
+        test("approve promotes the listing to VERIFIED in source and read mirror") {
+            val owner = session("vc-approve-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
+            val vc = signupPromoteLogin("vc-approve-member@example.com")
+
+            val resp = post(
+                "/v1/verification-committee/reviews/$reviewId/approve",
+                token = vc.bearer,
+                json = linkedMapOf("reason" to "cert matches listing"),
+            )
+
+            resp.status shouldBe 200
+            resp.json()["state"].asString() shouldBe "APPROVED"
+            resp.json()["decisionOutcome"].asString() shouldBe "APPROVED"
+            resp.json()["decisionReason"].asString() shouldBe "cert matches listing"
+
+            dbString(
+                "SELECT verification_status FROM restaurant_listings WHERE id = ?",
+                UUID.fromString(listingId),
+            ) shouldBe "VERIFIED"
+            dbString(
+                "SELECT verification_status FROM listing_search WHERE id = ?",
+                UUID.fromString(listingId),
+            ) shouldBe "VERIFIED"
+        }
+
+        test("deny records the reason and leaves the listing UNVERIFIED") {
+            val owner = session("vc-deny-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
+            val vc = signupPromoteLogin("vc-deny-member@example.com")
+
+            val resp = post(
+                "/v1/verification-committee/reviews/$reviewId/deny",
+                token = vc.bearer,
+                json = linkedMapOf("reason" to "cert image unreadable"),
+            )
+
+            resp.status shouldBe 200
+            resp.json()["state"].asString() shouldBe "DENIED"
+            resp.json()["decisionOutcome"].asString() shouldBe "DENIED"
+            resp.json()["decisionReason"].asString() shouldBe "cert image unreadable"
+
+            dbString(
+                "SELECT verification_status FROM restaurant_listings WHERE id = ?",
+                UUID.fromString(listingId),
+            ) shouldBe "UNVERIFIED"
+        }
+
+        test("approve records certifier + expiry and the public detail renders them from live data (sc-73 read surface)") {
+            val owner = session("vc-certattr-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
+            val vc = signupPromoteLogin("vc-certattr-member@example.com")
+
+            val approve = post(
+                "/v1/verification-committee/reviews/$reviewId/approve",
+                token = vc.bearer,
+                json = linkedMapOf(
+                    "reason" to "cert matches listing",
+                    "certifier" to "HFSAA",
+                    "expiresOn" to "2027-01-12",
+                ),
+            )
+            approve.status shouldBe 200
+            approve.json()["state"].asString() shouldBe "APPROVED"
+
+            // The public detail drive renders the CertificatePanel from live data.
+            val detail = get("/v1/listings/$listingId").json()
+            detail["verificationStatus"].asString() shouldBe "VERIFIED"
+            val certificate = detail["certificate"]!!.jsonObject
+            certificate["certifier"].asString() shouldBe "HFSAA"
+            certificate["reviewedOn"].asString().isNotBlank() shouldBe true
+            certificate["expiresOn"].asString() shouldBe "2027-01-12"
+            certificate["certificateUrl"].asString().contains("/v1/listings/$listingId/certificate") shouldBe true
+
+            // The certificate image proxy serves the archived bytes (View certificate).
+            val cert = get("/v1/listings/$listingId/certificate")
+            cert.status shouldBe 200
+            cert.bytes.contentEquals(certBytes) shouldBe true
+        }
+
+        test("an unverified listing carries no certificate in the detail payload") {
+            val owner = session("vc-nocert-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+
+            val detail = get("/v1/listings/$listingId").json()
+            detail["verificationStatus"].asString() shouldBe "UNVERIFIED"
+            detail["certificate"].stringOrNull() shouldBe null
+        }
+
+        test("approve rejects a malformed expiresOn") {
+            val owner = session("vc-badexp-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
+            val vc = signupPromoteLogin("vc-badexp-member@example.com")
+
+            val resp = post(
+                "/v1/verification-committee/reviews/$reviewId/approve",
+                token = vc.bearer,
+                json = linkedMapOf("reason" to "x", "expiresOn" to "not-a-date"),
+            )
+
+            resp.status shouldBe 400
+            resp.json()["code"].asString() shouldBe "invalid_input"
+        }
+
+        test("deciding an already-decided review is a 409 conflict") {
+            val owner = session("vc-twice-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+            val reviewId = claimAndGetReviewId(listingId, owner.bearer)
+            val vc = signupPromoteLogin("vc-twice-member@example.com")
+
+            post(
+                "/v1/verification-committee/reviews/$reviewId/deny",
+                token = vc.bearer,
+                json = linkedMapOf("reason" to "first"),
+            )
+            val resp = post(
+                "/v1/verification-committee/reviews/$reviewId/approve",
+                token = vc.bearer,
+                json = linkedMapOf("reason" to "second"),
+            )
+
+            resp.status shouldBe 409
+            resp.json()["code"].asString() shouldBe "review_not_pending"
+        }
+
+        test("a non-committee (USER) caller is forbidden from the workqueue") {
+            val owner = session("vc-forbidden-owner@example.com")
+            val listingId = createIndexedListing(owner.bearer, owner.id)
+            claimAndGetReviewId(listingId, owner.bearer)
+
+            val resp = reviews(owner.bearer)
+
+            resp.status shouldBe 403
+            resp.json()["code"].asString() shouldBe "forbidden"
+        }
+
+        test("unauthenticated calls are a generic 401") {
+            val resp = reviews(bearer = null)
+
+            resp.status shouldBe 401
+            resp.json()["code"].asString() shouldBe "unauthorized"
         }
     }
-
-    companion object {
-        private val TEST_PRIVATE_KEY_B64: String by lazy {
-            ClassPathResource("test-jwt-rsa-private.pem").inputStream.bufferedReader().use { it.readText() }.trim()
-        }
-    }
-}
-
-/** A [ByteArrayResource] that reports a filename, so the multipart encoder sends it as a file part. */
-private class CertImageResource(content: ByteArray, private val filename: String) : ByteArrayResource(content) {
-    override fun getFilename(): String = filename
 }

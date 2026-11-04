@@ -5,24 +5,34 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
-import org.springframework.core.io.ClassPathResource
 
 /**
  * sc-134 fail-fast config: the HTTP app must not silently start (or fail later
  * with an obscure crypto exception) when a JWT signing key IS provided but is
  * invalid. Loading an invalid configured key must fail fast with a clear,
- * actionable message that names the property without echoing the (secret) value.
+ * actionable message that names the environment variable without echoing the (secret) value.
  *
  * The deliberate long-jump around ephemeral key generation for local dev is
  * unchanged; the prod-profile guard refuses to boot on known dev/default keys.
+ *
+ * The fixture key is read as a plain classloader resource (the previous
+ * `ClassPathResource` was a Spring type).
  */
 class JwtRsaKeyPairLoaderTest : FunSpec({
+
+    fun devKey(): String =
+        JwtRsaKeyPairLoaderTest::class.java.classLoader
+            .getResourceAsStream("test-jwt-rsa-private.pem")
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            ?.trim()
+            ?: error("test-jwt-rsa-private.pem is missing from the test resources")
 
     test("a malformed (non-base64) configured key fails fast with a clear message") {
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair("!!!not-base64!!!")
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldNotContain "!!!not-base64!!!"
     }
 
@@ -32,13 +42,12 @@ class JwtRsaKeyPairLoaderTest : FunSpec({
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair(garbage)
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldNotContain garbage
     }
 
     test("a valid configured PKCS#8 RSA key loads successfully") {
-        val b64 = ClassPathResource("test-jwt-rsa-private.pem").inputStream.bufferedReader().use { it.readText() }.trim()
-        val pair = JwtRsaKeyPairLoader.loadKeyPair(b64)
+        val pair = JwtRsaKeyPairLoader.loadKeyPair(devKey())
         pair.private.algorithm shouldBe "RSA"
     }
 
@@ -51,22 +60,20 @@ class JwtRsaKeyPairLoaderTest : FunSpec({
     // sc-134 follow-up: prod-profile key guard. Production must never boot with a
     // known dev/default JWT signing key. The guard compares the SHA-256 fingerprint
     // of the configured key's DER encoding against a denylist of known dev keys
-    // (the committed test key) and fails fast, WITHOUT
-    // echoing the secret value.
+    // (the committed test key) and fails fast, WITHOUT echoing the secret value.
 
     test("prod profile refuses the committed dev test key") {
-        val devKeyB64 = ClassPathResource("test-jwt-rsa-private.pem").inputStream.bufferedReader().use { it.readText() }.trim()
+        val devKeyB64 = devKey()
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair(devKeyB64, prodProfile = true)
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldContain "KNOWN DEVELOPMENT key"
         err.message shouldNotContain devKeyB64.take(20)
     }
 
     test("dev profile still accepts the committed dev test key") {
-        val devKeyB64 = ClassPathResource("test-jwt-rsa-private.pem").inputStream.bufferedReader().use { it.readText() }.trim()
-        val pair = JwtRsaKeyPairLoader.loadKeyPair(devKeyB64, prodProfile = false)
+        val pair = JwtRsaKeyPairLoader.loadKeyPair(devKey(), prodProfile = false)
         pair.private.algorithm shouldBe "RSA"
     }
 
@@ -74,7 +81,7 @@ class JwtRsaKeyPairLoaderTest : FunSpec({
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair("", prodProfile = true)
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldNotContain "\n"
     }
 

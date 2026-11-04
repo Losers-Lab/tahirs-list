@@ -2,6 +2,7 @@ package com.tahirslist.bootstrap
 
 import com.tahirslist.domain.account.Account
 import com.tahirslist.domain.account.Email
+import com.tahirslist.domain.account.Role
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jwt.SignedJWT
 import io.kotest.core.spec.style.FunSpec
@@ -12,7 +13,7 @@ import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPrivateKey
 import java.time.Duration
 import java.time.Instant
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * sc-135 Gap 4 (QA gap R1): JwtTokenIssuer has no dedicated unit tests. These
@@ -33,13 +34,13 @@ class JwtTokenIssuerTest : FunSpec({
         accessTokenTtl = Duration.ofSeconds(ttlSeconds),
     )
 
-    fun signedJwt(account: Account, tokens: com.tahirslist.application.account.SessionTokens): SignedJWT =
+    fun signedJwt(tokens: com.tahirslist.application.account.SessionTokens): SignedJWT =
         SignedJWT.parse(tokens.accessToken)
 
     test("issued access token carries the account sub, issuer, email and role claims") {
         val account = Account.new(email = Email("alice@example.com"), passwordHash = "argon2id\$h")
         val tokens = issuer.issue(account)
-        val jwt = signedJwt(account, tokens)
+        val jwt = signedJwt(tokens)
 
         jwt.header.algorithm shouldBe JWSAlgorithm.RS256
         jwt.jwtClaimsSet.subject shouldBe account.id.toString()
@@ -55,7 +56,7 @@ class JwtTokenIssuerTest : FunSpec({
         tokens.accessTokenExpiresInSeconds shouldBe ttlSeconds
         tokens.tokenType shouldBe "Bearer"
 
-        val jwt = signedJwt(account, tokens)
+        val jwt = signedJwt(tokens)
         val iat = jwt.jwtClaimsSet.issueTime.toInstant()
         val exp = jwt.jwtClaimsSet.expirationTime.toInstant()
         Duration.between(iat, exp).seconds shouldBe ttlSeconds
@@ -76,15 +77,15 @@ class JwtTokenIssuerTest : FunSpec({
     }
 
     test("issued token sub equals the account id used at issuance") {
-        val id = UUID.fromString("2f3c1f9a-3f4b-4f6f-8bf7-2f8b1d3a9f5e")
+        val id = Uuid.parse("2f3c1f9a-3f4b-4f6f-8bf7-2f8b1d3a9f5e")
         val account = Account.fromStorage(
             id = id,
             email = Email("dave@example.com"),
             passwordHash = "argon2id\$h",
-            role = com.tahirslist.domain.account.Role.RESTAURANT_OWNER,
+            role = Role.RESTAURANT_OWNER,
         )
         val tokens = issuer.issue(account)
-        val jwt = signedJwt(account, tokens)
+        val jwt = signedJwt(tokens)
 
         jwt.jwtClaimsSet.subject shouldBe id.toString()
         jwt.jwtClaimsSet.getStringClaim("role") shouldBe "RESTAURANT_OWNER"

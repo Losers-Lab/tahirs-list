@@ -12,9 +12,12 @@ import com.tahirslist.domain.verification.ModelJudgment
  * U-11). Implemented by [RestVisionModelClient]; mocked in adapter tests so no
  * live provider is ever called.
  *
+ * The call is `suspend` (the transport is a Ktor client), so the seam is
+ * coroutine-native rather than blocking a thread per request.
+ *
  * @throws com.tahirslist.application.verification.VerificationProviderException
  *   on transport failure (non-2xx, timeout, unparseable); never returns a verdict.
  */
 fun interface VisionModelClient {
-    fun analyze(prompt: String, image: CertificationImage): ModelJudgment
+    suspend fun analyze(prompt: String, image: CertificationImage): ModelJudgment
 }

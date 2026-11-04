@@ -14,6 +14,16 @@ two distinct parts:
 > decisions still open. Hosting, geo, reviews, verification provider, auth
 > tuning, and SEO were ratified 2026-08-29 (see §1.0); partial-halal and
 > alcohol-served added to MVP scope.
+>
+> **2026-11-03 — Kotlin-first backend rework (founder directive).** Spring Boot
+> is superseded by **Ktor 3** (coroutines, CIO engine), Spring Data JDBC /
+> `JdbcTemplate` by **Exposed**, and Java-first patterns are re-evaluated through
+> a Kotlin lens. The hexagonal `:domain`/`:application` ports made the swap
+> adapter-local. Implementation is in progress on `feature/ktor-migration`.
+> The guiding principle is *prefer the Kotlin-native option where it is sane*;
+> Java-first libraries with no maintained Kotlin equivalent (JWT/Nimbus,
+> Argon2/BouncyCastle, JDBC driver, Flyway execution) remain behind Kotlin
+> facades. This is a lens, not a purity rule.
 
 ---
 
@@ -35,16 +45,16 @@ remains **unresolved** (see Part 2).
 | **Verification trust language** | Layer 1: Verified green checkmark badge + posted certification asset (tooltip "Halal certification reviewed & approved by our committee"); Layer 2: neutral "Unverified" tag (never error-red); Layer 3: hand-cut/machine-cut via icon+text tag, colorblind-safe, never color-only | **Verified = green checkmark** (founder); "Unverified" copy + certification expiry display remain open product flags. |
 | **Design system / tokens** | Build a **fresh, clean design system from first principles** (mobile-first, trustworthy, accessible), anchored on the agreed verification-trust language; **Figma is not authoritative** | Founder: the existing Figma is an old generic draft and not sacrosanct. Figma-token extraction is **optional**; tokens defined fresh (colors w/ AA contrast, 4px spacing, radius, rem type scale, focus/ring a11y tokens, semantic tokens like `badge-verified`) and wired via Tailwind v4 `@theme`. Brand palette to be confirmed. |
 | **Backend language** | **Kotlin** | Founder decision; strong Java background, favourite language Kotlin. |
-| **Backend framework** | **Spring Boot 3.3+** (Kotlin, blocking thread-per-request with **Virtual Threads**; NOT WebFlux) | Hamza research; ratified by founder. Ktor 3 kept as swappable alternative via hexagonal modules. |
-| **Database & data access** | **PostgreSQL 16/17 + PostGIS**; **jOOQ** (search) + **Spring Data JDBC** (CRUD); **Flyway** migrations | Ratified. DENIED: JPA/Hibernate, Mongo. |
-| **API contract** | **Code-first REST via springdoc-openapi**; committed, CI-linted, versioned **OpenAPI 3.1** `/v1` | Frontend types client + extensions consume it. |
-| **Authn/Authz** | **Spring Security OAuth2 resource server**; email/password (**Argon2id** — modern best practice, one-time tuning); short **JWT (RS256)** access + **rotating hashed refresh**; **RBAC** for 6 roles + anonymous + extension API-keys | Ratified. |
+| **Backend framework** | **Ktor 3.6+** (coroutines; **CIO** engine) | **Founder directive 2026-11-03**: supersedes Spring Boot 3.3. The hexagonal `:domain`/`:application` ports confined the swap to adapters + composition root. |
+| **Database & data access** | **PostgreSQL 16/17 + PostGIS**; **Exposed 1.6** (suspend transactions; raw-SQL escape hatch for `ST_DWithin` / `ST_DistanceSphere`); **Flyway** retained as migration executor behind a thin Kotlin facade | Superseded 2026-11-03. Research found no maintained Kotlin-native migration tool; Flyway's SQL migrations carry over unchanged. DENIED: JPA/Hibernate, Mongo. |
+| **API contract** | **Committed OpenAPI 3.1 `/v1`** spec remains the contract, validated against Ktor routes in CI | springdoc (Spring-only) superseded 2026-11-03; frontend typed client + extensions consume the committed spec. |
+| **Authn/Authz** | **Ktor `Authentication` + JWT** (RS256 verification via **Nimbus** inside the provider); email/password (**Argon2id** via **BouncyCastle** behind the `PasswordHasher` port); short **JWT (RS256)** access + **rotating hashed refresh**; **RBAC** for 6 roles + anonymous + extension API-keys | Same ratified security semantics (deny-by-default, generic 401s, 60 s skew, no revocation list). Nimbus/BouncyCastle stay behind Kotlin ports. |
 | **Geo/search** | **PostGIS `geography(Point,4326)` + GiST**; one query: `ST_DWithin` (filter) + `ST_DistanceSphere` (order); denormalized `listing_search` table; offset paging | Straight-line/miles semantics (founder). |
 | **Image storage** | **MinIO self-hosted** (S3-compatible, **$0**, runs in Docker alongside the app) for MVP — private bucket, presigned PUT/GET, namespaced keys, versioning + content SHA-256 audit. **Cloudflare R2 is the target for the future** | Founder decision: MinIO now (fully $0, self-operated), **R2 later** (free tier + managed + zero egress). Build against the **S3 SDK on a configurable endpoint** so R2 is a config change, not code — keep all storage access behind one internal interface and avoid AWS-only features. |
 | **Verification (hosted AI)** | **Hosted/API multimodal AI (vision)** judges halal-certificate image → conservative verdict + **lightweight human review/correction loop**; **no in-house ML model/training pipeline** | Founded pivot + clarification: "committee" = AI verdict + human spot-check/correct (NOT a people board, NOT training). Pluggable `VerificationProvider` port, default = HostedVisionAdapter. Details: state machine SUBMITTED→AI_REVIEW→AI_SUGGESTED→HUMAN_REVIEW→APPROVED/DENIED (+REVERSED); conservative VerificationSuggestion contract; privacy/security flags (provider terms, PII redaction, retention). See unresolved U-11. |
-| **Testing/TDD** | **Kotest + MockK + Testcontainers** (PostGIS) + Spring Test slices; hexagonal modules `:domain → :application → adapters → :bootstrap` | Supports mandated backend TDD. |
-| **Build/ops baseline** | **Gradle (Kotlin DSL)**, **JDK 21 LTS** (Temurin), Kotlin 2.x K2, **Jib** OCI images, Postgres+PostGIS | Deploy target now resolved (see U-08 below). |
-| **Hosting / deploy (U-08)** | **Hetzner VPS (CX class, ~US$6–7/mo, e.g. CX23 2 vCPU/4GB/40GB) self-hosting** Postgres 16/17 + PostGIS, MinIO, the Spring Boot Jib image, and the async verification worker on one always-on box | Ratified by founder 2026-08-29. Cheapest reliable floor — self-host has full extension control so PostGIS can't be dropped by a vendor tier. **Neon (managed Postgres, PostGIS native, free/scale-to-zero) is the $0 zero-ops alternative.** ⚠ Use Hetzner's cost-optimized CX/CAX line, NOT the CPX line (prices raised 2026). Migration is config-cheap: Jib OCI images + env-var connection strings; DB move = pg_dump/restore + one JDBC URL (<1 day). Avoid provider-specific DB lock-in. EKS is NOT an MVP option (~$60–300/mo). |
+| **Testing/TDD** | **Kotest + MockK + Testcontainers** (PostGIS) + **Ktor `testApplication`**; hexagonal modules `:domain → :application → adapters → :bootstrap` | Supports mandated backend TDD; no Spring context anywhere in the test suite. |
+| **Build/ops baseline** | **Gradle (Kotlin DSL) + configuration cache**, **JDK 21 LTS** (Temurin), **Kotlin 2.4.x** (K2), **Ktor CIO** runtime, Postgres+PostGIS; runtime image via a jlink-tuned JVM | Containerized Gradle build unchanged (`scripts/backend-test.sh`). Kotlin-first lens applied to build/test speed as well as code. |
+| **Hosting / deploy (U-08)** | **Hetzner VPS (CX class, ~US$6–7/mo, e.g. CX23 2 vCPU/4GB/40GB) self-hosting** Postgres 16/17 + PostGIS, MinIO, the Ktor app image, and the async verification worker on one always-on box | Ratified by founder 2026-08-29. Cheapest reliable floor — self-host has full extension control so PostGIS can't be dropped by a vendor tier. **Neon (managed Postgres, PostGIS native, free/scale-to-zero) is the $0 zero-ops alternative.** ⚠ Use Hetzner's cost-optimized CX/CAX line, NOT the CPX line (prices raised 2026). Migration is config-cheap: OCI images + env-var connection strings; DB move = pg_dump/restore + one JDBC URL (<1 day). Avoid provider-specific DB lock-in. EKS is NOT an MVP option (~$60–300/mo). |
 | **Maps / geo (U-09)** | **Google Places API for Autocomplete + Geocoding only**, held **server-side** (no Maps SDK / heavy rendering — PostGIS does the radius match) | Since 2025-03-01 Google replaced the $200/mo pool with per-SKU free caps: **Autocomplete free 10k/mo, Geocoding free 10k/mo** → ~$0 at MVP (card on file, pay only past caps). OSM (Photon+Nominatim) is the $0-no-card fallback (weaker UX, no SLA). Server-side key → no client exposure. |
 | **Reviews / ratings (U-10)** | **Official APIs + server-side keys + 24h backend cache** (1 restaurant view = 1 API call, repeats hit cache at $0): **Google Place Details (Enterprise fields)** = rating + user_ratings_total + reviews ($20/1k, 1k free/mo → $0); **Yelp Fusion free tier** (~500/day) = rating + review_count | MVP shows rating + count + "Read on [Google/Yelp]" link; **Yelp full review-snippet text deferred to paid Enhanced tier (~$7.99–9.99/1k)** until revenue. **No scraping** (ToS/DMCA risk). Fallback for listings w/o linked Google/Yelp: owner/user-entered rating + external links. ~$0/mo. |
 | **Verification provider (U-11)** | **Google Gemini 2.5 Flash (PAID API tier)** as the default `HostedVisionAdapter`/`VerificationProvider`; ~$0.0002–0.0005/verification, 1–4s latency, strong document understanding | Ratified 2026-08-29. **Never the free AI Studio tier** (uses data to improve Google products, no retention controls). Non-Vertex Gemini API retains prompts 55 days for abuse monitoring. **Alternative: Claude Haiku 4.5** — cleanest default data posture (no retention/training by default) if guarantees outweigh cost. **Human-in-the-loop is MANDATORY** (both Google & OpenAI require human supervision for high-stakes automated decisions): AI-suggests → VC-approves, never ship AI alone. **Upload hygiene regardless of provider:** downscale ~1024px, strip EXIF, upload cert-only image (not proof-of-ownership composites). Do-not-use: xAI/Grok. |
@@ -52,10 +62,15 @@ remains **unresolved** (see Part 2).
 | **SEO / public pages (U-13)** | **Public listing/view pages crawlable (SEO) from day one**; owner/dashboard behind auth | Fits listing-first product + SvelteKit SSR at no extra cost; protects future SEO asset. |
 | **Auth tuning (U-12)** | **VC/IC as roles on existing accounts** (not separate accounts); standard Argon2id params; extension API-keys rotated on a schedule; refresh-token lifetime ~30 days | Defaults ratified by founder 2026-08-29. |
 
-> **Backend stack is RATIFIED** (2026-08-28): Kotlin + Spring Boot 3 + PostgreSQL/PostGIS
-> (jOOQ + Spring Data JDBC + Flyway) + REST/OpenAPI + Spring Security JWT/RBAC + PostGIS
-> geo + S3 images + hosted-AI verification. Deploy target and a few minor flags remain open
-> (see Part 2).
+> **Backend stack is RATIFIED** (revised 2026-11-03): Kotlin + **Ktor 3** (CIO,
+> coroutines) + PostgreSQL/PostGIS (**Exposed**; Flyway execution) + OpenAPI 3.1 +
+> **Ktor JWT** auth/RBAC + PostGIS geo + S3 images + hosted-AI verification.
+> Spring Boot, Spring Security, springdoc and Spring Data/`JdbcTemplate` are
+> superseded. Deploy target and a few minor flags remain open (see Part 2).
+> **Kotlin-first lens:** prefer the Kotlin-native option where it is sane; Java
+> libraries with no maintained Kotlin equivalent stay behind Kotlin facades (e.g.
+> Nimbus, BouncyCastle, the PostgreSQL JDBC driver, Flyway execution). This is a
+> preference, not a CI purity rule.
 
 ### 1.1 Core product model
 

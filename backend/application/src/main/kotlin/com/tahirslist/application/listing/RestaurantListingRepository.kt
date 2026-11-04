@@ -2,15 +2,15 @@ package com.tahirslist.application.listing
 
 import com.tahirslist.domain.restaurant.RestaurantListing
 import com.tahirslist.domain.restaurant.VerificationStatus
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Persistence port (hexagonal "out" port) for restaurant listings. Implemented by
  * the persistence adapter; the application layer depends only on this contract.
  */
 interface RestaurantListingRepository {
-    fun save(listing: RestaurantListing): RestaurantListing
-    fun findById(id: UUID): RestaurantListing?
+    suspend fun save(listing: RestaurantListing): RestaurantListing
+    suspend fun findById(id: Uuid): RestaurantListing?
 
     /**
      * Full replace of a listing's editable content fields (sc-23/47/48 owner
@@ -21,7 +21,7 @@ interface RestaurantListingRepository {
      *
      * @return the reloaded updated listing, or null if no listing has that id.
      */
-    fun update(listing: RestaurantListing): RestaurantListing?
+    suspend fun update(listing: RestaurantListing): RestaurantListing?
 
     /**
      * Promote/change a listing's [VerificationStatus]. sc-73 uses this to promote
@@ -31,7 +31,7 @@ interface RestaurantListingRepository {
      *
      * @return the updated listing, or null if no listing has that id.
      */
-    fun updateVerificationStatus(id: UUID, status: VerificationStatus): RestaurantListing?
+    suspend fun updateVerificationStatus(id: Uuid, status: VerificationStatus): RestaurantListing?
 
     /**
      * All listings, for the minimal sc-157 browse/search read path. Full
@@ -39,5 +39,5 @@ interface RestaurantListingRepository {
      * story; this is the unfiltered seed surface documented in
      * docs/design/sc-157-image-variants.md.
      */
-    fun findAll(): List<RestaurantListing>
+    suspend fun findAll(): List<RestaurantListing>
 }

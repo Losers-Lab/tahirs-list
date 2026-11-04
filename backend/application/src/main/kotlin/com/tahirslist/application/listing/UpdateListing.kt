@@ -8,7 +8,7 @@ import com.tahirslist.domain.restaurant.HalalItem
 import com.tahirslist.domain.restaurant.HalalScope
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.RestaurantListing
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Update Listing use case (sc-23/47/48): an authenticated listing **owner** edits
@@ -39,9 +39,9 @@ class UpdateListing(
     private val listings: RestaurantListingRepository,
 ) {
 
-    fun execute(
-        listingId: UUID,
-        ownerId: UUID,
+    suspend fun execute(
+        listingId: Uuid,
+        ownerId: Uuid,
         name: String,
         address: String,
         location: LatLng,

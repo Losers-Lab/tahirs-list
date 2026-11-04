@@ -16,13 +16,15 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
-import java.util.UUID
 import javax.imageio.ImageIO
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.test.runTest
 
 /**
  * sc-53 owner add/replace hero image: [AddListingImage] owner-guards an upload
@@ -44,8 +46,8 @@ class AddListingImageTest : FunSpec({
     }
 
     fun existingListing(
-        id: UUID = UUID.randomUUID(),
-        ownerId: UUID = UUID.randomUUID(),
+        id: Uuid = Uuid.random(),
+        ownerId: Uuid = Uuid.random(),
     ): RestaurantListing = RestaurantListing.fromStorage(
         id = id,
         name = "Halal Grill",
@@ -58,7 +60,7 @@ class AddListingImageTest : FunSpec({
         brandId = null,
         provenance = null,
         verificationStatus = VerificationStatus.UNVERIFIED,
-        createdAt = java.time.Instant.parse("2026-01-01T00:00:00Z"),
+        createdAt = Instant.parse("2026-01-01T00:00:00Z"),
         halalScope = HalalScope.NOT_DISCLOSED,
         crossContamination = CrossContamination.UNCERTAIN,
     )
@@ -75,60 +77,82 @@ class AddListingImageTest : FunSpec({
     }
 
     test("owner can set the listing's hero image; FULL + every thumb is stored") {
-        val ownerId = UUID.randomUUID()
-        val listing = existingListing(ownerId = ownerId)
-        every { listings.findById(listing.id) } returns listing
+        runTest {
+            val ownerId = Uuid.random()
+            val listing = existingListing(ownerId = ownerId)
+            coEvery { listings.findById(listing.id) } returns listing
 
-        useCase.execute(listing.id, ownerId, StoredImage(jpeg(), "image/jpeg"))
+            useCase.execute(listing.id, ownerId, StoredImage(jpeg(), "image/jpeg"))
 
-        val full = images.load(listing.id, ImageVariant.FULL).shouldNotBeNull()
-        full.contentType shouldBe "image/jpeg"
-        ImageVariant.thumbnailVariants.forEach { images.load(listing.id, it).shouldNotBeNull() }
+            val full = images.load(listing.id, ImageVariant.FULL).shouldNotBeNull()
+            full.contentType shouldBe "image/jpeg"
+            ImageVariant.thumbnailVariants.forEach { images.load(listing.id, it).shouldNotBeNull() }
+        }
+    }
+
+    test("a client-supplied upload label never reaches storage (the stored type is derived)") {
+        runTest {
+            val ownerId = Uuid.random()
+            val listing = existingListing(ownerId = ownerId)
+            coEvery { listings.findById(listing.id) } returns listing
+
+            useCase.execute(listing.id, ownerId, StoredImage(jpeg(), "text/html"))
+
+            images.load(listing.id, ImageVariant.FULL).shouldNotBeNull().contentType shouldBe "image/jpeg"
+        }
     }
 
     test("re-uploading overwrites the earlier hero (last-write-wins)") {
-        val ownerId = UUID.randomUUID()
-        val listing = existingListing(ownerId = ownerId)
-        every { listings.findById(listing.id) } returns listing
+        runTest {
+            val ownerId = Uuid.random()
+            val listing = existingListing(ownerId = ownerId)
+            coEvery { listings.findById(listing.id) } returns listing
 
-        useCase.execute(listing.id, ownerId, StoredImage(jpeg(400, 300), "image/jpeg"))
-        val second = jpeg(2000, 1500)
-        useCase.execute(listing.id, ownerId, StoredImage(second, "image/jpeg"))
+            useCase.execute(listing.id, ownerId, StoredImage(jpeg(400, 300), "image/jpeg"))
+            val second = jpeg(2000, 1500)
+            useCase.execute(listing.id, ownerId, StoredImage(second, "image/jpeg"))
 
-        images.load(listing.id, ImageVariant.FULL)!!.bytes.contentEquals(second) shouldBe true
+            images.load(listing.id, ImageVariant.FULL)!!.bytes.contentEquals(second) shouldBe true
+        }
     }
 
     test("a non-owner is unauthorized (403) and never persists") {
-        val listing = existingListing(ownerId = UUID.randomUUID()) // owner is someone else
-        every { listings.findById(listing.id) } returns listing
+        runTest {
+            val listing = existingListing(ownerId = Uuid.random()) // owner is someone else
+            coEvery { listings.findById(listing.id) } returns listing
 
-        val ex = shouldThrow<NotListingOwnerException> {
-            useCase.execute(listing.id, UUID.randomUUID(), StoredImage(jpeg(), "image/jpeg"))
+            val ex = shouldThrow<NotListingOwnerException> {
+                useCase.execute(listing.id, Uuid.random(), StoredImage(jpeg(), "image/jpeg"))
+            }
+            ex.listingId shouldBe listing.id
+            images.load(listing.id, ImageVariant.FULL) shouldBe null
         }
-        ex.listingId shouldBe listing.id
-        images.load(listing.id, ImageVariant.FULL) shouldBe null
     }
 
     test("unknown listing is not found (404)") {
-        val id = UUID.randomUUID()
-        every { listings.findById(id) } returns null
+        runTest {
+            val id = Uuid.random()
+            coEvery { listings.findById(id) } returns null
 
-        val ex = shouldThrow<ListingNotFoundException> {
-            useCase.execute(id, UUID.randomUUID(), StoredImage(jpeg(), "image/jpeg"))
+            val ex = shouldThrow<ListingNotFoundException> {
+                useCase.execute(id, Uuid.random(), StoredImage(jpeg(), "image/jpeg"))
+            }
+            ex.listingId shouldBe id
+            images.load(id, ImageVariant.FULL) shouldBe null
         }
-        ex.listingId shouldBe id
-        images.load(id, ImageVariant.FULL) shouldBe null
     }
 
     test("undecodable upload throws before anything is persisted") {
-        val ownerId = UUID.randomUUID()
-        val listing = existingListing(ownerId = ownerId)
-        every { listings.findById(listing.id) } returns listing
+        runTest {
+            val ownerId = Uuid.random()
+            val listing = existingListing(ownerId = ownerId)
+            coEvery { listings.findById(listing.id) } returns listing
 
-        shouldThrow<IllegalArgumentException> {
-            useCase.execute(listing.id, ownerId, StoredImage("garbage".toByteArray(), "image/jpeg"))
+            shouldThrow<IllegalArgumentException> {
+                useCase.execute(listing.id, ownerId, StoredImage("garbage".toByteArray(), "image/jpeg"))
+            }
+            images.load(listing.id, ImageVariant.FULL) shouldBe null
+            ImageVariant.thumbnailVariants.forEach { images.load(listing.id, it) shouldBe null }
         }
-        images.load(listing.id, ImageVariant.FULL) shouldBe null
-        ImageVariant.thumbnailVariants.forEach { images.load(listing.id, it) shouldBe null }
     }
 })

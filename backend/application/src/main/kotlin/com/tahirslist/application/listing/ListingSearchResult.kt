@@ -5,7 +5,7 @@ import com.tahirslist.domain.restaurant.HalalScope
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.Rating
 import com.tahirslist.domain.restaurant.VerificationStatus
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * A single location-search hit: one listing plus its straight-line distance in
@@ -27,7 +27,7 @@ import java.util.UUID
  * flag a listing claims.
  */
 data class ListingSearchResult(
-    val id: UUID,
+    val id: Uuid,
     val name: String,
     val address: String,
     val city: String? = null,

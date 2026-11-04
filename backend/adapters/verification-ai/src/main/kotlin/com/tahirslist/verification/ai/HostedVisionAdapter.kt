@@ -20,7 +20,7 @@ class HostedVisionAdapter(
     private val policy: ConservativeVerdictPolicy = ConservativeVerdictPolicy,
 ) : VerificationProvider {
 
-    override fun suggest(image: CertificationImage): VerificationSuggestion {
+    override suspend fun suggest(image: CertificationImage): VerificationSuggestion {
         val judgment = client.analyze(PromptTemplate.build(), image)
         return policy.apply(judgment)
     }

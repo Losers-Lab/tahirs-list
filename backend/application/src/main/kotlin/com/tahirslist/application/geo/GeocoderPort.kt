@@ -19,5 +19,5 @@ package com.tahirslist.application.geo
  * adding them here before a caller needs them would over-build the seam.
  */
 interface GeocoderPort {
-    fun geocode(address: String): GeocodedPlace?
+    suspend fun geocode(address: String): GeocodedPlace?
 }

@@ -14,7 +14,7 @@ frontend implementations (see [ARCHITECTURE.md](./ARCHITECTURE.md)).
 - The product requirements and documentation live in **Shortcut**
   (`app.shortcut.com/halal-food-finder`), which is the source of truth for
   product and project management.
-- The technical stack is **ratified**: Kotlin/Spring Boot 3 + PostgreSQL/PostGIS
+- The technical stack is **ratified**: Kotlin/Ktor 3 + PostgreSQL/PostGIS
   backend, Next.js (TypeScript) frontend. See
   [ARCHITECTURE.md](./ARCHITECTURE.md) for the resolved decisions and what is
   still open.

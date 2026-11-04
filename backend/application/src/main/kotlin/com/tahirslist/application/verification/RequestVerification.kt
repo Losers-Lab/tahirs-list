@@ -2,8 +2,9 @@ package com.tahirslist.application.verification
 
 import com.tahirslist.domain.verification.CertificationImage
 import com.tahirslist.domain.verification.HalalCertificationReview
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * Drives the forward verification path through the [VerificationProvider] seam:
@@ -21,11 +22,11 @@ import java.util.UUID
 class RequestVerification(
     private val provider: VerificationProvider,
 ) {
-    fun execute(
-        listingId: UUID,
-        submittedBy: UUID,
+    suspend fun execute(
+        listingId: Uuid,
+        submittedBy: Uuid,
         image: CertificationImage,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
         aiConsentGivenAt: Instant? = null,
     ): HalalCertificationReview {
         val aiReview = HalalCertificationReview.create(

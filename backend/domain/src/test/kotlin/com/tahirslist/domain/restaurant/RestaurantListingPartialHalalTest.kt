@@ -4,7 +4,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import java.math.BigDecimal
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 /**
  * Domain modelling for sc-119 partial-halal. Covers the founder re-scope:
@@ -14,7 +15,7 @@ import java.util.UUID
  */
 class RestaurantListingPartialHalalTest : FunSpec({
 
-    val owner = UUID.randomUUID()
+    val owner = Uuid.random()
 
     fun base() = RestaurantListing.new(
         name = "Mixed Grill",
@@ -101,8 +102,8 @@ class RestaurantListingPartialHalalTest : FunSpec({
     }
 
     test("fromStorage round-trips isHandCut, halalScope, halalItems and crossContamination") {
-        val id = UUID.randomUUID()
-        val now = java.time.Instant.now()
+        val id = Uuid.random()
+        val now = Clock.System.now()
         val listing = RestaurantListing.fromStorage(
             id = id,
             name = "Stored",

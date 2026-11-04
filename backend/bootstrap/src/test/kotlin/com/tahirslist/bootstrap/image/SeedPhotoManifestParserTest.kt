@@ -1,6 +1,5 @@
 package com.tahirslist.bootstrap.image
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -12,10 +11,14 @@ import io.kotest.matchers.shouldBe
  * modeled; the richer research fields (license, vision ratings, address
  * confidence) are intentionally ignored. Null fields tolerate the artifact's
  * shape; a row without a hero_url is rejected loudly, not silently skipped.
+ *
+ * The parser now uses the kotlinx.serialization tree model (Jackson is gone), so
+ * the constructor takes no mapper — its default [kotlinx.serialization.json.Json]
+ * is the one ingest uses.
  */
 class SeedPhotoManifestParserTest : FunSpec() {
 
-    private val parser = SeedPhotoManifestParser(ObjectMapper())
+    private val parser = SeedPhotoManifestParser()
 
     init {
         test("parses seed rows into SeedHeroPhoto with the backend-facing fields") {

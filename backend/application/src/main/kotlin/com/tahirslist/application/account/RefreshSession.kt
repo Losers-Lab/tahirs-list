@@ -1,6 +1,6 @@
 package com.tahirslist.application.account
 
-import java.time.Clock
+import kotlin.time.Clock
 
 /**
  * Refresh Session (sc-40) use case — rotating hashed refresh tokens with
@@ -20,10 +20,10 @@ class RefreshSession(
     private val tokenIssuer: TokenIssuer,
     private val refreshTokenStore: RefreshTokenStore,
     private val accountRepository: AccountRepository,
-    private val clock: Clock = Clock.systemUTC(),
+    private val clock: Clock = Clock.System,
 ) {
 
-    fun execute(refreshToken: String): AuthSession {
+    suspend fun execute(refreshToken: String): AuthSession {
         val stored = refreshTokenStore.findByToken(refreshToken)
         if (stored == null) {
             // Not live. Distinguish "never issued" from "present-but-consumed"
@@ -37,7 +37,7 @@ class RefreshSession(
         }
 
         // Expired (or expiring now): revoke so it cannot replay, then reject.
-        if (!stored.expiresAt.isAfter(clock.instant())) {
+        if (stored.expiresAt <= clock.now()) {
             refreshTokenStore.revoke(refreshToken)
             throw InvalidCredentialsException()
         }
@@ -58,7 +58,7 @@ class RefreshSession(
             newToken = tokens.refreshToken,
             accountId = account.id,
             familyId = stored.familyId,
-            expiresAt = clock.instant().plus(SessionLifetimes.REFRESH_LIFETIME),
+            expiresAt = clock.now() + SessionLifetimes.REFRESH_LIFETIME,
         )
         if (!rotated) {
             throw InvalidCredentialsException()

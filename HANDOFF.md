@@ -27,7 +27,7 @@ following Open Knowledge Format (OKF) conventions. It covers:
 1. **Nothing is running on your machine yet.** Follow
    [`docs/handoff/10-fresh-machine-setup.md`](docs/handoff/10-fresh-machine-setup.md).
    The stack is five Docker containers: PostGIS, MinIO, a one-shot bucket initializer,
-   the Spring Boot backend, and the Next.js frontend.
+   the Ktor backend, and the Next.js frontend.
 2. **There is no production deployment and no database backup.** Hetzner was chosen
    but never provisioned, and the data lives in Docker volumes with no backup job.
    Backups are the highest-priority fix.

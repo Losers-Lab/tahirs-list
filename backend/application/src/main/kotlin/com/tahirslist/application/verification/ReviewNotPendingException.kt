@@ -1,7 +1,7 @@
 package com.tahirslist.application.verification
 
 import com.tahirslist.domain.verification.VerificationState
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Thrown when a verification review is in a state that cannot be decided
@@ -9,6 +9,6 @@ import java.util.UUID
  * stage yet). Mapped by the web layer to 409 `review_not_pending`.
  */
 class ReviewNotPendingException(
-    val reviewId: UUID,
+    val reviewId: Uuid,
     val state: VerificationState,
 ) : RuntimeException("Verification review $reviewId is not pending; current state $state")

@@ -4,16 +4,15 @@ import io.github.bucket4j.Bandwidth
 import io.github.bucket4j.Bucket
 import io.github.bucket4j.Refill
 import io.github.bucket4j.TimeMeter
-import java.time.Duration
 import java.util.Collections
 import java.util.LinkedHashMap
+import kotlin.time.Duration
 
 /**
- * In-process token-bucket rate limiter for auth endpoints (sc-136), keyed by a
- * caller-supplied key (typically client IP + route). Backed by Bucket4j — the
- * in-app limiter recommended for MVP scale by the security review (finding #4 /
- * Part 3 #5). It is $0, needs no external service, and lives entirely in the
- * process.
+ * In-process token-bucket rate limiter for the auth endpoints (sc-136), keyed by
+ * a caller-supplied key (route + client IP). Backed by Bucket4j — the in-app
+ * limiter recommended for MVP scale by the security review (finding #4 / Part 3
+ * #5): $0, no external service, entirely in-process.
  *
  * Single-node caveat: buckets are in-memory, so the budget belongs to one
  * process and resets on restart. That is the accepted conservative posture for a
@@ -39,9 +38,13 @@ class Bucket4jAuthRateLimiter(
 
     init {
         require(maxKeys > 0) { "maxKeys must be positive" }
+        require(refillWindow > Duration.ZERO) { "refillWindow must be positive" }
     }
 
-    private val refill = Refill.greedy(refillTokensPerWindow, refillWindow)
+    private val refill = Refill.greedy(
+        refillTokensPerWindow,
+        java.time.Duration.ofNanos(refillWindow.inWholeNanoseconds),
+    )
     private val limit = Bandwidth.classic(capacity, refill)
 
     // Access-order LinkedHashMap behind a synchronized wrapper: bounded LRU

@@ -7,8 +7,9 @@ import io.kotest.matchers.shouldBe
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
-import java.util.UUID
 import javax.imageio.ImageIO
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.test.runTest
 
 /**
  * IngestHeroImage is the piece that turns an original into FULL + one thumbnail
@@ -31,42 +32,63 @@ class IngestHeroImageTest : FunSpec() {
 
     init {
         test("stores FULL original and every sc-183 thumbnail width as a distinct variant") {
-            val port = InMemoryImagePort()
-            val useCase = IngestHeroImage(port)
-            val id = UUID.randomUUID()
-            val original = jpeg(3000, 2000)
+            runTest {
+                val port = InMemoryImagePort()
+                val useCase = IngestHeroImage(port)
+                val id = Uuid.random()
+                val original = jpeg(3000, 2000)
 
-            useCase.ingest(id, StoredImage(original, "image/jpeg"))
+                useCase.ingest(id, StoredImage(original, "image/jpeg"))
 
-            val full = port.load(id, ImageVariant.FULL)!!
-            full.contentType shouldBe "image/jpeg"
-            full.bytes.contentEquals(original) shouldBe true
+                val full = port.load(id, ImageVariant.FULL)!!
+                full.contentType shouldBe "image/jpeg"
+                full.bytes.contentEquals(original) shouldBe true
 
-            // Every thumbnail width is stored, at exactly its target width.
-            ImageVariant.thumbnailVariants.forEach { variant ->
-                val thumb = port.load(id, variant).shouldNotBeNull()
-                val decoded = ImageIO.read(java.io.ByteArrayInputStream(thumb.bytes))
-                decoded.width shouldBe variant.widthPx
+                // Every thumbnail width is stored, at exactly its target width.
+                ImageVariant.thumbnailVariants.forEach { variant ->
+                    val thumb = port.load(id, variant).shouldNotBeNull()
+                    val decoded = ImageIO.read(java.io.ByteArrayInputStream(thumb.bytes))
+                    decoded.width shouldBe variant.widthPx
+                }
+                // 400 => height 266 for a 3:2 original.
+                val small = port.load(id, ImageVariant.THUMBNAIL_400)!!
+                val smallDecoded = ImageIO.read(java.io.ByteArrayInputStream(small.bytes))
+                smallDecoded.width shouldBe 400
+                smallDecoded.height shouldBe (400 * 2000 / 3000) // 266
             }
-            // 400 => height 266 for a 3:2 original.
-            val small = port.load(id, ImageVariant.THUMBNAIL_400)!!
-            val smallDecoded = ImageIO.read(java.io.ByteArrayInputStream(small.bytes))
-            smallDecoded.width shouldBe 400
-            smallDecoded.height shouldBe (400 * 2000 / 3000) // 266
+        }
+
+        test("the stored FULL media type is derived from the bytes, not from the caller's label") {
+            runTest {
+                val port = InMemoryImagePort()
+                val useCase = IngestHeroImage(port)
+                val id = Uuid.random()
+
+                // A client labelling its JPEG `text/html` must not influence what
+                // is stored: these bytes are re-served on the public image route.
+                useCase.ingest(id, StoredImage(jpeg(3000, 2000), "text/html"))
+
+                port.load(id, ImageVariant.FULL)!!.contentType shouldBe "image/jpeg"
+                ImageVariant.thumbnailVariants.forEach {
+                    port.load(id, it)!!.contentType shouldBe "image/jpeg"
+                }
+            }
         }
 
         test("unreadable input throws before anything is persisted") {
-            val port = InMemoryImagePort()
-            val useCase = IngestHeroImage(port)
-            val id = UUID.randomUUID()
+            runTest {
+                val port = InMemoryImagePort()
+                val useCase = IngestHeroImage(port)
+                val id = Uuid.random()
 
-            shouldThrow<IllegalArgumentException> {
-                useCase.ingest(id, StoredImage("garbage".toByteArray(), "image/jpeg"))
+                shouldThrow<IllegalArgumentException> {
+                    useCase.ingest(id, StoredImage("garbage".toByteArray(), "image/jpeg"))
+                }
+
+                // No variant may exist — no half-ingested row.
+                port.load(id, ImageVariant.FULL) shouldBe null
+                ImageVariant.thumbnailVariants.forEach { port.load(id, it) shouldBe null }
             }
-
-            // No variant may exist — no half-ingested row.
-            port.load(id, ImageVariant.FULL) shouldBe null
-            ImageVariant.thumbnailVariants.forEach { port.load(id, it) shouldBe null }
         }
     }
 }

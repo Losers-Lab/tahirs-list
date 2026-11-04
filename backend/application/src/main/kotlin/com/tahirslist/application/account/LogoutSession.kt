@@ -10,7 +10,7 @@ package com.tahirslist.application.account
 class LogoutSession(
     private val refreshTokenStore: RefreshTokenStore,
 ) {
-    fun execute(refreshToken: String) {
+    suspend fun execute(refreshToken: String) {
         refreshTokenStore.revoke(refreshToken)
     }
 }
