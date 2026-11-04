@@ -15,6 +15,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.server.application.call
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -24,6 +25,7 @@ import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeStringUtf8
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.IOException
 import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPublicKey
 import kotlin.time.Duration.Companion.minutes
@@ -253,6 +255,85 @@ class RequestLimitsTest : FunSpec({
         }
     }
 
+    test("a multipart request whose parts together exceed the request budget is refused") {
+        testApplication {
+            application {
+                configureWebPlugins(testJson(), testJwtConfig(), testRateLimitConfig())
+                routing {
+                    post("/v1/auth/logout") {
+                        val form = call.receiveForm()
+                        call.respondText(form.files.keys.sorted().joinToString(","))
+                    }
+                }
+            }
+
+            // Two individually-legal 5 MiB parts: the per-part cap passes, the
+            // aggregate retained-bytes budget (8 MiB + 256 KiB) must not.
+            val fiveMiB = ByteArray(5 * 1024 * 1024)
+            val response = client.post("/v1/auth/logout") {
+                setBody(
+                    MultiPartFormDataContent(
+                        formData {
+                            listOf("image", "certImage").forEach { name ->
+                                append(
+                                    name,
+                                    fiveMiB,
+                                    Headers.build {
+                                        append(HttpHeaders.ContentType, "image/jpeg")
+                                        append(HttpHeaders.ContentDisposition, "filename=\"$name.jpg\"")
+                                    },
+                                )
+                            }
+                        },
+                    ),
+                )
+            }
+
+            response.status shouldBe HttpStatusCode.PayloadTooLarge
+            response.bodyAsText() shouldContain "\"code\":\"payload_too_large\""
+        }
+    }
+
+    test("a multipart body with too many parts is refused") {
+        testApplication {
+            application {
+                configureWebPlugins(testJson(), testJwtConfig(), testRateLimitConfig())
+                routing {
+                    post("/v1/auth/logout") {
+                        val form = call.receiveForm()
+                        call.respondText(form.fields.size.toString())
+                    }
+                }
+            }
+
+            val response = client.post("/v1/auth/logout") {
+                setBody(
+                    MultiPartFormDataContent(
+                        formData {
+                            repeat(MAX_MULTIPART_PARTS + 1) { index -> append("field$index", "x") }
+                        },
+                    ),
+                )
+            }
+
+            response.status shouldBe HttpStatusCode.PayloadTooLarge
+        }
+    }
+
+    test("both shapes of Ktor's multipart limit failure are recognised, and plain IO errors are not") {
+        // Declared-length shape.
+        IOException("Multipart content length exceeds limit 5 > 4; limit is defined using 'formFieldLimit' argument")
+            .isMultipartLimitExceeded() shouldBe true
+        // Streaming scanner shape (file part): the one the runtime probe hit.
+        IOException("Limit of 8388608 bytes exceeded while searching for \"\\r\\n------boundary\"")
+            .isMultipartLimitExceeded() shouldBe true
+        // Wrapped refusal with the typed exception suppressed.
+        IOException("read failed").apply {
+            addSuppressed(PayloadTooLargeException(MAX_UPLOAD_BYTES))
+        }.isMultipartLimitExceeded() shouldBe true
+        // A genuine transport failure must stay a 500, not become a 413.
+        IOException("Connection reset by peer").isMultipartLimitExceeded() shouldBe false
+    }
     test("a parameterised / mixed-case allowlisted type is still recognised") {
         testApplication {
             application {

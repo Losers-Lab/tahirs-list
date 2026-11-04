@@ -196,6 +196,9 @@ internal suspend fun ApplicationCall.toDetail(
  * The certificate display facts for a VERIFIED listing. Source of truth is the
  * latest APPROVED certification review; null for an unverified listing or one
  * whose certificate was never approved, so the detail page renders no panel.
+ *
+ * The review must also carry an archived key (V21): without it the public proxy
+ * has nothing to serve, so advertising a URL would promise a 404.
  */
 private suspend fun ApplicationCall.certificateDetails(
     listing: RestaurantListing,
@@ -205,6 +208,7 @@ private suspend fun ApplicationCall.certificateDetails(
     val review = reviews.findLatestApprovedByListing(listing.id) ?: return null
     val decision = review.decision ?: return null
     if (decision.outcome.name != "APPROVED") return null
+    if (review.certificateKey == null) return null
     return CertificatePayload(
         certifier = review.certifier,
         reviewedOn = decision.decidedAt.toString(),

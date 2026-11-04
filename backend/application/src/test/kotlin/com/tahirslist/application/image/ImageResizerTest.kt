@@ -3,6 +3,7 @@ package com.tahirslist.application.image
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
@@ -154,18 +155,22 @@ class ImageResizerTest : FunSpec() {
             // so the rejection below is the dimension gate, not "not an image".
             ImageResizer.contentType(bomb) shouldBe "image/png"
 
-            shouldThrow<IllegalArgumentException> {
+            val error = shouldThrow<IllegalArgumentException> {
                 ImageResizer.resizeToWidth(StoredImage(bomb, "image/png"), 400)
             }
+            // Pin the gate's own message: a plain decode failure throws the same
+            // exception type, so the type alone would not prove the header gate ran.
+            error.message.orEmpty() shouldContain "dimensions"
         }
 
         test("an image whose pixel count exceeds the limit is rejected even with allowed edges") {
             // 8000x8000 = 64 Mpx: each edge is within 10 000, the total is not.
             val bomb = pngDeclaring(width = 8_000, height = 8_000)
 
-            shouldThrow<IllegalArgumentException> {
+            val error = shouldThrow<IllegalArgumentException> {
                 ImageResizer.resizeToWidth(StoredImage(bomb, "image/png"), 400)
             }
+            error.message.orEmpty() shouldContain "dimensions"
         }
 
         test("contentType is derived from the bytes, never from the caller's label") {

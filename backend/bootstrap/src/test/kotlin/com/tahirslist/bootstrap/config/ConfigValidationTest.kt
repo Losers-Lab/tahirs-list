@@ -83,11 +83,23 @@ class ConfigValidationTest : FunSpec({
                 ),
             )
         }
-        // Storage is optional: no object store configured is not a credential problem.
-        shouldNotThrowAny {
+    }
+
+    test("refuses prod without object storage (evidence would live only in memory)") {
+        val ex = shouldThrow<IllegalStateException> {
             requireValidProductionConfig(
                 config(user = "halal_app", password = "correct-horse-battery-staple", storage = null),
             )
+        }
+        ex.message.orEmpty() shouldContain "APP_S3_ENDPOINT"
+    }
+
+    test("refuses an unrecognised profile instead of silently treating it as dev") {
+        listOf("production", "Prod", "prod-us", "staging").forEach { profile ->
+            val ex = shouldThrow<IllegalStateException> {
+                requireValidProductionConfig(config(profile = profile, storage = storage()))
+            }
+            ex.message.orEmpty() shouldContain "APP_PROFILE"
         }
     }
 

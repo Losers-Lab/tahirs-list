@@ -57,6 +57,18 @@ internal const val MAX_JSON_BODY_BYTES = 64L * 1024
 internal const val MAX_UPLOAD_BYTES = 8L * 1024 * 1024
 
 /**
+ * The largest whole multipart body accepted, in bytes (8 MiB + 256 KiB).
+ *
+ * The per-part cap alone is not a request budget: a body may carry up to
+ * [MAX_MULTIPART_PARTS] parts, and every file part is retained until the
+ * handler returns. Without an aggregate bound sixteen 8 MiB parts would keep
+ * ~128 MiB of heap alive for one request on an endpoint reachable by anyone who
+ * signs up — the same class of memory exhaustion Spring's `max-request-size`
+ * used to prevent. One image plus its short text fields fits comfortably.
+ */
+internal const val MAX_MULTIPART_BODY_BYTES = MAX_UPLOAD_BYTES + 256L * 1024
+
+/**
  * The largest multipart text field value accepted, in bytes (8 KiB).
  *
  * The fields on this surface are short strings (an ownership proof, a consent
@@ -115,7 +127,13 @@ internal suspend fun ApplicationCall.receiveBoundedText(limit: Long = MAX_JSON_B
         // Same contract as Ktor's own receiveText(): a bogus Content-Type is a 400.
         throw BadRequestException("Illegal Content-Type header format", cause)
     }
-    return request.receiveChannel().readAtMost(limit).toString(charset)
+    val bytes = request.receiveChannel().readAtMost(limit)
+    // A declared length is a promise: if the body ends early, what we parsed is
+    // not what the client sent, so refuse it instead of acting on a truncation.
+    if (declared != null && bytes.size.toLong() != declared) {
+        throw BadRequestException("Request body ended before its declared Content-Length")
+    }
+    return bytes.toString(charset)
 }
 
 /**
@@ -264,7 +282,10 @@ internal class MultipartForm(
  *    `toByteArray()`), with the same value also handed to Ktor as
  *    `formFieldLimit` — that parameter is the parser's per-part cap (file parts
  *    included), so it bounds how much the parser itself can buffer for one part;
- *  - every text field value checked against [MAX_FORM_FIELD_BYTES].
+ *  - every text field value checked against [MAX_FORM_FIELD_BYTES];
+ *  - the bytes retained across all parts are counted against
+ *    [MAX_MULTIPART_BODY_BYTES], so the per-part cap cannot be multiplied by the
+ *    part count into a request-sized heap allocation.
  *
  * @throws PayloadTooLargeException when any limit is exceeded (→ 413).
  */
@@ -272,37 +293,45 @@ internal suspend fun ApplicationCall.receiveForm(): MultipartForm {
     val fields = mutableMapOf<String, String>()
     val files = mutableMapOf<String, UploadedFile>()
 
+    val declared = request.contentLength()
+    if (declared != null && declared > MAX_MULTIPART_BODY_BYTES) {
+        throw PayloadTooLargeException(MAX_MULTIPART_BODY_BYTES)
+    }
+
     var parts = 0
+    var retainedBytes = 0L
     try {
         // Ktor starts parsing eagerly, so the creation and the iteration must sit
         // in the same guard: an oversized part surfaces as a bare IOException from
         // either call, and would otherwise reach the generic 500 handler.
         val multipart = receiveMultipart(formFieldLimit = MAX_UPLOAD_BYTES)
+        // `forEachPart` disposes each part itself; an explicit release here would
+        // run the blocking `discardBlocking()` on parts we refused to drain.
         multipart.forEachPart { part ->
             parts += 1
-            try {
-                if (parts > MAX_MULTIPART_PARTS) throw PayloadTooLargeException(MAX_MULTIPART_PARTS.toLong())
-                val name = part.name
-                if (name != null) {
-                    when (part) {
-                        is PartData.FormItem -> {
-                            if (part.value.toByteArray(Charsets.UTF_8).size > MAX_FORM_FIELD_BYTES) {
-                                throw PayloadTooLargeException(MAX_FORM_FIELD_BYTES)
-                            }
-                            fields[name] = part.value
+            if (parts > MAX_MULTIPART_PARTS) throw PayloadTooLargeException(MAX_MULTIPART_PARTS.toLong())
+            val name = part.name
+            if (name != null) {
+                when (part) {
+                    is PartData.FormItem -> {
+                        val fieldBytes = part.value.toByteArray(Charsets.UTF_8)
+                        if (fieldBytes.size > MAX_FORM_FIELD_BYTES) {
+                            throw PayloadTooLargeException(MAX_FORM_FIELD_BYTES)
                         }
-                        is PartData.FileItem -> files[name] = UploadedFile(
-                            bytes = part.provider().readAtMost(MAX_UPLOAD_BYTES),
+                        retainedBytes = retainWithinBudget(retainedBytes, fieldBytes.size.toLong())
+                        fields[name] = part.value
+                    }
+                    is PartData.FileItem -> {
+                        val bytes = part.provider().readAtMost(MAX_UPLOAD_BYTES)
+                        retainedBytes = retainWithinBudget(retainedBytes, bytes.size.toLong())
+                        files[name] = UploadedFile(
+                            bytes = bytes,
                             contentType = part.contentType?.toString()
                                 ?: ContentType.Application.OctetStream.toString(),
                         )
-                        else -> Unit
                     }
+                    else -> Unit
                 }
-            } finally {
-                // Best-effort release: a part the parser already aborted must not
-                // replace the size refusal with a cleanup error.
-                runCatching { part.release() }
             }
         }
     } catch (cause: PayloadTooLargeException) {
@@ -317,4 +346,14 @@ internal suspend fun ApplicationCall.receiveForm(): MultipartForm {
         throw PayloadTooLargeException(MAX_UPLOAD_BYTES)
     }
     return MultipartForm(fields = fields, files = files)
+}
+
+/**
+ * Adds [bytes] to the running multipart budget, refusing the request once the
+ * retained total would exceed [MAX_MULTIPART_BODY_BYTES].
+ */
+private fun retainWithinBudget(total: Long, bytes: Long): Long {
+    val next = total + bytes
+    if (next > MAX_MULTIPART_BODY_BYTES) throw PayloadTooLargeException(MAX_MULTIPART_BODY_BYTES)
+    return next
 }

@@ -16,6 +16,7 @@ package com.tahirslist.bootstrap.config
  *   a default or blank credential.
  */
 fun requireValidProductionConfig(config: AppConfig) {
+    requireKnownProfile(config.profile)
     if (!config.isProduction) return
 
     if (config.database.user.isBlank()) {
@@ -32,7 +33,32 @@ fun requireValidProductionConfig(config: AppConfig) {
             fail("APP_S3_SECRET_KEY")
         }
     }
+    if (config.storage == null) {
+        throw IllegalStateException(
+            "Refusing to start in the 'prod' profile: no object storage is configured " +
+                "(APP_S3_ENDPOINT). Hero images and certification evidence would live only in " +
+                "process memory, so an approved certificate would vanish on restart.",
+        )
+    }
 }
+
+/**
+ * Only the ratified profile names are accepted. The production guard keys off the
+ * literal `prod` token, so a typo such as `production` (or `Prod`) would otherwise
+ * silently select the development branch — including the ephemeral JWT key and the
+ * default database credentials. Comma-separated lists are supported.
+ */
+private fun requireKnownProfile(profile: String) {
+    val unknown = profile.split(',').map { it.trim() }.filter { it !in KNOWN_PROFILES }
+    if (unknown.isNotEmpty()) {
+        throw IllegalStateException(
+            "Unknown APP_PROFILE value(s): ${unknown.joinToString(", ")}. " +
+                "Accepted profiles: ${KNOWN_PROFILES.joinToString(", ")}.",
+        )
+    }
+}
+
+private val KNOWN_PROFILES = setOf("dev", "test", "live", "prod")
 
 private fun fail(variable: String): Nothing =
     throw IllegalStateException(

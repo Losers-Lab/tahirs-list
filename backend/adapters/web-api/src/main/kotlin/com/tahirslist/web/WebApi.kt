@@ -248,12 +248,33 @@ private val SecurityHeadersPlugin = createApplicationPlugin("SecurityHeaders") {
 private val log = KotlinLogging.logger("com.tahirslist.web.WebApi")
 
 /**
- * Ktor signals an oversized multipart part with a plain [IOException] whose
- * message names the `formFieldLimit` it exceeded (see `ktor-http-cio`'s
- * `throwLimitExceeded`). There is no dedicated type to match on.
+ * True when an [IOException] is Ktor's multipart size refusal.
+ *
+ * ktor-http-cio signals this in two shapes, neither of which is a dedicated
+ * exception type: `Multipart content length exceeds limit …` when a part's
+ * declared length is known, and `Limit of N bytes exceeded while searching for
+ * <boundary>` when the parser hits the cap while scanning a streamed part (the
+ * latter also carries a suppressed [PayloadTooLargeException]). Both must map to
+ * 413 rather than the generic 500.
  */
-private fun IOException.isMultipartLimitExceeded(): Boolean =
-    message?.contains("Multipart content length exceeds limit", ignoreCase = true) == true
+internal fun IOException.isMultipartLimitExceeded(): Boolean {
+    if (this is PayloadTooLargeException || cause is PayloadTooLargeException) return true
+    if (suppressed.any { it is PayloadTooLargeException }) return true
+    var current: Throwable? = this
+    while (current != null) {
+        val text = current.message
+        if (text != null &&
+            (
+                text.contains("exceeds limit", ignoreCase = true) ||
+                    (text.startsWith("Limit of ") && text.contains("bytes exceeded"))
+                )
+        ) {
+            return true
+        }
+        current = current.cause
+    }
+    return false
+}
 
 private val PUBLIC_POST_PATHS = setOf(
     "/v1/auth/signup",

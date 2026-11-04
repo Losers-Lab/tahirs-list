@@ -72,6 +72,12 @@ class ClaimListingTest : FunSpec({
             // the key returned by storage is the review's certificate identity
             val storedKey = certificates.savedKeys.single()
             result.certificateKey shouldBe storedKey
+            // ...and the evidence itself was stored for this listing, with the
+            // derived media type and the exact submitted bytes.
+            val saved = certificates.saves.single()
+            saved.listingId shouldBe listingId
+            saved.contentType shouldBe contentType
+            saved.bytes.toList() shouldBe imageBytes.toList()
             result.state shouldBe VerificationState.AI_SUGGESTED
             coVerify { requestVerification.execute(listingId, claimerId, any(), now, aiConsentGivenAt = now) }
             coVerify(exactly = 1) {
@@ -188,19 +194,33 @@ private class FakeCertificationImageStorage : CertificationImageStorage {
 
     private val keys = mutableListOf<String>()
 
+    /** What `save` was asked to store, in call order (guards the request contract). */
+    val saves = mutableListOf<SavedCertification>()
+
     val savedKeys: List<String> get() = keys.toList()
 
     val nothingSaved: Boolean get() = keys.isEmpty()
 
-    fun reset() = keys.clear()
+    fun reset() {
+        keys.clear()
+        saves.clear()
+    }
 
-    override suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray): String =
-        "certifications/$listingId/${Uuid.random()}".also { keys += it }
+    override suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray): String {
+        saves += SavedCertification(listingId, contentType, bytes)
+        return "certifications/$listingId/${Uuid.random()}".also { keys += it }
+    }
 
     override suspend fun load(key: String): CertificationImageStorage.StoredCertificationImage? = null
 
     override suspend fun loadLatest(listingId: Uuid): CertificationImageStorage.StoredCertificationImage? = null
 }
+
+private data class SavedCertification(
+    val listingId: Uuid,
+    val contentType: String,
+    val bytes: ByteArray,
+)
 
 private fun aListing(id: Uuid, ownerId: Uuid): RestaurantListing = RestaurantListing.fromStorage(
     id = id,

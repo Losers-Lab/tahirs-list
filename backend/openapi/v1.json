@@ -835,7 +835,7 @@
           "listing-read-controller"
         ],
         "summary": "Serve the listing's certification image",
-        "description": "Same-origin proxy returning the archived certification image bytes that the committee approved (the CertificatePanel's View certificate target). Only approved evidence is addressable: an unverified listing, or one with no approved review carrying archived evidence, has nothing to serve. Public; responses are cacheable for a day. SECURITY: cert images are archived evidence; surfacing them on a public read endpoint is a deliberate posture change reviewed by Omar in the sc-73 read-surface PR.",
+        "description": "Same-origin proxy returning the archived certification image bytes that the committee approved (the CertificatePanel's View certificate target). Only approved evidence is addressable: the listing must be VERIFIED, its latest APPROVED review must reference an archived artifact, and that object must still exist; otherwise the response is 404. Public and cacheable for a day. Stored evidence whose type is not an allowlisted image is served as an opaque attachment.",
         "operationId": "serveCertificate",
         "parameters": [
           {
@@ -1519,7 +1519,7 @@
             "description": "Rotated; new access token + refresh cookie issued",
             "headers": {
               "Set-Cookie": {
-                "description": "The rotated refresh token: `refresh_token=<jwt>; Path=/v1/auth; Max-Age=2592000; HttpOnly; SameSite=Lax` (plus `Secure` when enabled).",
+                "description": "Rotated refresh token as an opaque 256-bit base64url value (not a JWT): `refresh_token=<opaque>; Path=/v1/auth; Max-Age=2592000; HttpOnly; SameSite=Lax` (plus `Secure` unless explicitly disabled for plain-HTTP development).",
                 "schema": {
                   "type": "string"
                 }
