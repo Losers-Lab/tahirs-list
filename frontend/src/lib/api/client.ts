@@ -257,7 +257,10 @@ export const api = {
    * directly — this endpoint does not geocode.
    */
   createListing: (
-    body: CreateListingBody,
+    // The live backend accepts the sc-184 isDelivery flag on create too, even
+    // though the committed generated schema predates it (same drift the update
+    // body is typed around).
+    body: UpdateListingBody,
     signal?: AbortSignal,
   ): Promise<ListingResponse> => request("/v1/listings", body, { signal }),
 
