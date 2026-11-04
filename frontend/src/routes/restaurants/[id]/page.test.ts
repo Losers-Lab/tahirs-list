@@ -221,3 +221,26 @@ describe('RestaurantDetailPage — certificate trust panel (detail-page.md)', ()
 		expect(screen.queryByText('Delivery')).not.toBeInTheDocument();
 	});
 });
+
+describe('RestaurantDetailPage — SSR data adoption', () => {
+	beforeEach(() => {
+		getRestaurantMock.mockReset();
+		sessionState.current = null;
+		sessionState.restoring = false;
+	});
+
+	it('renders server-loaded detail without a client fetch (crawlable HTML)', () => {
+		render(Page, { data: { restaurant: restaurant({ name: 'Seed Diner' }) } });
+
+		expect(screen.getByRole('heading', { name: 'Seed Diner' })).toBeInTheDocument();
+		expect(getRestaurantMock).not.toHaveBeenCalled();
+	});
+
+	it('falls back to the client fetch when the SSR load failed', async () => {
+		getRestaurantMock.mockResolvedValueOnce(restaurant({ name: 'Recovered Spot' }));
+		render(Page, { data: { restaurant: null, failed: true } });
+
+		expect(await screen.findByRole('heading', { name: 'Recovered Spot' })).toBeInTheDocument();
+		expect(getRestaurantMock).toHaveBeenCalledWith('l-1');
+	});
+});

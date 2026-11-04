@@ -100,11 +100,12 @@ async function proxyApiRequest(
 	for (const [key, value] of request.headers) {
 		if (!STRIPPED_REQUEST_HEADERS.has(key.toLowerCase())) headers.set(key, value);
 	}
-	// Re-assert trustworthy forwarding metadata from the actual peer. Behind an
-	// additional trusted hop, configure adapter-node's ADDRESS_HEADER/XFF_DEPTH.
+	// Re-assert the only forwarding value we can trust (the socket peer). Host
+	// and protocol are *not* forwarded: event.url is Host-header-derived unless
+	// adapter-node's ORIGIN/headers are configured, so emitting them would just
+	// launder client input. Configure adapter-node ADDRESS_HEADER/XFF_DEPTH if
+	// this server sits behind another trusted hop (e.g. Caddy).
 	headers.set('x-forwarded-for', clientAddress);
-	headers.set('x-forwarded-proto', url.protocol.replace(':', ''));
-	headers.set('x-forwarded-host', url.host);
 
 	const init: RequestInit = {
 		method: request.method,

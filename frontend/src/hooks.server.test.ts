@@ -50,8 +50,10 @@ describe('hooks.server — /v1 proxy trust boundary', () => {
 		const init = fetchMock.mock.calls[0][1] as RequestInit;
 		const headers = new Headers(init.headers);
 		expect(headers.get('x-forwarded-for')).toBe('203.0.113.9');
-		expect(headers.get('x-forwarded-proto')).toBe('http');
-		expect(headers.get('x-forwarded-host')).toBe('localhost');
+		// Host/proto are Host-header-derived unless ORIGIN is configured, so they
+		// are not forwarded at all rather than laundering client input.
+		expect(headers.get('x-forwarded-proto')).toBeNull();
+		expect(headers.get('x-forwarded-host')).toBeNull();
 		expect(headers.get('x-real-ip')).toBeNull();
 		expect(headers.get('forwarded')).toBeNull();
 		expect(headers.get('host')).toBeNull();

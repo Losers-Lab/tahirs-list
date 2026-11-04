@@ -10,7 +10,9 @@ import type { ListingDetail } from '#lib/api/client';
  */
 export const load: PageServerLoad = async ({ fetch, params }) => {
 	try {
-		const response = await fetch(`${apiBase()}/v1/listings/${encodeURIComponent(params.id)}`);
+		const response = await fetch(`${apiBase()}/v1/listings/${encodeURIComponent(params.id)}`, {
+			signal: AbortSignal.timeout(2_000)
+		});
 		if (response.status === 404) return { restaurant: null, notFound: true };
 		if (!response.ok) return { restaurant: null, failed: true };
 		const detail = (await response.json()) as ListingDetail;

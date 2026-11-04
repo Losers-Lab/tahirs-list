@@ -10,7 +10,10 @@ import type { BrowseListing } from '#lib/api/client';
  */
 export const load: PageServerLoad = async ({ fetch }) => {
 	try {
-		const response = await fetch(`${apiBase()}/v1/listings`);
+		// Never let a hung backend stall page rendering; degrade to the client fetch.
+		const response = await fetch(`${apiBase()}/v1/listings`, {
+			signal: AbortSignal.timeout(2_000)
+		});
 		if (!response.ok) return { listings: null };
 		const cards = (await response.json()) as BrowseListing[];
 		return { listings: filterListings(cards.map(toRestaurant), '') };

@@ -20,19 +20,30 @@
         "--rm",
         "-v",
         "kotlin-lib-mcp-cache:/home/mcp/.cache",
-        "ghcr.io/aoreshkov/kotlin-lib-mcp"
+        "ghcr.io/aoreshkov/kotlin-lib-mcp@sha256:f8368f3d7aa543a58726b94f417614496f5ffcad3a6a7ef660a99978ae73180b"
       ],
       "enabled": true
     },
     "svelte": {
       "type": "remote",
       "url": "https://mcp.svelte.dev/mcp",
-      "enabled": true
+      "enabled": false
     },
     "shadcn-svelte": {
       "type": "local",
-      "command": ["npx", "-y", "shadcn-svelte-mcp"],
-      "enabled": true
+      "command": [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-v",
+        "tahirs-list-shadcn-mcp-cache:/root/.npm",
+        "node:24-slim",
+        "npx",
+        "-y",
+        "shadcn-svelte-mcp@1.14.0"
+      ],
+      "enabled": false
     }
   }
 }

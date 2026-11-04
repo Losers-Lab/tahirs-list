@@ -45,6 +45,14 @@ describe('verificationStatus', () => {
 		const past = new Date(Date.now() - 5 * 86_400_000).toISOString();
 		expect(verificationStatus(restaurant({ certificate: cert(past) }))).toBe('UNVERIFIED');
 	});
+
+	it('does not treat a missing/blank expiry as verified (certificate fallback)', () => {
+		expect(verificationStatus(restaurant({ certificate: cert('') }))).toBe('UNVERIFIED');
+	});
+
+	it('parses a date-only expiry as a local calendar date', () => {
+		expect(verificationStatus(restaurant({ certificate: cert('2099-01-01') }))).toBe('VERIFIED');
+	});
 });
 
 describe('fullAddress (sc-187)', () => {

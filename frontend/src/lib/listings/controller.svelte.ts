@@ -47,6 +47,10 @@ export class ListingsController {
 			return;
 		}
 
+		// Any *other* request invalidates a pending seed: it must never let a
+		// later call with the old query/filter skip a required fetch.
+		this.#seededFor = null;
+
 		const generation = ++this.#generation;
 		this.status = 'loading';
 		try {

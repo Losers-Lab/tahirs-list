@@ -102,11 +102,14 @@ export type VerificationStatus = 'VERIFIED' | 'UNVERIFIED';
 
 export function verificationStatus(r: Restaurant): VerificationStatus {
 	// The backend read surface is authoritative when present (sc-49). Without it
-	// (legacy fixtures / seeds), fall back to the certificate-derived state.
+	// (legacy fixtures / seeds), fall back to the certificate-derived state —
+	// using the same local, date-only parsing as expiryState. A missing or
+	// invalid expiry is unknown, never treated as verified.
 	if (r.verificationStatus) return r.verificationStatus;
-	if (!r.certificate) return 'UNVERIFIED';
-	const expired = new Date(r.certificate.expiresOn).getTime() < Date.now();
-	return expired ? 'UNVERIFIED' : 'VERIFIED';
+	if (!r.certificate || !r.certificate.expiresOn) return 'UNVERIFIED';
+	const expires = parseDate(r.certificate.expiresOn).getTime();
+	if (!Number.isFinite(expires) || expires < Date.now()) return 'UNVERIFIED';
+	return 'VERIFIED';
 }
 
 /**

@@ -10,7 +10,9 @@ import type { BrowseListing } from '#lib/api/client';
 export const load: PageServerLoad = async ({ fetch, url }) => {
 	const query = url.searchParams.get('q') ?? '';
 	try {
-		const response = await fetch(`${apiBase()}/v1/listings`);
+		const response = await fetch(`${apiBase()}/v1/listings`, {
+			signal: AbortSignal.timeout(2_000)
+		});
 		if (!response.ok) return { listings: null };
 		const cards = (await response.json()) as BrowseListing[];
 		return { listings: filterListings(cards.map(toRestaurant), query) };

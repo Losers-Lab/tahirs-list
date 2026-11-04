@@ -87,6 +87,8 @@ describe('RestaurantPhoto', () => {
 		const { container } = render(RestaurantPhoto, {
 			src: '/v1/listings/l-1/image?variant=thumbnail_1920',
 			fallbackSrc: '/v1/listings/l-1/image?variant=thumbnail',
+			srcset:
+				'/v1/listings/l-1/image?variant=thumbnail 400w, /v1/listings/l-1/image?variant=thumbnail_1920 1920w',
 			alt: 'Al-Amir Grill',
 			sizes: '100vw'
 		});
@@ -94,13 +96,17 @@ describe('RestaurantPhoto', () => {
 		// The widest variant renders first...
 		let img = screen.getByRole('img', { name: 'Al-Amir Grill' });
 		expect(img).toHaveAttribute('src', '/v1/listings/l-1/image?variant=thumbnail_1920');
+		expect(img).toHaveAttribute('srcset');
 
 		// ...fails (404: variant not stored for a pre-multi-width listing)...
 		await fireEvent.error(img);
 
 		// ...and the card steps down to the guaranteed ≤400px thumbnail — no blank.
+		// The multi-width candidates belong to the failed primary, so they must
+		// not be offered against the single-width fallback.
 		img = screen.getByRole('img', { name: 'Al-Amir Grill' });
 		expect(img).toHaveAttribute('src', '/v1/listings/l-1/image?variant=thumbnail');
+		expect(img).not.toHaveAttribute('srcset');
 		expect(container.querySelector('svg')).not.toBeInTheDocument();
 	});
 

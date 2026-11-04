@@ -56,7 +56,10 @@
 		const id = page.params.id ?? '';
 		restaurant = data.restaurant ?? null;
 		status = data.failed ? 'error' : 'success';
-		seededId = id;
+		// Only claim the seed when content was actually rendered; a failed SSR
+		// load must fall through to the client fetch below (transient outages
+		// should recover without a manual Retry).
+		seededId = data.restaurant || data.notFound ? id : null;
 	});
 
 	$effect(() => {
