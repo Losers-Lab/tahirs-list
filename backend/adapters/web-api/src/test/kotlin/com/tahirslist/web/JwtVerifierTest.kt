@@ -3,6 +3,7 @@ package com.tahirslist.web
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.MACSigner
 import com.nimbusds.jose.crypto.RSASSASigner
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
@@ -15,6 +16,7 @@ import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
 import java.time.Instant
+import java.util.Base64
 import java.util.Date
 
 /**
@@ -92,6 +94,32 @@ class JwtVerifierTest : FunSpec({
     test("the typ rule does not mask the other claim rules") {
         // Sanity: a correctly typed token from the wrong issuer is still rejected.
         verifier.verify(mint(issuer = "evil-issuer")).shouldBeNull()
+    }
+
+    test("an HMAC token keyed with the public key material is rejected (no algorithm confusion)") {
+        val claims = JWTClaimsSet.Builder()
+            .subject(SUBJECT)
+            .issuer(ISSUER)
+            .expirationTime(Date.from(Instant.now().plusSeconds(3600)))
+            .claim("role", "USER")
+            .build()
+        val forged = SignedJWT(JWSHeader(JWSAlgorithm.HS256), claims)
+        // The classic confusion attack: sign HS256 using the RSA *public* key as
+        // the shared secret, hoping the verifier picks the algorithm from the token.
+        forged.sign(MACSigner((keyPair.public as RSAPublicKey).encoded))
+
+        verifier.verify(forged.serialize()).shouldBeNull()
+    }
+
+    test("an unsigned alg=none token is rejected") {
+        val encoder = Base64.getUrlEncoder().withoutPadding()
+        val header = encoder.encodeToString("""{"alg":"none","typ":"JWT"}""".toByteArray())
+        val payload = encoder.encodeToString(
+            """{"sub":"$SUBJECT","iss":"$ISSUER","role":"USER","exp":${Instant.now().epochSecond + 3600}}"""
+                .toByteArray(),
+        )
+
+        verifier.verify("$header.$payload.").shouldBeNull()
     }
 })
 

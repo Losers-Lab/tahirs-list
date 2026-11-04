@@ -1,6 +1,8 @@
 package com.tahirslist.bootstrap
 
+import io.kotest.matchers.collections.shouldBeIn
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.ktor.http.HttpMethod
 
 /**
@@ -121,6 +123,30 @@ class ResourceServerSecurityTest : KtorPostgresTest() {
 
             resp.status shouldBe 404
             resp.json()["code"].asString() shouldBe "not_found"
+        }
+
+        test("path-normalisation variants of a protected route cannot bypass the guard") {
+            // The guard compares the RAW request path (no dot-segment folding) and
+            // Ktor decodes per segment, so these must all stay closed: a 401 when
+            // the guard sees a protected target, or a 404 when the router cannot
+            // match it — never a 200.
+            val variants = listOf(
+                "/v1/me/",
+                "/v1/me;x",
+                "/V1/ME",
+                "//v1/me",
+                "/v1/listings/../v1/me",
+                "/v1/listings/%2e%2e/v1/me",
+                "/v1%2Fme",
+                "/v1/listings/..%2F..%2Fv1%2Fme",
+            )
+
+            variants.forEach { path ->
+                val resp = get(path)
+
+                resp.status shouldBeIn setOf(400, 401, 404)
+                resp.status shouldNotBe 200
+            }
         }
     }
 }
