@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-# Containerized build/test for the Tahir's List frontend.
-# Host requirements: Docker only. No Node/npm needed on the machine.
+# Containerized build/test for the Tahir's List SvelteKit frontend.
+# Host requirements: Docker only. No Node/pnpm needed on the machine.
 #
 # Usage:
-#   ./scripts/frontend-test.sh             # npm ci + build (clean install)
-#   ./scripts/frontend-test.sh dev-install # npm install (faster, reuses lockfile drift)
+#   ./scripts/frontend-test.sh              # frozen install + check + test + build
+#   ./scripts/frontend-test.sh dev-install  # non-frozen install (lockfile drift)
+#   ./scripts/frontend-test.sh test-only    # skipped install, runs check + test
+#
+# Resource guards (memory is a first-class requirement):
+#   - jsdom + a bounded Vitest fork pool (maxWorkers=2) — never Playwright/Chromium
+#   - Rolldown worker threads are capped; the pool otherwise sizes to host cores
+#     and ignores the container CPU quota (rolldown issue #10812)
+#   - hard --memory / --cpus ceilings on the container itself
 set -euo pipefail
 
-# Works from repo root OR from a worktree (e.g. .worktrees/t_xxx) — finds the nearest frontend/ dir.
+# Works from repo root OR from a worktree (e.g. .worktrees/...) — finds the nearest frontend/ dir.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -d "$SCRIPT_DIR/../frontend" ]; then
   FRONTEND_DIR="$SCRIPT_DIR/../frontend"
@@ -19,26 +26,59 @@ else
 fi
 
 MODE="${1:-ci}"
+case "$MODE" in
+  ci|dev-install|test-only) ;;
+  *)
+    echo "Unknown mode: $MODE (use 'ci', 'dev-install' or 'test-only')" >&2
+    exit 1
+    ;;
+esac
+
 cd "$FRONTEND_DIR"
 
-NPM_CMD="npm run build"
-if [ "$MODE" = "ci" ]; then
-  NPM_CMD="npm ci && npm run build"
-elif [ "$MODE" != "dev-install" ]; then
-  echo "Unknown mode: $MODE (use 'ci' or 'dev-install')" >&2
-  exit 1
+# Git Bash (MSYS) rewrites `/app`-style arguments into Windows paths and maps
+# `$(pwd)` to `/c/...`, which Docker rejects. Use the Windows path form and
+# disable the rewrite for the rest of the script. Linux/macOS are unaffected.
+HOST_DIR="$(pwd)"
+case "$(uname -s)" in
+  MINGW*|MSYS*)
+    HOST_DIR="$(pwd -W)"
+    export MSYS_NO_PATHCONV=1
+    ;;
+esac
+
+IMAGE="${FRONTEND_IMAGE:-node:22-slim}"
+PNPM_STORE_VOLUME="${FRONTEND_PNPM_STORE_VOLUME:-tahirs-list-pnpm-store}"
+NODE_MODULES_VOLUME="${FRONTEND_NODE_MODULES_VOLUME:-tahirs-list-frontend-node_modules}"
+MEMORY_LIMIT="${FRONTEND_MEMORY_LIMIT:-3g}"
+CPU_LIMIT="${FRONTEND_CPU_LIMIT:-4}"
+BUILD_HEAP_MB="${FRONTEND_BUILD_HEAP_MB:-2048}"
+
+INSTALL_CMD="pnpm install --frozen-lockfile"
+if [ "$MODE" = "dev-install" ]; then
+  INSTALL_CMD="pnpm install --no-frozen-lockfile"
+fi
+
+if [ "$MODE" = "test-only" ]; then
+  RUN_CMD="pnpm check && pnpm test"
+else
+  RUN_CMD="$INSTALL_CMD && pnpm check && pnpm test && pnpm build"
 fi
 
 # Mounts:
-#   - frontend dir -> /app (source; node_modules is generated inside the container)
-#   - named npm cache -> /npm-cache (persistent, kept OUT of the repo tree)
-# Note: node_modules from a host-run npm (if any) would poison the container build;
-# the script mounts it as an anonymous volume to isolate it.
+#   - frontend dir -> /app (source)
+#   - named pnpm store -> /pnpm-store (persistent, kept OUT of the repo tree)
+#   - named node_modules -> /app/node_modules (persistent + isolated from the host)
 docker run --rm \
-  -v "$PWD":/app \
+  --memory="$MEMORY_LIMIT" \
+  --cpus="$CPU_LIMIT" \
+  -v "$HOST_DIR":/app \
   -w /app \
-  -v /app/node_modules \
-  -v tahirs-list-npm-cache:/npm-cache \
-  -e npm_config_cache=/npm-cache \
-  node:22 \
-  bash -lc "$NPM_CMD"
+  -v "$NODE_MODULES_VOLUME":/app/node_modules \
+  -v "$PNPM_STORE_VOLUME":/pnpm-store \
+  -e ROLLDOWN_WORKER_THREADS=4 \
+  -e ROLLDOWN_MAX_BLOCKING_THREADS=4 \
+  -e RAYON_NUM_THREADS=4 \
+  -e NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}" \
+  "$IMAGE" \
+  bash -lc "corepack enable >/dev/null 2>&1; pnpm config set store-dir /pnpm-store >/dev/null 2>&1; $RUN_CMD"

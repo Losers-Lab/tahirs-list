@@ -93,10 +93,15 @@ toolchain is missing, that's a signal to containerize, not to install.
 - **Backend:** `./scripts/backend-test.sh` — runs Gradle build + tests in
   `eclipse-temurin:21-jdk`. `./scripts/backend-test.sh test-only` for tests only.
   No JDK/Gradle needed on the machine.
-- **Frontend:** `./scripts/frontend-test.sh` — `npm ci` + `next build` in a
-  `node:22` container. `./scripts/frontend-test.sh dev-install` skips the clean install.
+- **Frontend (SvelteKit 3 + Vite 8):** `./scripts/frontend-test.sh` — frozen
+  `pnpm install` + `svelte-check` + `vitest run` + `vite build` in a
+  `node:22-slim` container. `./scripts/frontend-test.sh dev-install` allows
+  lockfile drift; `test-only` runs check + tests. `./scripts/frontend-dev.sh`
+  serves the dev app on `:5173`. The script caps container memory/CPU and
+  Rolldown worker threads; Playwright is deliberately not in the default run.
 - Dependencies are cached in **named volumes** (`tahirs-list-gradle-cache`,
-  `tahirs-list-npm-cache`) — never inside the repo tree, never on the host.
+  `tahirs-list-pnpm-store`, `tahirs-list-frontend-node_modules`) — never inside
+  the repo tree, never on the host.
 
 ### Testcontainers-in-Docker notes (backend)
 
@@ -119,6 +124,38 @@ pattern to running untrusted code.
 New dev tooling (linters, generators, migration tools) must also run in
 containers — either as a one-off `docker run` or as a compose service. If you
 find yourself reaching for `apt`/`pip`/`npm install -g` on the host, stop.
+
+## MCP tool usage (registered in `opencode.json`)
+
+Project-scoped MCP servers are registered in `opencode.json` at the repo root
+and can be toggled (without deletion) in OpenChamber **Settings → MCP**. Follow
+the rules below; note that `svelte` and `shadcn-svelte` are registered but
+start **disabled** — enable them for SvelteKit work and disable them again
+afterwards to keep context lean.
+
+- **`context7`** (always on): use for general third-party documentation lookups
+  when the version you need matters.
+- **`shortcut`** (always on): Shortcut is the source of truth for requirements,
+  epics, and stories (see "Sources of truth" above). Consult it before starting
+  or estimating any story rather than working from memory.
+- **`kotlin-lib-mcp`** (on during Ktor/backend epics): **before writing or
+  modifying backend Kotlin code that calls a third-party JVM library** —
+  especially adapter/integration code (storage, mail, geocoding, image
+  recognition, DB drivers) — look up the library's current API and correct
+  usage via `kotlin-lib-mcp`. Do not write adapter code against APIs recalled
+  from memory.
+- **`svelte`** (on during SvelteKit phases): **before creating or rewriting
+  frontend components, routes, load functions, or stores**, consult the live
+  Svelte/SvelteKit documentation MCP to confirm the version-correct idiom
+  (runes, `$app/state`, etc.) instead of patterns that may be outdated.
+- **`shadcn-svelte`** (on while implementing SvelteKit UI slices): use it to
+  add/verify shadcn-svelte components rather than hand-rolling equivalents or
+  porting markup from the legacy `frontend-legacy/` (Next.js) codebase. Turn it
+  off when the UI slice is done.
+
+If a task requires touching files in a disabled server's domain (e.g. frontend
+components while `svelte` is off), state the mismatch and ask to enable it
+rather than proceeding with unverified assumptions.
 
 ## Engineering ground rules
 
