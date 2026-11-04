@@ -449,6 +449,14 @@ It also mounts `/var/run/docker.sock`. That mount is **root-equivalent on the ho
 accepted deliberately so tests can manage sibling containers. Do not extend the pattern to
 untrusted code.
 
+The test suite uses its **own** Gradle cache volume (`halal-gradle-test-cache`), separate
+from the live backend's (`halal-gradle-cache`). This is deliberate: Gradle takes a lock on
+its user home, so two builds sharing one volume cannot run at the same time. With separate
+volumes you can run tests while `hff-backend` is up. The first test run downloads the Gradle
+distribution and dependencies into the new volume and takes a few minutes; later runs are
+fast. If you see `Timeout waiting to lock journal cache`, something is sharing a Gradle user
+home — see Troubleshooting.
+
 **Expected:** both scripts exit `0`. If the backend suite cannot reach Docker, see
 Troubleshooting.
 
@@ -569,6 +577,7 @@ docker exec hff-postgis pg_dump -U halal -d halal > ~/halal-backup-$(date +%F).s
 | Backend container exits `127` | Mount path wrong / `gradlew` not executable | Confirm you ran the script from the repo root; `chmod +x backend/gradlew`; check `docker logs hff-backend` |
 | Backend container exits with Flyway error | PostGIS not ready yet | Wait for `(healthy)`, then `docker rm -f hff-backend && ./scripts/backend-live.sh` |
 | `Connection to 172.17.0.1 refused` in tests | Testcontainers networking | Use `scripts/backend-test.sh`, which sets the host override and gateway alias. Do not call Gradle directly. |
+| `Timeout waiting to lock journal cache (/gradle-home/...)` | Two Gradle builds share one user home — commonly the live backend and the test suite on the same cache volume | Use `scripts/backend-test.sh` (separate `halal-gradle-test-cache` volume), or stop `hff-backend` before testing. |
 | Backend tests cannot find Docker socket | Running on macOS/plain container | The script expects `/var/run/docker.sock`. On Docker Desktop for Mac, symlink or run tests inside a Linux VM/WSL2. |
 | Frontend container loops with `ENOENT ... /app/package.json` | Wrong mount path, or started outside the repo root | Run the `docker run` from the repository root; verify `docker inspect hff-frontend --format '{{json .Mounts}}'` |
 | Frontend up but API calls 502 | `API_PROXY_TARGET` pointing at `localhost` | Recreate with `http://hff-backend:8080` |
