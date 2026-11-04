@@ -45,15 +45,17 @@ lifetime). See `openapi/v1.json` for the current contract.
 
 ## Local development
 
+The host has **no language toolchains** (AGENTS.md): everything runs in containers.
+
 ```bash
-# 1. Start PostGIS + MinIO (config in docker-compose.yml)
+# 1. Backing services (PostGIS + MinIO + bucket provisioning)
 docker compose up -d          # postgis:5432, minio api:9000 console:9001
 
-# 2. Run (from backend/)
-./gradlew :bootstrap:run      # http://localhost:8080  /v1/health
+# 2. Run the live dev stack (builds and runs the app in a container)
+./scripts/backend-live.sh     # http://localhost:8080  /v1/health
 
-# 3. Test (full build: compile every module + run all tests)
-./gradlew build
+# 3. Full build + tests, in the build container
+./scripts/backend-test.sh
 ```
 
 Configuration is environment-variable based (no profiles). Defaults target the

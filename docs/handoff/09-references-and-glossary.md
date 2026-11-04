@@ -166,7 +166,7 @@ docker run -d --name tahirs-list-frontend --restart unless-stopped -p 3000:3000 
 ### Health checks
 
 ```bash
-curl -s http://localhost:8080/actuator/health        # {"status":"UP"}
+curl -s http://localhost:8080/v1/health        # {"status":"ok"}
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/
 curl -s -o /dev/null -w '%{http_code}\n' https://dev.tahirslist.com
 docker ps --filter name=tahirs-list-

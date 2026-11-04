@@ -140,25 +140,20 @@ Ktor/Exposed, the architecture has been violated.
 
 ## API surface
 
-**Established** from controllers in `backend/adapters/web-api`:
+**Established** from the Ktor route modules in `backend/adapters/web-api`:
 
-| Controller | Responsibility |
+| Route module | Responsibility |
 |------------|----------------|
-| `SignupController` | Account creation |
-| `LoginController` | Login, token issuance |
-| `RefreshController` | Refresh-token rotation |
-| `LogoutController` | Server-side logout |
-| `MeController` | Current-user identity |
-| `ListingController` | Create/update listing, owner operations |
-| `ListingReadController` | Listing read surface |
-| `FavoritesController` | Favorites |
-| `VerificationClaimController` | Owner claim + verification submission |
-| `VerificationCommitteeController` | VC queue, approve/deny |
-| `HealthController` | Health endpoint |
+| `AuthRoutes` | Signup, login, refresh, logout |
+| `MeRoutes` | Current-user identity |
+| `ListingRoutes` | Listing read surface, create/update, owner image operations |
+| `FavoriteRoutes` | Favorites |
+| `VerificationRoutes` | Owner claim + committee queue, approve/deny |
+| `HealthRoutes` | Liveness probe (`GET /v1/health`) |
 
-Plus image endpoints on listings (`sc-53`/`sc-54`, merged) and `/actuator/health`
-for readiness. The OpenAPI spec is committed under `backend/openapi/`; regenerate
-frontend types with `npm run codegen:api`.
+Plus image endpoints on listings (`sc-53`/`sc-54`, merged) and `/v1/health`
+for readiness. The OpenAPI spec is committed under `backend/openapi/`; frontend
+types are generated from it by the SvelteKit frontend.
 
 ## Data model and migrations
 
@@ -223,7 +218,7 @@ favorites provider, listing data/schemas, review data, verification queue).
 **Built and merged:**
 
 - Auth end-to-end (signup, login, refresh, logout, me, JWT filter, rate limiting,
-  security headers, actuator lockdown, fail-fast config).
+  security headers, deny-by-default 401 lockdown, fail-fast config).
 - Listings create/read/update, owner edit, owner image add/remove (backend).
 - Search with PostGIS geo filtering and filters for hand-cut, price, cuisine,
   rating, distance, pickup/delivery.

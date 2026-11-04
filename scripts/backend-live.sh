@@ -9,6 +9,12 @@
 # WITHOUT APP_S3_ENDPOINT the app boots with InMemoryImagePort and seed-ingest OFF,
 # which is why GET /v1/listings/{id}/image 404s in that configuration.
 #
+# Cookies default to Secure (`APP_COOKIE_SECURE=true`), which is correct for the
+# Cloudflare-tunnelled https preview (dev.tahirslist.com). Set
+# APP_COOKIE_SECURE=false only when browsing the stack over plain http.
+# Claims fall back to DeferToHumanProvider unless APP_VERIFICATION_ENDPOINT is
+# set (hosted AI); pass it through to exercise the AI suggestion path.
+#
 # Usage:
 #   ./scripts/backend-live.sh     # ensure compose up, (re)start tahirs-list-backend
 set -euo pipefail
@@ -38,6 +44,8 @@ docker run -d \
   -e APP_S3_REGION="${APP_S3_REGION:-us-east-1}" \
   -e APP_S3_BUCKET="${APP_S3_BUCKET:-halal}" \
   -e APP_SEED_INGEST_ENABLED="${APP_SEED_INGEST_ENABLED:-true}" \
+  -e APP_VERIFICATION_ENDPOINT="${APP_VERIFICATION_ENDPOINT:-}" \
+  -e APP_VERIFICATION_API_KEY="${APP_VERIFICATION_API_KEY:-}" \
   eclipse-temurin:21-jdk \
   ./gradlew --no-daemon --project-cache-dir=/tmp/gradle-project-cache :bootstrap:run
 

@@ -6,8 +6,9 @@
 #   - Postgres 17 + PostGIS 3.4  (the persistence adapter's database)
 #   - MinIO S3-compatible storage (private buckets; presigned access from the app)
 #
-# The Ktor app itself runs on the host via `./gradlew :bootstrap:run`
-# and connects to these services on localhost.
+# The Ktor app runs in a container too: `./scripts/backend-live.sh` (or
+# `./scripts/backend-test.sh` for the build/test container) connects to these
+# services over the compose network / localhost.
 name: tahirs-list
 
 services:

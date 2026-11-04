@@ -16,13 +16,11 @@ sources:
   - resource: scripts/frontend-test.sh
     title: "Containerized frontend build/test"
   - resource: scripts/backend-live.sh
-    title: "Live-profile backend launcher"
-  - resource: backend/bootstrap/src/main/resources/application.yml
-    title: "Default datasource and server config"
-  - resource: backend/bootstrap/src/main/resources/application-live.yml
-    title: "Live profile: S3 storage + seed ingest"
-  - resource: frontend/next.config.ts
-    title: "API proxy target"
+    title: "Live-stack backend launcher"
+  - resource: backend/bootstrap/src/main/kotlin/com/tahirslist/bootstrap/config/AppConfig.kt
+    title: "Environment-variable configuration (APP_*)"
+  - resource: scripts/frontend-dev.sh
+    title: "SvelteKit dev server and API proxy target"
   - resource: AGENTS.md
     title: "Containerized-execution mandate"
 ---
@@ -293,17 +291,17 @@ curl -s http://localhost:8080/v1/health
 Repeat until it returns `200`. This can take several minutes on the first boot because
 Flyway applies all 20 migrations and the seed-photo ingest runs.
 
-### What "live" profile changes
+### What the live stack changes
 
-`application-live.yml` does two things, and both matter:
+The launcher sets two environment variables, and both matter:
 
-- **Real S3 storage.** Without the `live` profile the app uses an in-memory image stub and
-  every `GET /v1/listings/{id}/image` returns 404. With it, images go to MinIO.
-- **Seed-photo ingest on boot.** A runner reads `seed-photos.json` and stores full +
-  thumbnail variants for seeded listings. **It fetches the photo URLs from the internet.**
-  Some of those URLs returned 403 during development; the runner logs the failure and
-  continues. A handful of seed photos may therefore be missing. That is a known defect, not
-  a setup error.
+- **Real S3 storage** (`APP_S3_ENDPOINT`). Without it the app uses an in-memory image stub
+  and every `GET /v1/listings/{id}/image` returns 404. With it, images go to MinIO.
+- **Seed-photo ingest on boot** (`APP_SEED_INGEST_ENABLED=true`). A runner reads
+  `seed-photos.json` and stores full + thumbnail variants for seeded listings.
+  **It fetches the photo URLs from the internet.** Some of those URLs returned 403
+  during development; the runner logs the failure and continues. A handful of seed
+  photos may therefore be missing. That is a known defect, not a setup error.
 
 ### Config you may need to override
 
@@ -335,9 +333,9 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/jwt.pem
 openssl pkcs8 -topk8 -nocrypt -in /tmp/jwt.pem -outform DER | base64 -w0 > /tmp/jwt.b64
 ```
 
-Pass the contents of `/tmp/jwt.b64` as `app.jwt.rsa-private-key-base64` (env var
-`APP_JWT_RSA_PRIVATE_KEY_BASE64`). The loader **refuses to boot** under a `prod` profile if
-the key is blank or matches the committed test fixture. Do not use the test key.
+Pass the contents of `/tmp/jwt.b64` as `APP_JWT_RSA_PRIVATE_KEY_BASE64`. The loader
+**refuses to boot** under a `prod` profile if the key is blank or matches the committed
+test fixture. Do not use the test key.
 
 ---
 

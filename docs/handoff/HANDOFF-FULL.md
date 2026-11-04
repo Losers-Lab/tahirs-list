@@ -680,25 +680,20 @@ Ktor/Exposed, the architecture has been violated.
 
 ## API surface
 
-**Established** from controllers in `backend/adapters/web-api`:
+**Established** from the Ktor route modules in `backend/adapters/web-api`:
 
-| Controller | Responsibility |
+| Route module | Responsibility |
 |------------|----------------|
-| `SignupController` | Account creation |
-| `LoginController` | Login, token issuance |
-| `RefreshController` | Refresh-token rotation |
-| `LogoutController` | Server-side logout |
-| `MeController` | Current-user identity |
-| `ListingController` | Create/update listing, owner operations |
-| `ListingReadController` | Listing read surface |
-| `FavoritesController` | Favorites |
-| `VerificationClaimController` | Owner claim + verification submission |
-| `VerificationCommitteeController` | VC queue, approve/deny |
-| `HealthController` | Health endpoint |
+| `AuthRoutes` | Signup, login, refresh, logout |
+| `MeRoutes` | Current-user identity |
+| `ListingRoutes` | Listing read surface, create/update, owner image operations |
+| `FavoriteRoutes` | Favorites |
+| `VerificationRoutes` | Owner claim + committee queue, approve/deny |
+| `HealthRoutes` | Liveness probe (`GET /v1/health`) |
 
-Plus image endpoints on listings (`sc-53`/`sc-54`, merged) and `/actuator/health`
-for readiness. The OpenAPI spec is committed under `backend/openapi/`; regenerate
-frontend types with `npm run codegen:api`.
+Plus image endpoints on listings (`sc-53`/`sc-54`, merged) and `/v1/health`
+for readiness. The OpenAPI spec is committed under `backend/openapi/`; frontend
+types are generated from it by the SvelteKit frontend.
 
 ## Data model and migrations
 
@@ -763,7 +758,7 @@ favorites provider, listing data/schemas, review data, verification queue).
 **Built and merged:**
 
 - Auth end-to-end (signup, login, refresh, logout, me, JWT filter, rate limiting,
-  security headers, actuator lockdown, fail-fast config).
+  security headers, deny-by-default 401 lockdown, fail-fast config).
 - Listings create/read/update, owner edit, owner image add/remove (backend).
 - Search with PostGIS geo filtering and filters for hand-cut, price, cuisine,
   rating, distance, pickup/delivery.
@@ -1525,7 +1520,7 @@ It stays silent when healthy (empty stdout = no message, because the cron job is
 
 **It then:** `git checkout main`, `git pull origin main`, run `backend-live.sh`, and
 `docker rm -f hff-frontend` followed by the `docker run` above. It polls
-`localhost:8080/actuator/health` for up to 24 × 5s.
+`localhost:8080/v1/health` for up to 24 × 5s.
 
 ### ⚠ The watchdog bug you inherit
 
@@ -1599,7 +1594,7 @@ you will no longer have.
 - `https://dev.tahirslist.com` → **502**.
 - `hff-frontend` → restarting, `exit 254`, port 3000 not listening (`curl` returns
   `000`).
-- `hff-backend` → up; `http://localhost:8080/actuator/health` returns
+- `hff-backend` → up; `http://localhost:8080/v1/health` returns
   `{"status":"UP"}`; `/` returns **401** (expected — security is on).
 - Tunnel logs: `dial tcp [::1]:3000: connect: connection refused`.
 - PostGIS and MinIO healthy.
@@ -1640,7 +1635,7 @@ bash scripts/backend-live.sh
 
 # 3. Wait for backend health, then recreate the frontend.
 for i in $(seq 1 40); do
-  code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health)
+  code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/health)
   [ "$code" = "200" ] && break; sleep 5
 done
 echo "backend health: $code"
@@ -1666,7 +1661,7 @@ means the container's command failed to start — a missing `package.json`, a br
 ### After it is up
 
 1. **Fix the watchdog liveness check** so a crash loop cannot look healthy. Check
-   `http://localhost:3000/` and `/actuator/health`, or use restart counts, not
+   `http://localhost:3000/` and `/v1/health`, or use restart counts, not
    `.State.Running`.
 2. **Make the watchdog fail loudly.** A silent watchdog that cannot detect failure is
    worse than no watchdog. Send a message when a redeploy is attempted and when it
@@ -1714,7 +1709,7 @@ breakage than any other infrastructure change.
 | What | Where |
 |------|-------|
 | Backend API | `http://localhost:8080` |
-| Backend health | `http://localhost:8080/actuator/health` |
+| Backend health | `http://localhost:8080/v1/health` |
 | Backend API root | `/v1/...` (OpenAPI under `backend/openapi/`) |
 | Frontend | `http://localhost:3000` |
 | Public preview | `https://dev.tahirslist.com` |
@@ -2678,7 +2673,7 @@ docker run -d --name tahirs-list-frontend --restart unless-stopped -p 3000:3000 
 ### Health checks
 
 ```bash
-curl -s http://localhost:8080/actuator/health        # {"status":"UP"}
+curl -s http://localhost:8080/v1/health        # {"status":"ok"}
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/
 curl -s -o /dev/null -w '%{http_code}\n' https://dev.tahirslist.com
 docker ps --filter name=tahirs-list-
@@ -2796,13 +2791,11 @@ sources:
   - resource: scripts/frontend-test.sh
     title: "Containerized frontend build/test"
   - resource: scripts/backend-live.sh
-    title: "Live-profile backend launcher"
-  - resource: backend/bootstrap/src/main/resources/application.yml
-    title: "Default datasource and server config"
-  - resource: backend/bootstrap/src/main/resources/application-live.yml
-    title: "Live profile: S3 storage + seed ingest"
-  - resource: frontend/next.config.ts
-    title: "API proxy target"
+    title: "Live-stack backend launcher"
+  - resource: backend/bootstrap/src/main/kotlin/com/tahirslist/bootstrap/config/AppConfig.kt
+    title: "Environment-variable configuration (APP_*)"
+  - resource: scripts/frontend-dev.sh
+    title: "SvelteKit dev server and API proxy target"
   - resource: AGENTS.md
     title: "Containerized-execution mandate"
 ---
@@ -3073,17 +3066,17 @@ curl -s http://localhost:8080/v1/health
 Repeat until it returns `200`. This can take several minutes on the first boot because
 Flyway applies all 20 migrations and the seed-photo ingest runs.
 
-### What "live" profile changes
+### What the live stack changes
 
-`application-live.yml` does two things, and both matter:
+The launcher sets two environment variables, and both matter:
 
-- **Real S3 storage.** Without the `live` profile the app uses an in-memory image stub and
-  every `GET /v1/listings/{id}/image` returns 404. With it, images go to MinIO.
-- **Seed-photo ingest on boot.** A runner reads `seed-photos.json` and stores full +
-  thumbnail variants for seeded listings. **It fetches the photo URLs from the internet.**
-  Some of those URLs returned 403 during development; the runner logs the failure and
-  continues. A handful of seed photos may therefore be missing. That is a known defect, not
-  a setup error.
+- **Real S3 storage** (`APP_S3_ENDPOINT`). Without it the app uses an in-memory image stub
+  and every `GET /v1/listings/{id}/image` returns 404. With it, images go to MinIO.
+- **Seed-photo ingest on boot** (`APP_SEED_INGEST_ENABLED=true`). A runner reads
+  `seed-photos.json` and stores full + thumbnail variants for seeded listings.
+  **It fetches the photo URLs from the internet.** Some of those URLs returned 403
+  during development; the runner logs the failure and continues. A handful of seed
+  photos may therefore be missing. That is a known defect, not a setup error.
 
 ### Config you may need to override
 
@@ -3115,9 +3108,9 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/jwt.pem
 openssl pkcs8 -topk8 -nocrypt -in /tmp/jwt.pem -outform DER | base64 -w0 > /tmp/jwt.b64
 ```
 
-Pass the contents of `/tmp/jwt.b64` as `app.jwt.rsa-private-key-base64` (env var
-`APP_JWT_RSA_PRIVATE_KEY_BASE64`). The loader **refuses to boot** under a `prod` profile if
-the key is blank or matches the committed test fixture. Do not use the test key.
+Pass the contents of `/tmp/jwt.b64` as `APP_JWT_RSA_PRIVATE_KEY_BASE64`. The loader
+**refuses to boot** under a `prod` profile if the key is blank or matches the committed
+test fixture. Do not use the test key.
 
 ---
 

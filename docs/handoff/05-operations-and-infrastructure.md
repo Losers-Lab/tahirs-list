@@ -199,7 +199,7 @@ It stays silent when healthy (empty stdout = no message, because the cron job is
 
 **It then:** `git checkout main`, `git pull origin main`, run `backend-live.sh`, and
 `docker rm -f hff-frontend` followed by the `docker run` above. It polls
-`localhost:8080/actuator/health` for up to 24 × 5s.
+`localhost:8080/v1/health` for up to 24 × 5s.
 
 ### ⚠ The watchdog bug you inherit
 
@@ -273,7 +273,7 @@ you will no longer have.
 - `https://dev.tahirslist.com` → **502**.
 - `hff-frontend` → restarting, `exit 254`, port 3000 not listening (`curl` returns
   `000`).
-- `hff-backend` → up; `http://localhost:8080/actuator/health` returns
+- `hff-backend` → up; `http://localhost:8080/v1/health` returns
   `{"status":"UP"}`; `/` returns **401** (expected — security is on).
 - Tunnel logs: `dial tcp [::1]:3000: connect: connection refused`.
 - PostGIS and MinIO healthy.
@@ -314,7 +314,7 @@ bash scripts/backend-live.sh
 
 # 3. Wait for backend health, then recreate the frontend.
 for i in $(seq 1 40); do
-  code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health)
+  code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/health)
   [ "$code" = "200" ] && break; sleep 5
 done
 echo "backend health: $code"
@@ -340,7 +340,7 @@ means the container's command failed to start — a missing `package.json`, a br
 ### After it is up
 
 1. **Fix the watchdog liveness check** so a crash loop cannot look healthy. Check
-   `http://localhost:3000/` and `/actuator/health`, or use restart counts, not
+   `http://localhost:3000/` and `/v1/health`, or use restart counts, not
    `.State.Running`.
 2. **Make the watchdog fail loudly.** A silent watchdog that cannot detect failure is
    worse than no watchdog. Send a message when a redeploy is attempted and when it
@@ -388,7 +388,7 @@ breakage than any other infrastructure change.
 | What | Where |
 |------|-------|
 | Backend API | `http://localhost:8080` |
-| Backend health | `http://localhost:8080/actuator/health` |
+| Backend health | `http://localhost:8080/v1/health` |
 | Backend API root | `/v1/...` (OpenAPI under `backend/openapi/`) |
 | Frontend | `http://localhost:3000` |
 | Public preview | `https://dev.tahirslist.com` |
