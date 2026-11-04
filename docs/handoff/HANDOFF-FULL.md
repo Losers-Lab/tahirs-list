@@ -73,7 +73,7 @@ setup instructions.
 
 Tahir's List is a listing-first directory that helps Muslims find halal food,
 differentiated by a hand-cut filter and a formal verification process for
-restaurant halal certification. The backend (Kotlin/Spring Boot 3 + PostgreSQL/PostGIS,
+restaurant halal certification. The backend (Kotlin/Ktor 3 + PostgreSQL/PostGIS,
 hexagonal modules, TDD) and frontend (Next.js/TypeScript) are substantially built,
 with 115 completed work items across auth, listings, search/filters, verification,
 images, favorites, and owner tools. The project went dormant around 2026-09-09
@@ -542,7 +542,7 @@ single biggest defense against the confusion that motivated this handoff.
 type: handoff-document
 title: "02 — Architecture: How Tahir's List Is Built"
 description: "The ratified stack, hexagonal module layout, repository structure, data model, API surface, and the architecture decisions that are settled versus still open."
-tags: [tahirs-list, architecture, backend, frontend, kotlin, spring-boot, postgis, nextjs]
+tags: [tahirs-list, architecture, backend, frontend, kotlin, ktor, postgis, nextjs]
 status: active
 generated: 2026-11-02
 generated_by: adnan
@@ -575,19 +575,19 @@ U-15) and open flags (certificate expiry/revocation).
 | Layer | Decision |
 |-------|----------|
 | Backend language | **Kotlin** 2.x |
-| Backend framework | **Spring Boot 3.3+**, blocking thread-per-request with **virtual threads** (explicitly **not** WebFlux) |
+| Backend framework | **Ktor 3.6** (coroutines, CIO engine; Kotlin-first rework 2026-11-03) |
 | Build | **Gradle (Kotlin DSL)**, JDK 21 LTS (Temurin), **Jib** OCI images |
 | Database | **PostgreSQL 16/17 + PostGIS 3.4** |
-| Data access | **jOOQ** (search) + **Spring Data JDBC** (CRUD); **Flyway** migrations. JPA/Hibernate and Mongo are explicitly denied. |
-| API contract | Code-first REST via **springdoc-openapi**; committed, CI-linted, versioned **OpenAPI 3.1** at `/v1` |
-| Auth | Spring Security OAuth2 resource server; email/password with **Argon2id**; short **JWT (RS256)** access tokens + **rotating hashed refresh** tokens in HttpOnly cookies; RBAC for 6 roles + anonymous + extension API keys |
+| Data access | **Exposed 1.6** (suspend transactions; raw SQL for PostGIS); **Flyway** migrations. JPA/Hibernate and Mongo are explicitly denied. |
+| API contract | Committed **OpenAPI 3.1** at `/v1`, validated against Ktor routes; runtime generation is a follow-up |
+| Auth | Ktor JWT authentication (Nimbus verification); email/password with **Argon2id**; short **JWT (RS256)** access tokens + **rotating hashed refresh** tokens in HttpOnly cookies; RBAC for 6 roles + anonymous + extension API keys |
 | Geo | PostGIS `geography(Point,4326)` + GiST; one query using `ST_DWithin` (filter) and `ST_DistanceSphere` (order); denormalized `listing_search` table; offset paging; **straight-line haversine, miles** |
 | Object storage | **MinIO self-hosted** (S3-compatible) for MVP; private bucket, presigned PUT/GET, namespaced keys, versioning + SHA-256 audit. **Cloudflare R2 is the target later**; build against the S3 SDK on a configurable endpoint. |
 | Verification | **Hosted multimodal vision API** (Gemini 2.5 Flash, paid tier) behind a `VerificationProvider` port; conservative verdict; **human review mandatory**. Alternative considered: Claude Haiku 4.5. |
 | Frontend | **Next.js (TypeScript)**, SSR/SEO; later wrapped in **Capacitor** for mobile. Typed client generated from OpenAPI. |
 | Extensions | MV3 thin content-script overlays for Google + Yelp, shared TS core, address matching. In MVP scope; not built. |
-| Hosting | **Hetzner VPS** (CX/CAX line, ~US$6–7/mo) self-hosting Postgres+PostGIS, MinIO, the Spring Boot image, and the async verification worker. **Ratified but not provisioned.** |
-| Testing | **Kotest + MockK + Testcontainers (PostGIS)** + Spring Test slices; hexagonal modules `:domain → :application → adapters → :bootstrap` |
+| Hosting | **Hetzner VPS** (CX/CAX line, ~US$6–7/mo) self-hosting Postgres+PostGIS, MinIO, the Ktor app image, and the async verification worker. **Ratified but not provisioned.** |
+| Testing | **Kotest + MockK + Testcontainers (PostGIS)** + Ktor testApplication; hexagonal modules `:domain → :application → adapters → :bootstrap` |
 
 ### Deliberate constraints you must not violate
 
@@ -628,17 +628,17 @@ halal-food-finder/
 ├── README.md                  product overview + personas
 ├── ARCHITECTURE.md            agreed architecture + open decisions
 ├── AGENTS.md                  engineering rules (read before coding)
-├── backend/                   Kotlin/Spring Boot, Gradle multi-module
+├── backend/                   Kotlin/Ktor, Gradle multi-module
 │   ├── domain/                entities, value objects, domain rules
 │   ├── application/           use cases, ports
 │   ├── adapters/
-│   │   ├── persistence/       jOOQ/Spring Data JDBC repos + Flyway migrations
+│   │   ├── persistence/       Exposed repos + Flyway migrations
 │   │   ├── geocoding/         Photon/Google geocoder adapters
 │   │   ├── storage-s3/        MinIO/S3 image port
 │   │   ├── verification-ai/   hosted vision adapter
 │   │   ├── verification-committee/  human review adapter
 │   │   └── web-api/           controllers, security, error handling
-│   ├── bootstrap/             Spring Boot application entry point
+│   ├── bootstrap/             Ktor composition root (Koin modules + entrypoint)
 │   ├── openapi/               committed OpenAPI spec
 │   ├── docker-compose.yml     PostGIS + MinIO (+ minio-init)
 │   └── settings.gradle.kts    module graph
@@ -674,7 +674,7 @@ Registered projects: `:domain`, `:application`, `:persistence`, `:geocoding`,
 
 This is a genuine hexagonal layout: domain and application do not depend on
 frameworks; adapters do. Keep it that way. If a change makes `:domain` import
-Spring, the architecture has been violated.
+Ktor/Exposed, the architecture has been violated.
 
 ## API surface
 
@@ -1417,8 +1417,8 @@ uploaded certificates are gone. Address this before anything else production-sha
 
 ### Backend launch (`scripts/backend-live.sh`)
 
-Launches the backend with `SPRING_PROFILES_ACTIVE=live`. The `live` profile
-(`application-live.yml`) turns on the two switches the live stack needs:
+Launches the backend with `APP_PROFILE=live` plus explicit env vars.
+The two switches the live stack needs:
 
 - `app.storage.s3.*` → the real MinIO-backed `S3ImagePort` instead of the in-memory
   stub.
@@ -1438,7 +1438,7 @@ hff-backend` and `docker run` with:
 - datasource `jdbc:postgresql://postgis:5432/halal`, user/pass `halal`
 - `APP_S3_*` env vars defaulting to `http://minio:9000`, `minioadmin/minioadmin`,
   region `us-east-1`, bucket `halal`
-- command `./gradlew --no-daemon :bootstrap:bootRun`
+- command `./gradlew --no-daemon :bootstrap:run`
 
 It runs the app from source via Gradle, not from a Jib image. That is fine for
 preview, but it means startup is slow and depends on the Gradle cache volume.
@@ -1666,7 +1666,7 @@ means the container's command failed to start — a missing `package.json`, a br
 
 - **Decision:** Hetzner VPS, **CX/CAX line** (not CPX — CPX prices rose in 2026),
   roughly **CX23 2 vCPU / 4 GB / 40 GB at ~US$6–7/month**, self-hosting Postgres 16/17
-  + PostGIS, MinIO, the Spring Boot Jib image, and the async verification worker on
+  + PostGIS, MinIO, the Ktor app image, and the async verification worker on
   one always-on box.
 - **Why self-host:** full extension control so a managed tier cannot drop PostGIS.
 - **Alternative considered:** Neon (managed Postgres with native PostGIS, free /
@@ -2546,7 +2546,7 @@ sources:
 | **Coordination gate** | The 30-minute cron job that merges PRs, dispatches work, and unblocks cards when the action fingerprint changes. |
 | **Watchdog** | The 15-minute script-only cron job that redeploys the preview when `main` moves or a container dies. |
 | **Preview** | The local Docker stack exposed at `https://dev.tahirslist.com` via a stable Cloudflare tunnel. Not production. |
-| **Live profile** | `SPRING_PROFILES_ACTIVE=live`. Enables the MinIO-backed `S3ImagePort` and the seed-photo ingest runner. |
+| **Live config** | `APP_S3_ENDPOINT` set and `APP_SEED_INGEST_ENABLED=true`. Enables the MinIO-backed `ImagePort` and the seed-photo ingest runner. |
 | **Seed ingest** | Boot-time runner that downloads seed restaurant photos into MinIO. Currently failing with HTTP 403 on some URLs. |
 | **OKF** | Open Knowledge Format. Markdown + YAML frontmatter knowledge bundles. This handoff uses its conventions. |
 
@@ -2821,8 +2821,8 @@ Five things run. Four are containers; the fifth is a container that runs your bu
                            │ http://hff-backend:8080
                            ▼
                  ┌───────────────────┐
-                 │  hff-backend      │  Kotlin / Spring Boot 3, port 8080
-                 │  (container)      │  runs ./gradlew :bootstrap:bootRun
+                 │  hff-backend      │  Kotlin / Ktor 3, port 8080
+                 │  (container)      │  runs ./gradlew :bootstrap:run
                  └────┬─────────┬────┘
                       │         │
           jdbc ───────┘         └─────── s3
@@ -3029,9 +3029,9 @@ What this does, in order:
 
 1. `docker compose up -d` on the backing services.
 2. Removes any existing `hff-backend` container.
-3. Starts a new one with `SPRING_PROFILES_ACTIVE=live`, the PostGIS JDBC URL, and the
+3. Starts a new one with the PostGIS JDBC URL and the
    `APP_S3_*` variables pointing at `http://minio:9000`.
-4. Runs `./gradlew --no-daemon :bootstrap:bootRun` inside the container.
+4. Runs `./gradlew --no-daemon :bootstrap:run` inside the container.
 
 **The first run downloads the Gradle wrapper and all dependencies. Budget 5–15 minutes**
 depending on network. Subsequent runs reuse the `halal-gradle-cache` volume and are much
@@ -3081,7 +3081,7 @@ exporting variables before running the script:
 
 Database credentials are hardcoded in `scripts/backend-live.sh` (`halal`/`halal` against
 `postgis:5432`). For a non-local environment, edit the script or set
-`SPRING_DATASOURCE_*` — but do not commit real credentials.
+`APP_DB_*` — but do not commit real credentials.
 
 ### About the JWT signing key
 

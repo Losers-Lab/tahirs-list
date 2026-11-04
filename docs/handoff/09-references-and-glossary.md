@@ -47,7 +47,7 @@ sources:
 | **Coordination gate** | The 30-minute cron job that merges PRs, dispatches work, and unblocks cards when the action fingerprint changes. |
 | **Watchdog** | The 15-minute script-only cron job that redeploys the preview when `main` moves or a container dies. |
 | **Preview** | The local Docker stack exposed at `https://dev.tahirslist.com` via a stable Cloudflare tunnel. Not production. |
-| **Live profile** | `SPRING_PROFILES_ACTIVE=live`. Enables the MinIO-backed `S3ImagePort` and the seed-photo ingest runner. |
+| **Live config** | `APP_S3_ENDPOINT` set and `APP_SEED_INGEST_ENABLED=true`. Enables the MinIO-backed `ImagePort` and the seed-photo ingest runner. |
 | **Seed ingest** | Boot-time runner that downloads seed restaurant photos into MinIO. Currently failing with HTTP 403 on some URLs. |
 | **OKF** | Open Knowledge Format. Markdown + YAML frontmatter knowledge bundles. This handoff uses its conventions. |
 

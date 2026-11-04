@@ -102,8 +102,8 @@ uploaded certificates are gone. Address this before anything else production-sha
 
 ### Backend launch (`scripts/backend-live.sh`)
 
-Launches the backend with `SPRING_PROFILES_ACTIVE=live`. The `live` profile
-(`application-live.yml`) turns on the two switches the live stack needs:
+Launches the backend with `APP_PROFILE=live` plus explicit env vars.
+The two switches the live stack needs:
 
 - `app.storage.s3.*` → the real MinIO-backed `S3ImagePort` instead of the in-memory
   stub.
@@ -123,7 +123,7 @@ hff-backend` and `docker run` with:
 - datasource `jdbc:postgresql://postgis:5432/halal`, user/pass `halal`
 - `APP_S3_*` env vars defaulting to `http://minio:9000`, `minioadmin/minioadmin`,
   region `us-east-1`, bucket `halal`
-- command `./gradlew --no-daemon :bootstrap:bootRun`
+- command `./gradlew --no-daemon :bootstrap:run`
 
 It runs the app from source via Gradle, not from a Jib image. That is fine for
 preview, but it means startup is slow and depends on the Gradle cache volume.
@@ -351,7 +351,7 @@ means the container's command failed to start — a missing `package.json`, a br
 
 - **Decision:** Hetzner VPS, **CX/CAX line** (not CPX — CPX prices rose in 2026),
   roughly **CX23 2 vCPU / 4 GB / 40 GB at ~US$6–7/month**, self-hosting Postgres 16/17
-  + PostGIS, MinIO, the Spring Boot Jib image, and the async verification worker on
+  + PostGIS, MinIO, the Ktor app image, and the async verification worker on
   one always-on box.
 - **Why self-host:** full extension control so a managed tier cannot drop PostGIS.
 - **Alternative considered:** Neon (managed Postgres with native PostGIS, free /

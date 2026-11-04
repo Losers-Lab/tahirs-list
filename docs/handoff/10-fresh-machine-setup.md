@@ -54,8 +54,8 @@ Five things run. Four are containers; the fifth is a container that runs your bu
                                │ http://tahirs-list-backend:8080
                                ▼
                     ┌──────────────────────┐
-                    │ tahirs-list-backend  │  Kotlin / Spring Boot 3, port 8080
-                    │ (container)          │  runs ./gradlew :bootstrap:bootRun
+                    │ tahirs-list-backend  │  Kotlin / Ktor 3, port 8080
+                    │ (container)          │  runs ./gradlew :bootstrap:run
                     └─────┬──────────┬─────┘
                           │          │
               jdbc ───────┘          └─────── s3
@@ -268,9 +268,9 @@ What this does, in order:
 
 1. `docker compose up -d` on the backing services.
 2. Removes any existing `tahirs-list-backend` container.
-3. Starts a new one with `SPRING_PROFILES_ACTIVE=live`, the PostGIS JDBC URL, and the
+3. Starts a new one with the PostGIS JDBC URL and the
    `APP_S3_*` variables pointing at `http://minio:9000`.
-4. Runs `./gradlew --no-daemon :bootstrap:bootRun` inside the container.
+4. Runs `./gradlew --no-daemon :bootstrap:run` inside the container.
 
 **The first run downloads the Gradle wrapper and all dependencies. Budget 5–15 minutes**
 depending on network. Subsequent runs reuse the `tahirs-list-gradle-cache` volume and are much
@@ -320,7 +320,7 @@ exporting variables before running the script:
 
 Database credentials are hardcoded in `scripts/backend-live.sh` (`halal`/`halal` against
 `postgis:5432`). For a non-local environment, edit the script or set
-`SPRING_DATASOURCE_*` — but do not commit real credentials.
+`APP_DB_*` — but do not commit real credentials.
 
 ### About the JWT signing key
 
