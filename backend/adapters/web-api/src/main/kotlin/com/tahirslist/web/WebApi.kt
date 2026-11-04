@@ -101,10 +101,10 @@ fun Application.configureWebPlugins(
                 ErrorMessages.PAYLOAD_TOO_LARGE,
             )
         }
-        // Ktor's multipart parser enforces `formFieldLimit` on a producer
-        // coroutine: an oversized part throws a bare IOException on the call
-        // rather than at the route's suspend point, so `receiveForm` cannot
-        // translate it. Map the limit case here; any other I/O failure keeps the
+        // Ktor's multipart parser can also surface an oversized part as a bare
+        // IOException raised on the call's producer coroutine, outside the route's
+        // suspend point, where `receiveForm` cannot translate it. This handler is
+        // the boundary fallback for that shape; any other I/O failure keeps the
         // generic 500 shape (a client disconnect has no response to deliver).
         exception<IOException> { call, cause ->
             if (cause.isMultipartLimitExceeded()) {

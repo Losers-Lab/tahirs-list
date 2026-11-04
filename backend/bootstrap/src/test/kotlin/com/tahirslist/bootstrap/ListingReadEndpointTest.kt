@@ -2,6 +2,7 @@ package com.tahirslist.bootstrap
 
 import com.tahirslist.application.image.ImageVariant
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import java.awt.Color
@@ -278,7 +279,10 @@ class ListingReadEndpointTest : KtorPostgresTest() {
 
             val detail = get("/v1/listings/$listingId").json()
             detail["verificationStatus"].asString() shouldBe "VERIFIED"
-            detail["certificate"].stringOrNull() shouldBe null
+            // Must be JSON null specifically: the loose `stringOrNull()` helper also
+            // returns null for an object, which would let a wrongly-advertised
+            // certificate payload pass this test.
+            detail["certificate"] shouldBe JsonNull
             get("/v1/listings/$listingId/certificate").status shouldBe 404
         }
 
