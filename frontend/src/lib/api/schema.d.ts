@@ -4,1293 +4,1293 @@
  */
 
 export interface paths {
-    "/v1/verification-committee/reviews/{reviewId}/deny": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Deny a verification
-         * @description Denies the certification review, recording the reason; the listing stays unverified.
-         */
-        post: operations["deny"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/verification-committee/reviews/{reviewId}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve a verification
-         * @description Approves the certification review and promotes the listing to VERIFIED (the only path to a verified listing).
-         */
-        post: operations["approve"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/listings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Browse restaurants
-         * @description Minimal unfiltered browse surface (sc-157). Each card exposes only a thumbnail-size hero. Full filtered search is a later story.
-         */
-        get: operations["browse"];
-        put?: never;
-        /**
-         * Add a restaurant listing
-         * @description Creates a new, always-unverified restaurant listing owned by the authenticated account. Does not geocode; the client supplies coordinates.
-         */
-        post: operations["create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/listings/{listingId}/claim": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Owner-claim verification
-         * @description Submits ownership proof + a certification image for the listing; drives the listing through the verification state machine (SUBMITTED -> AI_REVIEW -> AI_SUGGESTED) and returns the created review.
-         */
-        post: operations["claim"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/favorites/{listingId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Favourite a listing
-         * @description Records the authenticated user's favourite for a listing. Idempotent — favouriting the same listing twice is a no-op.
-         */
-        post: operations["favorite"];
-        /**
-         * Unfavourite a listing
-         * @description Removes the authenticated user's favourite for a listing. Idempotent — unfavouriting a listing that is not favourited is a no-op.
-         */
-        delete: operations["unfavorite"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/auth/signup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create an account
-         * @description Validates the email/password, hashes the password with Argon2id, persists the account with the default role, and returns the created account.
-         */
-        post: operations["signup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Refresh the session
-         * @description Rotates the refresh token presented in the HttpOnly cookie: revokes it and issues a fresh access token in the body plus a new refresh cookie.
-         */
-        post: operations["refresh"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Log out
-         * @description Revokes the refresh token presented in the HttpOnly cookie so it can no longer be used to obtain a fresh access token, and clears the cookie. Idempotent: always succeeds regardless of whether the token was ever valid.
-         */
-        post: operations["logout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Log in
-         * @description Verifies the email/password against the stored Argon2id hash and returns a short-lived access token (RS256 JWT with the account's RBAC role) in the body; the rotating refresh token is set as an HttpOnly; Secure; SameSite=Lax cookie scoped to the auth routes and is never returned in JSON.
-         */
-        post: operations["login"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/verification-committee/reviews": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pending verifications
-         * @description Verification Committee workqueue: every certification review awaiting a human decision (AI_SUGGESTED).
-         */
-        get: operations["listPending"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["me"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/listings/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Restaurant detail
-         * @description Full listing detail including the full-res hero image URL and, for a VERIFIED listing whose certification was approved, the certificate display facts (certifier / reviewedOn / expiresOn / certificateUrl) so the detail trust panel can render non-empty fields (sc-73 follow-up).
-         */
-        get: operations["detail"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/listings/{id}/image": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Serve an image variant
-         * @description Same-origin proxy returning only the requested variant's bytes (thumbnail_400/768/1280/1920 or full original).
-         */
-        get: operations["serve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/listings/{id}/certificate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Serve the listing's certification image
-         * @description Same-origin proxy returning the most recently archived certification image bytes for a listing (the CertificatePanel's View certificate target). SECURITY: cert images are archived evidence; surfacing them on a public read endpoint is a deliberate posture change reviewed by Omar in the sc-73 read-surface PR.
-         */
-        get: operations["serveCertificate"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/listings/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search restaurants by location
-         * @description Returns listings within `radius` (miles) of `center` (latitude,longitude), ordered by straight-line distance ascending. `handCutOnly` (true/false; absent = any) is an extra on/off filter that narrows to hand-cut listings only; `cuisine` (repeatable) with `cuisineLogic` AND or OR (default OR) narrows by multi-cuisine membership; `minPrice`/`maxPrice` bound the price range; `minRating` sets the minimum listing rating on the 0..5 scale. (sc-10 location, sc-42 hand-cut, sc-43 price, sc-44 cuisine, sc-45 rating). Public — the core search UX.
-         */
-        get: operations["search"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["health"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/favorites": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the authenticated user's favourites
-         * @description Returns the authenticated user's favourited listings as browse-card objects identical to the /v1/listings read shape.
-         */
-        get: operations["list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+	'/v1/verification-committee/reviews/{reviewId}/deny': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Deny a verification
+		 * @description Denies the certification review, recording the reason; the listing stays unverified.
+		 */
+		post: operations['deny'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/verification-committee/reviews/{reviewId}/approve': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Approve a verification
+		 * @description Approves the certification review and promotes the listing to VERIFIED (the only path to a verified listing).
+		 */
+		post: operations['approve'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/listings': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Browse restaurants
+		 * @description Minimal unfiltered browse surface (sc-157). Each card exposes only a thumbnail-size hero. Full filtered search is a later story.
+		 */
+		get: operations['browse'];
+		put?: never;
+		/**
+		 * Add a restaurant listing
+		 * @description Creates a new, always-unverified restaurant listing owned by the authenticated account. Does not geocode; the client supplies coordinates.
+		 */
+		post: operations['create'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/listings/{listingId}/claim': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Owner-claim verification
+		 * @description Submits ownership proof + a certification image for the listing; drives the listing through the verification state machine (SUBMITTED -> AI_REVIEW -> AI_SUGGESTED) and returns the created review.
+		 */
+		post: operations['claim'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/favorites/{listingId}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Favourite a listing
+		 * @description Records the authenticated user's favourite for a listing. Idempotent — favouriting the same listing twice is a no-op.
+		 */
+		post: operations['favorite'];
+		/**
+		 * Unfavourite a listing
+		 * @description Removes the authenticated user's favourite for a listing. Idempotent — unfavouriting a listing that is not favourited is a no-op.
+		 */
+		delete: operations['unfavorite'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/auth/signup': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Create an account
+		 * @description Validates the email/password, hashes the password with Argon2id, persists the account with the default role, and returns the created account.
+		 */
+		post: operations['signup'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/auth/refresh': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Refresh the session
+		 * @description Rotates the refresh token presented in the HttpOnly cookie: revokes it and issues a fresh access token in the body plus a new refresh cookie.
+		 */
+		post: operations['refresh'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/auth/logout': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Log out
+		 * @description Revokes the refresh token presented in the HttpOnly cookie so it can no longer be used to obtain a fresh access token, and clears the cookie. Idempotent: always succeeds regardless of whether the token was ever valid.
+		 */
+		post: operations['logout'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/auth/login': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Log in
+		 * @description Verifies the email/password against the stored Argon2id hash and returns a short-lived access token (RS256 JWT with the account's RBAC role) in the body; the rotating refresh token is set as an HttpOnly; Secure; SameSite=Lax cookie scoped to the auth routes and is never returned in JSON.
+		 */
+		post: operations['login'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/verification-committee/reviews': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List pending verifications
+		 * @description Verification Committee workqueue: every certification review awaiting a human decision (AI_SUGGESTED).
+		 */
+		get: operations['listPending'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/me': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get: operations['me'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/listings/{id}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Restaurant detail
+		 * @description Full listing detail including the full-res hero image URL and, for a VERIFIED listing whose certification was approved, the certificate display facts (certifier / reviewedOn / expiresOn / certificateUrl) so the detail trust panel can render non-empty fields (sc-73 follow-up).
+		 */
+		get: operations['detail'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/listings/{id}/image': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Serve an image variant
+		 * @description Same-origin proxy returning only the requested variant's bytes (thumbnail_400/768/1280/1920 or full original).
+		 */
+		get: operations['serve'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/listings/{id}/certificate': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Serve the listing's certification image
+		 * @description Same-origin proxy returning the most recently archived certification image bytes for a listing (the CertificatePanel's View certificate target). SECURITY: cert images are archived evidence; surfacing them on a public read endpoint is a deliberate posture change reviewed by Omar in the sc-73 read-surface PR.
+		 */
+		get: operations['serveCertificate'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/listings/search': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Search restaurants by location
+		 * @description Returns listings within `radius` (miles) of `center` (latitude,longitude), ordered by straight-line distance ascending. `handCutOnly` (true/false; absent = any) is an extra on/off filter that narrows to hand-cut listings only; `cuisine` (repeatable) with `cuisineLogic` AND or OR (default OR) narrows by multi-cuisine membership; `minPrice`/`maxPrice` bound the price range; `minRating` sets the minimum listing rating on the 0..5 scale. (sc-10 location, sc-42 hand-cut, sc-43 price, sc-44 cuisine, sc-45 rating). Public — the core search UX.
+		 */
+		get: operations['search'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/health': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get: operations['health'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/v1/favorites': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List the authenticated user's favourites
+		 * @description Returns the authenticated user's favourited listings as browse-card objects identical to the /v1/listings read shape.
+		 */
+		get: operations['list'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        ErrorResponse: {
-            code: string;
-            message?: string;
-        };
-        DecideRequest: {
-            reason?: string;
-            certifier?: string;
-            expiresOn?: string;
-        };
-        ReviewResponse: {
-            /** Format: uuid */
-            reviewId: string;
-            /** Format: uuid */
-            listingId: string;
-            /** Format: uuid */
-            submittedBy: string;
-            state: string;
-            suggestedVerdict?: string;
-            /** Format: double */
-            suggestionConfidence?: number;
-            suggestionReasoning?: string;
-            decisionOutcome?: string;
-            decisionReason?: string;
-            /** Format: uuid */
-            decidedBy?: string;
-        };
-        CreateListingRequest: {
-            name: string;
-            address: string;
-            /** Format: double */
-            lat: number;
-            /** Format: double */
-            lng: number;
-            cuisine: string;
-            isHandCut?: boolean;
-        };
-        ListingResponse: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            address: string;
-            /** Format: double */
-            lat: number;
-            /** Format: double */
-            lng: number;
-            cuisine: string;
-            isHandCut?: boolean;
-            /** Format: uuid */
-            ownerId: string;
-            /** @enum {string} */
-            verificationStatus: "UNVERIFIED" | "VERIFIED";
-            /** Format: date-time */
-            createdAt: string;
-        };
-        ClaimResponse: {
-            /** Format: uuid */
-            reviewId: string;
-            /** Format: uuid */
-            listingId: string;
-            /** Format: uuid */
-            submittedBy: string;
-            state: string;
-            suggestedVerdict?: string;
-        };
-        SignupRequest: {
-            email: string;
-            password: string;
-        };
-        SignupResponse: {
-            /** Format: uuid */
-            id: string;
-            email: string;
-            role: string;
-        };
-        AuthResponse: {
-            accessToken: string;
-            tokenType: string;
-            /** Format: int64 */
-            expiresIn: number;
-            /** Format: uuid */
-            accountId: string;
-            role: string;
-        };
-        LoginRequest: {
-            email: string;
-            password: string;
-        };
-        BrowseCard: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            address: string;
-            /** Format: double */
-            lat: number;
-            /** Format: double */
-            lng: number;
-            cuisine?: string;
-            isHandCut?: boolean;
-            verificationStatus: string;
-            imageThumbnailUrl: string;
-            imageSrcset: components["schemas"]["SrcsetEntry"][];
-        };
-        SrcsetEntry: {
-            /** Format: int32 */
-            width: number;
-            url: string;
-        };
-        Certificate: {
-            certifier?: string;
-            reviewedOn: string;
-            expiresOn?: string;
-            certificateUrl: string;
-        };
-        DetailResponse: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            address: string;
-            /** Format: double */
-            lat: number;
-            /** Format: double */
-            lng: number;
-            cuisine?: string;
-            isHandCut?: boolean;
-            verificationStatus: string;
-            imageThumbnailUrl: string;
-            imageSrcset: components["schemas"]["SrcsetEntry"][];
-            imageUrl: string;
-            certificate?: components["schemas"]["Certificate"];
-        };
-        SearchCard: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            address: string;
-            /** Format: double */
-            lat: number;
-            /** Format: double */
-            lng: number;
-            cuisine?: string;
-            isHandCut?: boolean;
-            verificationStatus: string;
-            imageThumbnailUrl: string;
-            imageSrcset: components["schemas"]["SrcsetEntry"][];
-            /** Format: double */
-            rating?: number;
-            /** Format: double */
-            distanceMiles: number;
-        };
-    };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+	schemas: {
+		ErrorResponse: {
+			code: string;
+			message?: string;
+		};
+		DecideRequest: {
+			reason?: string;
+			certifier?: string;
+			expiresOn?: string;
+		};
+		ReviewResponse: {
+			/** Format: uuid */
+			reviewId: string;
+			/** Format: uuid */
+			listingId: string;
+			/** Format: uuid */
+			submittedBy: string;
+			state: string;
+			suggestedVerdict?: string;
+			/** Format: double */
+			suggestionConfidence?: number;
+			suggestionReasoning?: string;
+			decisionOutcome?: string;
+			decisionReason?: string;
+			/** Format: uuid */
+			decidedBy?: string;
+		};
+		CreateListingRequest: {
+			name: string;
+			address: string;
+			/** Format: double */
+			lat: number;
+			/** Format: double */
+			lng: number;
+			cuisine: string;
+			isHandCut?: boolean;
+		};
+		ListingResponse: {
+			/** Format: uuid */
+			id: string;
+			name: string;
+			address: string;
+			/** Format: double */
+			lat: number;
+			/** Format: double */
+			lng: number;
+			cuisine: string;
+			isHandCut?: boolean;
+			/** Format: uuid */
+			ownerId: string;
+			/** @enum {string} */
+			verificationStatus: 'UNVERIFIED' | 'VERIFIED';
+			/** Format: date-time */
+			createdAt: string;
+		};
+		ClaimResponse: {
+			/** Format: uuid */
+			reviewId: string;
+			/** Format: uuid */
+			listingId: string;
+			/** Format: uuid */
+			submittedBy: string;
+			state: string;
+			suggestedVerdict?: string;
+		};
+		SignupRequest: {
+			email: string;
+			password: string;
+		};
+		SignupResponse: {
+			/** Format: uuid */
+			id: string;
+			email: string;
+			role: string;
+		};
+		AuthResponse: {
+			accessToken: string;
+			tokenType: string;
+			/** Format: int64 */
+			expiresIn: number;
+			/** Format: uuid */
+			accountId: string;
+			role: string;
+		};
+		LoginRequest: {
+			email: string;
+			password: string;
+		};
+		BrowseCard: {
+			/** Format: uuid */
+			id: string;
+			name: string;
+			address: string;
+			/** Format: double */
+			lat: number;
+			/** Format: double */
+			lng: number;
+			cuisine?: string;
+			isHandCut?: boolean;
+			verificationStatus: string;
+			imageThumbnailUrl: string;
+			imageSrcset: components['schemas']['SrcsetEntry'][];
+		};
+		SrcsetEntry: {
+			/** Format: int32 */
+			width: number;
+			url: string;
+		};
+		Certificate: {
+			certifier?: string;
+			reviewedOn: string;
+			expiresOn?: string;
+			certificateUrl: string;
+		};
+		DetailResponse: {
+			/** Format: uuid */
+			id: string;
+			name: string;
+			address: string;
+			/** Format: double */
+			lat: number;
+			/** Format: double */
+			lng: number;
+			cuisine?: string;
+			isHandCut?: boolean;
+			verificationStatus: string;
+			imageThumbnailUrl: string;
+			imageSrcset: components['schemas']['SrcsetEntry'][];
+			imageUrl: string;
+			certificate?: components['schemas']['Certificate'];
+		};
+		SearchCard: {
+			/** Format: uuid */
+			id: string;
+			name: string;
+			address: string;
+			/** Format: double */
+			lat: number;
+			/** Format: double */
+			lng: number;
+			cuisine?: string;
+			isHandCut?: boolean;
+			verificationStatus: string;
+			imageThumbnailUrl: string;
+			imageSrcset: components['schemas']['SrcsetEntry'][];
+			/** Format: double */
+			rating?: number;
+			/** Format: double */
+			distanceMiles: number;
+		};
+	};
+	responses: never;
+	parameters: never;
+	requestBodies: never;
+	headers: never;
+	pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    deny: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                reviewId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DecideRequest"];
-            };
-        };
-        responses: {
-            /** @description Denied; reason recorded */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReviewResponse"];
-                };
-            };
-            /** @description A denial reason is required */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReviewResponse"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReviewResponse"];
-                };
-            };
-            /** @description Verification Committee role required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Review not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Review not pending */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    approve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                reviewId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["DecideRequest"];
-            };
-        };
-        responses: {
-            /** @description Approved; listing promoted to VERIFIED */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReviewResponse"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReviewResponse"];
-                };
-            };
-            /** @description Verification Committee role required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Review not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Review not pending */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    browse: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Browse cards */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["BrowseCard"][];
-                };
-            };
-        };
-    };
-    create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateListingRequest"];
-            };
-        };
-        responses: {
-            /** @description Listing created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ListingResponse"];
-                };
-            };
-            /** @description Invalid input */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ListingResponse"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ListingResponse"];
-                };
-            };
-            /** @description Owning account not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    claim: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                listingId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    proof: string;
-                    aiConsent: string;
-                    /** Format: binary */
-                    certImage: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Review created and driven to AI_SUGGESTED */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ClaimResponse"];
-                };
-            };
-            /** @description Missing proof or certification image */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ClaimResponse"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ClaimResponse"];
-                };
-            };
-            /** @description Only the listing owner may claim */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Listing not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Verification provider unavailable; review held for retry */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    favorite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                listingId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Favourited (no body) */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Listing not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    unfavorite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                listingId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Unfavourited (no body) */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Listing not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    signup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SignupRequest"];
-            };
-        };
-        responses: {
-            /** @description Account created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SignupResponse"];
-                };
-            };
-            /** @description Invalid input */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SignupResponse"];
-                };
-            };
-            /** @description Email already exists */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Password is too weak */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    refresh: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: {
-                refresh_token?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rotated; new access token + refresh cookie issued */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["AuthResponse"];
-                };
-            };
-            /** @description Missing refresh cookie */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Invalid, expired, or already-used refresh token */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    logout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: {
-                refresh_token?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Refresh token revoked; cookie cleared */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    login: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Authenticated; token pair issued */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["AuthResponse"];
-                };
-            };
-            /** @description Invalid input */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Invalid email or password (generic, no user enumeration) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    listPending: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Pending reviews */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReviewResponse"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ReviewResponse"][];
-                };
-            };
-            /** @description Verification Committee role required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Review not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Review not pending */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    me: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    detail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Detail payload */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["DetailResponse"];
-                };
-            };
-            /** @description Listing not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["DetailResponse"];
-                };
-            };
-        };
-    };
-    serve: {
-        parameters: {
-            query: {
-                variant: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Image bytes */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": string;
-                };
-            };
-            /** @description Unknown variant */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": string;
-                };
-            };
-            /** @description No stored image for this variant */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": string;
-                };
-            };
-        };
-    };
-    serveCertificate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Certificate image bytes */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": string;
-                };
-            };
-            /** @description No certification image archived for this listing */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": string;
-                };
-            };
-        };
-    };
-    search: {
-        parameters: {
-            query?: {
-                center?: string;
-                radius?: number;
-                handCutOnly?: string;
-                cuisine?: string[];
-                cuisineLogic?: string;
-                minPrice?: number;
-                maxPrice?: number;
-                minRating?: number;
-                offset?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search results (distance ascending) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SearchCard"][];
-                };
-            };
-            /** @description Malformed centre, radius, handCutOnly, cuisine, cuisineLogic, price, or rating */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["SearchCard"][];
-                };
-            };
-        };
-    };
-    health: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        [key: string]: string;
-                    };
-                };
-            };
-        };
-    };
-    list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The user's favourite browse cards */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["BrowseCard"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["BrowseCard"][];
-                };
-            };
-            /** @description Listing not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
+	deny: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				reviewId: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['DecideRequest'];
+			};
+		};
+		responses: {
+			/** @description Denied; reason recorded */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ReviewResponse'];
+				};
+			};
+			/** @description A denial reason is required */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ReviewResponse'];
+				};
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ReviewResponse'];
+				};
+			};
+			/** @description Verification Committee role required */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Review not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Review not pending */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	approve: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				reviewId: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: {
+			content: {
+				'application/json': components['schemas']['DecideRequest'];
+			};
+		};
+		responses: {
+			/** @description Approved; listing promoted to VERIFIED */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ReviewResponse'];
+				};
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ReviewResponse'];
+				};
+			};
+			/** @description Verification Committee role required */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Review not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Review not pending */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	browse: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Browse cards */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['BrowseCard'][];
+				};
+			};
+		};
+	};
+	create: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CreateListingRequest'];
+			};
+		};
+		responses: {
+			/** @description Listing created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ListingResponse'];
+				};
+			};
+			/** @description Invalid input */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ListingResponse'];
+				};
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ListingResponse'];
+				};
+			};
+			/** @description Owning account not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	claim: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				listingId: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: {
+			content: {
+				'application/json': {
+					proof: string;
+					aiConsent: string;
+					/** Format: binary */
+					certImage: string;
+				};
+			};
+		};
+		responses: {
+			/** @description Review created and driven to AI_SUGGESTED */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ClaimResponse'];
+				};
+			};
+			/** @description Missing proof or certification image */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ClaimResponse'];
+				};
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ClaimResponse'];
+				};
+			};
+			/** @description Only the listing owner may claim */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Listing not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Verification provider unavailable; review held for retry */
+			503: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	favorite: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				listingId: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Favourited (no body) */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Listing not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	unfavorite: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				listingId: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Unfavourited (no body) */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Listing not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	signup: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['SignupRequest'];
+			};
+		};
+		responses: {
+			/** @description Account created */
+			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['SignupResponse'];
+				};
+			};
+			/** @description Invalid input */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['SignupResponse'];
+				};
+			};
+			/** @description Email already exists */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Password is too weak */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	refresh: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				refresh_token?: string;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Rotated; new access token + refresh cookie issued */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['AuthResponse'];
+				};
+			};
+			/** @description Missing refresh cookie */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Invalid, expired, or already-used refresh token */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	logout: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: {
+				refresh_token?: string;
+			};
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Refresh token revoked; cookie cleared */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+		};
+	};
+	login: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['LoginRequest'];
+			};
+		};
+		responses: {
+			/** @description Authenticated; token pair issued */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['AuthResponse'];
+				};
+			};
+			/** @description Invalid input */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Invalid email or password (generic, no user enumeration) */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	listPending: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Pending reviews */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ReviewResponse'];
+				};
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ReviewResponse'][];
+				};
+			};
+			/** @description Verification Committee role required */
+			403: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Review not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+			/** @description Review not pending */
+			409: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
+	me: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': {
+						[key: string]: unknown;
+					};
+				};
+			};
+		};
+	};
+	detail: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Detail payload */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['DetailResponse'];
+				};
+			};
+			/** @description Listing not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['DetailResponse'];
+				};
+			};
+		};
+	};
+	serve: {
+		parameters: {
+			query: {
+				variant: string;
+			};
+			header?: never;
+			path: {
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Image bytes */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': string;
+				};
+			};
+			/** @description Unknown variant */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': string;
+				};
+			};
+			/** @description No stored image for this variant */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': string;
+				};
+			};
+		};
+	};
+	serveCertificate: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Certificate image bytes */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': string;
+				};
+			};
+			/** @description No certification image archived for this listing */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': string;
+				};
+			};
+		};
+	};
+	search: {
+		parameters: {
+			query?: {
+				center?: string;
+				radius?: number;
+				handCutOnly?: string;
+				cuisine?: string[];
+				cuisineLogic?: string;
+				minPrice?: number;
+				maxPrice?: number;
+				minRating?: number;
+				offset?: number;
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Search results (distance ascending) */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['SearchCard'][];
+				};
+			};
+			/** @description Malformed centre, radius, handCutOnly, cuisine, cuisineLogic, price, or rating */
+			400: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['SearchCard'][];
+				};
+			};
+		};
+	};
+	health: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': {
+						[key: string]: string;
+					};
+				};
+			};
+		};
+	};
+	list: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description The user's favourite browse cards */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['BrowseCard'];
+				};
+			};
+			/** @description Authentication required */
+			401: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['BrowseCard'][];
+				};
+			};
+			/** @description Listing not found */
+			404: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'*/*': components['schemas']['ErrorResponse'];
+				};
+			};
+		};
+	};
 }
