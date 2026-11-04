@@ -13,8 +13,9 @@ import io.ktor.http.HttpStatusCode
 import java.io.IOException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.time.Duration
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -45,7 +46,7 @@ import kotlinx.serialization.json.doubleOrNull
  */
 class PhotonGeocoder(
     private val baseUrl: String = "https://photon.komoot.io/api/",
-    private val timeout: Duration = Duration.ofSeconds(5),
+    private val timeout: Duration = 5.seconds,
     httpClient: HttpClient? = null,
 ) : GeocoderPort {
 
@@ -57,8 +58,8 @@ class PhotonGeocoder(
         // a redirect is a non-200 provider response, not a transparent success.
         followRedirects = false
         install(HttpTimeout) {
-            requestTimeoutMillis = timeout.toMillis()
-            connectTimeoutMillis = timeout.toMillis()
+            requestTimeoutMillis = timeout.inWholeMilliseconds
+            connectTimeoutMillis = timeout.inWholeMilliseconds
         }
     }
 

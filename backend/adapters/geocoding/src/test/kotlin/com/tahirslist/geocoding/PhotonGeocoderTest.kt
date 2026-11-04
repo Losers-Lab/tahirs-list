@@ -12,7 +12,9 @@ import io.kotest.matchers.string.shouldContain
 import java.net.ConnectException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
-import java.time.Duration
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 
@@ -47,7 +49,7 @@ class PhotonGeocoderTest : FunSpec({
     }
     afterSpec { server.stop(0) }
 
-    fun geocoder(timeout: Duration = Duration.ofSeconds(5)) =
+    fun geocoder(timeout: Duration = 5.seconds) =
         PhotonGeocoder(baseUrl = baseUrl, timeout = timeout)
 
     fun setResponse(statusCode: Int, responseBody: String) {
@@ -196,7 +198,7 @@ class PhotonGeocoderTest : FunSpec({
         runTest {
             // Release a previously-bound port so connecting to it is refused.
             val refusedPort = ServerSocket(0).use { it.localPort }
-            val dead = PhotonGeocoder(baseUrl = "http://127.0.0.1:$refusedPort/", timeout = Duration.ofSeconds(2))
+            val dead = PhotonGeocoder(baseUrl = "http://127.0.0.1:$refusedPort/", timeout = 2.seconds)
 
             val ex = shouldThrowSuspend<GeocodingException> { dead.geocode("Halal Grill") }
 
@@ -211,7 +213,7 @@ class PhotonGeocoderTest : FunSpec({
             delayMillis = 2000 // provider responds too slowly for our short timeout
 
             shouldThrowSuspend<GeocodingException> {
-                geocoder(timeout = Duration.ofMillis(200)).geocode("Halal Grill")
+                geocoder(timeout = 200.milliseconds).geocode("Halal Grill")
             }
         }
     }
