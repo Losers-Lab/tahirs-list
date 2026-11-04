@@ -27,7 +27,10 @@ class S3ImagePortContractTest : ImagePortContractSpec(
         /** Number of times this spec's shared MinIO is started (constructed once per test class). */
         fun createMinioBackedPort(): ImagePort {
             val minio: MinIOContainer = MinIOContainer(
-                DockerImageName.parse("minio/minio:RELEASE.2025-04-22T22-12-26Z"),
+                // minio/minio was deleted from Docker Hub (Sep 2026); silo is a
+                // MinIO-compatible fork with the same S3 API and health endpoint.
+                DockerImageName.parse("pgsty/silo:latest")
+                    .asCompatibleSubstituteFor("minio/minio"),
             )
             minio.start()
 

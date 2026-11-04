@@ -24,7 +24,10 @@ class S3CertificationImageStorageTest : FunSpec() {
 
     private val s3: S3Client = run {
         val minio: MinIOContainer = MinIOContainer(
-            DockerImageName.parse("minio/minio:RELEASE.2025-04-22T22-12-26Z"),
+            // minio/minio was deleted from Docker Hub (Sep 2026); silo is a
+            // MinIO-compatible fork with the same S3 API and health endpoint.
+            DockerImageName.parse("pgsty/silo:latest")
+                .asCompatibleSubstituteFor("minio/minio"),
         )
         minio.start()
         S3Client.builder()

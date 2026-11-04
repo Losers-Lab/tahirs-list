@@ -13,7 +13,7 @@
 # container.
 #
 # Usage:
-#   ./scripts/backend-live.sh     # ensure compose up, (re)start hff-backend
+#   ./scripts/backend-live.sh     # ensure compose up, (re)start tahirs-list-backend
 set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -22,11 +22,11 @@ docker compose -f "$repo_root/backend/docker-compose.yml" up -d
 
 # 2. (Re)start the backend container, recompiled against the repo mount so
 #    bootRun picks up live source + the application-live.yml resources.
-docker rm -f hff-backend >/dev/null 2>&1 || true
+docker rm -f tahirs-list-backend >/dev/null 2>&1 || true
 docker run -d \
-  --name hff-backend \
+  --name tahirs-list-backend \
   --restart unless-stopped \
-  --network halal-food-finder_default \
+  --network tahirs-list_default \
   -p 8080:8080 \
   -v "$repo_root/backend":/workspace \
   -v halal-gradle-cache:/root/.gradle \
@@ -43,5 +43,5 @@ docker run -d \
   eclipse-temurin:21-jdk \
   ./gradlew --no-daemon :bootstrap:bootRun
 
-echo "hff-backend started with SPRING_PROFILES_ACTIVE=live (seed-photo ingest enabled)."
+echo "tahirs-list-backend started with SPRING_PROFILES_ACTIVE=live (seed-photo ingest enabled)."
 echo "curl http://localhost:8080/v1/health to poll readiness."
