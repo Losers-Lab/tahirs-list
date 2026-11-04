@@ -44,30 +44,30 @@ gets you running.
 Five things run. Four are containers; the fifth is a container that runs your build.
 
 ```
-                      your browser
-                           │
-                           ▼
-                 ┌───────────────────┐
-                 │  hff-frontend     │  Next.js 16 on node:22, port 3000
-                 │  (container)      │  proxies /v1/* to the backend
-                 └─────────┬─────────┘
-                           │ http://hff-backend:8080
-                           ▼
-                 ┌───────────────────┐
-                 │  hff-backend      │  Kotlin / Spring Boot 3, port 8080
-                 │  (container)      │  runs ./gradlew :bootstrap:bootRun
-                 └────┬─────────┬────┘
-                      │         │
-          jdbc ───────┘         └─────── s3
-                      ▼                  ▼
-            ┌──────────────────┐  ┌──────────────────┐
-            │  hff-postgis     │  │  hff-minio       │
-            │  PG17 + PostGIS  │  │  S3-compatible   │
-            │  port 5432       │  │  ports 9000/9001 │
-            └──────────────────┘  └──────────────────┘
+                          your browser
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │ tahirs-list-frontend │  Next.js 16 on node:22, port 3000
+                    │ (container)          │  proxies /v1/* to the backend
+                    └──────────┬───────────┘
+                               │ http://tahirs-list-backend:8080
+                               ▼
+                    ┌──────────────────────┐
+                    │ tahirs-list-backend  │  Kotlin / Spring Boot 3, port 8080
+                    │ (container)          │  runs ./gradlew :bootstrap:bootRun
+                    └─────┬──────────┬─────┘
+                          │          │
+              jdbc ───────┘          └─────── s3
+                          ▼                     ▼
+              ┌────────────────────┐  ┌───────────────────┐
+              │ tahirs-list-postgis│  │ tahirs-list-minio │
+              │ PG17 + PostGIS     │  │ S3-compatible     │
+              │ port 5432          │  │ ports 9000/9001   │
+              └────────────────────┘  └───────────────────┘
 ```
 
-All five join one Docker bridge network, `halal-food-finder_default`. Containers address
+All five join one Docker bridge network, `tahirs-list_default`. Containers address
 each other by **service name** (`postgis`, `minio`), not by `localhost`. The browser only
 ever talks to port 3000; Next.js rewrites `/v1/*` to the backend so the browser stays
 same-origin and the backend needs no CORS configuration.
@@ -219,12 +219,18 @@ This starts three containers:
 
 | Container | Image | Purpose | Ports |
 |---|---|---|---|
-| `hff-postgis` | `postgis/postgis:17-3.4` | PostgreSQL 17 + PostGIS 3.4; Flyway migrates on app boot | `5432` |
-| `hff-minio` | `minio/minio:RELEASE.2025-04-22T22-12-26Z` | S3-compatible object store for restaurant photos | `9000` (API), `9001` (console) |
-| `hff-minio-init` | `minio/mc:RELEASE.2025-04-16T18-13-26Z` | One-shot: waits for MinIO, creates the `halal` bucket, exits | none |
+| `tahirs-list-postgis` | `postgis/postgis:17-3.4` | PostgreSQL 17 + PostGIS 3.4; Flyway migrates on app boot | `5432` |
+| `tahirs-list-minio` | `pgsty/silo:latest` | S3-compatible object store for restaurant photos | `9000` (API), `9001` (console) |
+| `tahirs-list-minio-init` | `pgsty/silo:latest` | One-shot: waits for the object store, creates the `halal` bucket, exits | none |
 
-The compose file sets the project name to `halal-food-finder`, so the network is always
-`halal-food-finder_default` and the volumes are prefixed `halal-food-finder_`.
+> **Why not `minio/minio`?** MinIO deleted `minio/minio` and `minio/mc` from Docker Hub in
+> September 2026, and `quay.io/minio` now rejects anonymous pulls, so the previously pinned
+> tags no longer resolve on a fresh machine. `pgsty/silo` is a maintained, drop-in
+> MinIO-compatible fork; one image serves both the server and the `mc` client used by the
+> bucket initializer.
+
+The compose file sets the project name to `tahirs-list`, so the network is always
+`tahirs-list_default` and the volumes are prefixed `tahirs-list_`.
 
 ### Verify the services are healthy
 
@@ -235,9 +241,9 @@ docker compose -f backend/docker-compose.yml logs minio-init
 
 **Expected:**
 
-- `hff-postgis` — `Up ... (healthy)`
-- `hff-minio` — `Up ... (healthy)`
-- `hff-minio-init` — `Exited (0)` and its log ends with `MinIO bucket halal ready`
+- `tahirs-list-postgis` — `Up ... (healthy)`
+- `tahirs-list-minio` — `Up ... (healthy)`
+- `tahirs-list-minio-init` — `Exited (0)` and its log ends with `MinIO bucket halal ready`
 
 If `minio-init` failed, the bucket does not exist and every image upload will fail later.
 Re-run it:
@@ -261,7 +267,7 @@ services are up, so it is safe to run even if you skipped Step 2.
 What this does, in order:
 
 1. `docker compose up -d` on the backing services.
-2. Removes any existing `hff-backend` container.
+2. Removes any existing `tahirs-list-backend` container.
 3. Starts a new one with `SPRING_PROFILES_ACTIVE=live`, the PostGIS JDBC URL, and the
    `APP_S3_*` variables pointing at `http://minio:9000`.
 4. Runs `./gradlew --no-daemon :bootstrap:bootRun` inside the container.
@@ -274,7 +280,7 @@ in the background.
 ### Watch the build and wait for health
 
 ```bash
-docker logs -f hff-backend
+docker logs -f tahirs-list-backend
 ```
 
 Look for `Started HalalFoodFinderApplication` or a Netty/Tomcat "started on port 8080" line.
@@ -341,19 +347,19 @@ Run this **from the repository root**, not from `frontend/`, because the mount p
 relative to the current directory.
 
 ```bash
-docker rm -f hff-frontend 2>/dev/null
+docker rm -f tahirs-list-frontend 2>/dev/null
 
 docker run -d \
-  --name hff-frontend \
+  --name tahirs-list-frontend \
   --restart unless-stopped \
   -p 3000:3000 \
-  --network halal-food-finder_default \
+  --network tahirs-list_default \
   -v "$PWD/frontend":/app \
   -w /app \
   -v /app/node_modules \
   -v halal-npm-cache:/npm-cache \
   -e npm_config_cache=/npm-cache \
-  -e API_PROXY_TARGET='http://hff-backend:8080' \
+  -e API_PROXY_TARGET='http://tahirs-list-backend:8080' \
   node:22 bash -lc "npm install --no-audit --no-fund && npm run build && npm run start"
 ```
 
@@ -364,7 +370,7 @@ Notes:
 - The container performs `npm install`, `next build`, then `next start`. The first build
   takes several minutes. Watch it:
   ```bash
-  docker logs -f hff-frontend
+  docker logs -f tahirs-list-frontend
   ```
 - The bind mount means source edits are visible immediately, but Next.js production mode
   does **not** hot reload. Rebuild and restart the container to see changes.
@@ -376,18 +382,18 @@ Notes:
 Production mode is slow to iterate on. Run the dev server in a container instead:
 
 ```bash
-docker rm -f hff-frontend-dev 2>/dev/null
+docker rm -f tahirs-list-frontend-dev 2>/dev/null
 
 docker run -it --rm \
-  --name hff-frontend-dev \
+  --name tahirs-list-frontend-dev \
   -p 3000:3000 \
-  --network halal-food-finder_default \
+  --network tahirs-list_default \
   -v "$PWD/frontend":/app \
   -w /app \
   -v /app/node_modules \
   -v halal-npm-cache:/npm-cache \
   -e npm_config_cache=/npm-cache \
-  -e API_PROXY_TARGET='http://hff-backend:8080' \
+  -e API_PROXY_TARGET='http://tahirs-list-backend:8080' \
   node:22 bash -lc "npm install --no-audit --no-fund && npm run dev"
 ```
 
@@ -415,9 +421,9 @@ It is the clearest proof that you understand the auth configuration.
 ### Verify the database and bucket directly (optional)
 
 ```bash
-docker exec hff-postgis psql -U halal -d halal -c '\dt'
-docker exec hff-postgis psql -U halal -d halal -c 'select count(*) from users;'
-docker exec hff-minio mc ls local/halal
+docker exec tahirs-list-postgis psql -U halal -d halal -c '\dt'
+docker exec tahirs-list-postgis psql -U halal -d halal -c 'select count(*) from users;'
+docker exec tahirs-list-minio mc ls local/halal
 ```
 
 The first should list tables including `users`, `refresh_tokens`, `listings`, and the
@@ -452,7 +458,7 @@ untrusted code.
 The test suite uses its **own** Gradle cache volume (`halal-gradle-test-cache`), separate
 from the live backend's (`halal-gradle-cache`). This is deliberate: Gradle takes a lock on
 its user home, so two builds sharing one volume cannot run at the same time. With separate
-volumes you can run tests while `hff-backend` is up. The first test run downloads the Gradle
+volumes you can run tests while `tahirs-list-backend` is up. The first test run downloads the Gradle
 distribution and dependencies into the new volume and takes a few minutes; later runs are
 fast. If you see `Timeout waiting to lock journal cache`, something is sharing a Gradle user
 home — see Troubleshooting.
@@ -478,17 +484,17 @@ cloudflared tunnel route dns tahirs-list-dev dev.tahirslist.com
 Run the tunnel as a container on the same network:
 
 ```bash
-docker rm -f hff-tunnel-dev 2>/dev/null
+docker rm -f tahirs-list-tunnel-dev 2>/dev/null
 
 docker run -d \
-  --name hff-tunnel-dev \
+  --name tahirs-list-tunnel-dev \
   --restart unless-stopped \
-  --network halal-food-finder_default \
+  --network tahirs-list_default \
   cloudflare/cloudflared:latest \
   tunnel --no-autoupdate run --token "$CLOUDFLARE_TUNNEL_TOKEN"
 ```
 
-The tunnel's ingress rule must point `dev.tahirslist.com` at `http://hff-frontend:3000`
+The tunnel's ingress rule must point `dev.tahirslist.com` at `http://tahirs-list-frontend:3000`
 (service name, not `localhost:3000` — the original configuration pointed at
 `http://localhost:3000`, which only works when the tunnel shares the host's network
 namespace).
@@ -510,7 +516,7 @@ Three honest options:
    ```bash
    git checkout main && git pull
    ./scripts/backend-live.sh
-   docker rm -f hff-frontend
+   docker rm -f tahirs-list-frontend
    # re-run the frontend docker run command from Step 4
    ```
 2. **GitHub Actions (recommended for a team).** There is **no CI configured** (no
@@ -532,15 +538,15 @@ Three honest options:
 | Start backing services | `docker compose -f backend/docker-compose.yml up -d` |
 | Stop backing services (keep data) | `docker compose -f backend/docker-compose.yml down` |
 | Start/restart backend | `./scripts/backend-live.sh` |
-| Rebuild frontend | `docker rm -f hff-frontend` then re-run Step 4 |
-| Backend logs | `docker logs -f hff-backend` |
-| Frontend logs | `docker logs -f hff-frontend` |
+| Rebuild frontend | `docker rm -f tahirs-list-frontend` then re-run Step 4 |
+| Backend logs | `docker logs -f tahirs-list-backend` |
+| Frontend logs | `docker logs -f tahirs-list-frontend` |
 | Health check | `curl -s localhost:8080/v1/health` |
 | Backend tests | `./scripts/backend-test.sh` |
 | Frontend tests | `./scripts/frontend-test.sh` |
 | List containers | `docker ps -a --format 'table {{.Names}}\t{{.Status}}'` |
 | MinIO console | `http://localhost:9001` (`minioadmin` / `minioadmin`) |
-| Swagger UI | `http://localhost:8080/v1/swagger-ui.html` |
+| Swagger UI | `http://localhost:8080/v1/swagger-ui/index.html` |
 | OpenAPI spec | `http://localhost:8080/v1/api-docs` |
 
 ## Teardown and reset
@@ -548,7 +554,7 @@ Three honest options:
 ```bash
 # Stop and remove containers + the network. DATA IS PRESERVED in named volumes.
 docker compose -f backend/docker-compose.yml down
-docker rm -f hff-backend hff-frontend hff-tunnel-dev 2>/dev/null
+docker rm -f tahirs-list-backend tahirs-list-frontend tahirs-list-tunnel-dev 2>/dev/null
 
 # DESTRUCTIVE: also delete the database and object-store data.
 docker compose -f backend/docker-compose.yml down -v
@@ -558,11 +564,11 @@ docker volume rm halal-gradle-cache halal-npm-cache 2>/dev/null
 docker system df
 ```
 
-`down -v` deletes `halal-food-finder_pgdata` and `halal-food-finder_miniodata`. There is no
+`down -v` deletes `tahirs-list_pgdata` and `tahirs-list_miniodata`. There is no
 backup configured. If the data matters, dump it first:
 
 ```bash
-docker exec hff-postgis pg_dump -U halal -d halal > ~/halal-backup-$(date +%F).sql
+docker exec tahirs-list-postgis pg_dump -U halal -d halal > ~/halal-backup-$(date +%F).sql
 ```
 
 ---
@@ -574,16 +580,16 @@ docker exec hff-postgis pg_dump -U halal -d halal > ~/halal-backup-$(date +%F).s
 | `Cannot connect to the Docker daemon` | Docker not running, or WSL integration off | Start Docker Desktop; enable WSL integration; on Linux check `groups` |
 | `permission denied ... /var/run/docker.sock` | User not in `docker` group | `sudo usermod -aG docker $USER`, then re-login |
 | `bad interpreter: /bin/sh^M` running `gradlew` | CRLF line endings from a Windows clone | `git config --global core.autocrlf false`, re-clone or `git reset --hard` |
-| Backend container exits `127` | Mount path wrong / `gradlew` not executable | Confirm you ran the script from the repo root; `chmod +x backend/gradlew`; check `docker logs hff-backend` |
-| Backend container exits with Flyway error | PostGIS not ready yet | Wait for `(healthy)`, then `docker rm -f hff-backend && ./scripts/backend-live.sh` |
+| Backend container exits `127` | Mount path wrong / `gradlew` not executable | Confirm you ran the script from the repo root; `chmod +x backend/gradlew`; check `docker logs tahirs-list-backend` |
+| Backend container exits with Flyway error | PostGIS not ready yet | Wait for `(healthy)`, then `docker rm -f tahirs-list-backend && ./scripts/backend-live.sh` |
 | `Connection to 172.17.0.1 refused` in tests | Testcontainers networking | Use `scripts/backend-test.sh`, which sets the host override and gateway alias. Do not call Gradle directly. |
-| `Timeout waiting to lock journal cache (/gradle-home/...)` | Two Gradle builds share one user home — commonly the live backend and the test suite on the same cache volume | Use `scripts/backend-test.sh` (separate `halal-gradle-test-cache` volume), or stop `hff-backend` before testing. |
+| `Timeout waiting to lock journal cache (/gradle-home/...)` | Two Gradle builds share one user home — commonly the live backend and the test suite on the same cache volume | Use `scripts/backend-test.sh` (separate `halal-gradle-test-cache` volume), or stop `tahirs-list-backend` before testing. |
 | Backend tests cannot find Docker socket | Running on macOS/plain container | The script expects `/var/run/docker.sock`. On Docker Desktop for Mac, symlink or run tests inside a Linux VM/WSL2. |
-| Frontend container loops with `ENOENT ... /app/package.json` | Wrong mount path, or started outside the repo root | Run the `docker run` from the repository root; verify `docker inspect hff-frontend --format '{{json .Mounts}}'` |
-| Frontend up but API calls 502 | `API_PROXY_TARGET` pointing at `localhost` | Recreate with `http://hff-backend:8080` |
+| Frontend container loops with `ENOENT ... /app/package.json` | Wrong mount path, or started outside the repo root | Run the `docker run` from the repository root; verify `docker inspect tahirs-list-frontend --format '{{json .Mounts}}'` |
+| Frontend up but API calls 502 | `API_PROXY_TARGET` pointing at `localhost` | Recreate with `http://tahirs-list-backend:8080` |
 | Frontend up but 500 from `/v1/*` | Backend still booting | Poll `localhost:8080/v1/health` first |
-| Listing images 404 | Backend started without the `live` profile, or bucket missing | Use `./scripts/backend-live.sh`; check `docker logs hff-minio-init` for `MinIO bucket halal ready` |
-| First build seems hung | Gradle downloading dependencies | `docker logs -f hff-backend`; allow 15 min; check network/proxy |
+| Listing images 404 | Backend started without the `live` profile, or bucket missing | Use `./scripts/backend-live.sh`; check `docker logs tahirs-list-minio-init` for `MinIO bucket halal ready` |
+| First build seems hung | Gradle downloading dependencies | `docker logs -f tahirs-list-backend`; allow 15 min; check network/proxy |
 | `port is already allocated` | Another process on 3000/8080/5432/9000 | `docker ps`, or stop the conflicting service; `lsof -i :3000` |
 | Out of disk | Old images, worktrees, caches | `docker system prune`, `docker system df`, remove stale `.worktrees/` |
 | Seed photos missing from listings | Upstream URLs return 403 | Known defect. Runner logs and continues. See [07](07-current-state-and-risks.md). |
@@ -600,7 +606,7 @@ Be explicit with yourself about this list. None of it is in the repository:
 | Cloudflare tunnel token | `.cloudflared-token.txt` (gitignored) | You cannot recreate the tunnel without the founder. |
 | Agent personas (7 profiles) | `~/.hermes/profiles/*/SOUL.md` | Summarized in [04](04-team-and-roles.md). |
 | 42 historical worktrees | `.worktrees/` (gitignored) | Unmerged branches may exist only there. Audit before deleting. |
-| Database contents | Docker volume `halal-food-finder_pgdata` | A fresh machine starts with an empty database and only seed data. |
+| Database contents | Docker volume `tahirs-list_pgdata` | A fresh machine starts with an empty database and only seed data. |
 
 If you need the actual data (not just the schema), dump it from the old machine **before**
 decommissioning it. This is the single most time-sensitive item in this document.
