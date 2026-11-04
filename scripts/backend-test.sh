@@ -31,9 +31,9 @@ MODE="${1:-full}"
 #   - TESTCONTAINERS_RYUK_DISABLED=true: Ryuk reaper has the same cross-container
 #     networking problem. Cleanup falls to --rm on the sibling containers.
 
-GRADLE_TASKS="./gradlew --no-daemon test"
+GRADLE_TASKS="./gradlew --no-daemon --project-cache-dir=/tmp/gradle-project-cache test"
 if [ "$MODE" != "test-only" ]; then
-  GRADLE_TASKS="./gradlew --no-daemon build"
+  GRADLE_TASKS="./gradlew --no-daemon --project-cache-dir=/tmp/gradle-project-cache build"
 fi
 
 docker run --rm \
