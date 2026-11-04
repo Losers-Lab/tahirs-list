@@ -44,7 +44,13 @@ export default defineConfig(
 			// Set/Map state is treated as immutable here (a new instance is
 			// assigned into $state), which is reactive by design; SvelteSet is a
 			// performance optimisation, not a correctness requirement.
-			'svelte/prefer-svelte-reactivity': 'off'
+			'svelte/prefer-svelte-reactivity': 'off',
+			// Underscore-prefixed bindings are intentional placeholders (e.g. the
+			// typed fetch mock signature in hooks.server.test.ts).
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
+			]
 		}
 	}
 );

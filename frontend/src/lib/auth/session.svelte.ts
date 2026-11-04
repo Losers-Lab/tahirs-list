@@ -51,7 +51,12 @@ let identity: IdentityHint | null = null;
 
 // --- Refresh scheduling / single-flight guard.
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let refreshInFlight: Promise<void> | null = null;
+
+// A transient refresh failure (offline, backend restart) must not leave the
+// session permanently expired with no timer armed; retry on a bounded cadence.
+const REFRESH_RETRY_MS = 30_000;
 
 function now(): number {
 	return Date.now();
@@ -99,6 +104,19 @@ function clearRefreshTimer(): void {
 		clearTimeout(refreshTimer);
 		refreshTimer = null;
 	}
+	if (retryTimer) {
+		clearTimeout(retryTimer);
+		retryTimer = null;
+	}
+}
+
+function scheduleRetry(): void {
+	if (!browser) return;
+	if (retryTimer) clearTimeout(retryTimer);
+	retryTimer = setTimeout(() => {
+		retryTimer = null;
+		void refreshAccessToken();
+	}, REFRESH_RETRY_MS);
 }
 
 /**
@@ -151,8 +169,12 @@ export async function refreshAccessToken(): Promise<void> {
 			if (error instanceof ApiError && (error.status === 401 || error.status === 400)) {
 				// Expired / rotated / missing refresh cookie → session is over.
 				clearSessionLocally();
+			} else {
+				// Network/5xx errors leave the current (memory-only) state
+				// untouched — but re-arm a retry so the token is not left expired
+				// forever while the UI still shows a signed-in account.
+				scheduleRetry();
 			}
-			// Network errors leave the current (memory-only) state untouched.
 		} finally {
 			refreshInFlight = null;
 		}

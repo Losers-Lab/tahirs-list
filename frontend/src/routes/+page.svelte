@@ -6,9 +6,12 @@
 	import SealMark from '#lib/components/trust/SealMark.svelte';
 	import { ListingsController } from '#lib/listings/controller.svelte';
 	import type { BrowseFilter } from '#lib/listings/data';
+	import type { PageData } from './$types';
 
+	let { data }: { data?: PageData } = $props();
 	let filter = $state<BrowseFilter>('ALL');
-	const listings = new ListingsController();
+	// Seed from the SSR load so the first client render reuses the server data.
+	const listings = new ListingsController(data?.listings ?? null, { query: '', filter: 'ALL' });
 
 	$effect(() => {
 		void listings.load('', filter);

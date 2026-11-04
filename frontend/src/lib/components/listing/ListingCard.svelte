@@ -16,6 +16,12 @@
 	let { restaurant }: Props = $props();
 
 	const verified = $derived(verificationStatus(restaurant) === 'VERIFIED');
+	const srcset = $derived(
+		restaurant.imageSrcset?.length
+			? restaurant.imageSrcset.map((entry) => `${entry.url} ${entry.width}w`).join(', ')
+			: undefined
+	);
+
 	const meta = $derived(
 		[
 			restaurant.cuisine,
@@ -36,6 +42,7 @@
 		<RestaurantPhoto
 			src={cardThumbSource(restaurant)}
 			fallbackSrc={cardThumbFallback(restaurant)}
+			{srcset}
 			alt={restaurant.name}
 			sizes="100vw"
 		/>

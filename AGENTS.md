@@ -97,8 +97,8 @@ toolchain is missing, that's a signal to containerize, not to install.
   `pnpm install` + `svelte-check` + `vitest run` + `vite build` in a
   `node:24-slim` container. `./scripts/frontend-test.sh dev-install` allows
   lockfile drift; `test-only` runs check + tests. `./scripts/frontend-dev.sh`
-  serves the dev app on `:5173`. The script caps container memory/CPU and
-  Rolldown worker threads; Playwright is deliberately not in the default run.
+  serves the dev app on `:5173`. The script caps container memory/CPU and the
+  Node heap; Playwright is deliberately not in the default run.
 - Dependencies are cached in **named volumes** (`tahirs-list-gradle-cache`,
   `tahirs-list-pnpm-store`, `tahirs-list-frontend-node_modules`) — never inside
   the repo tree, never on the host.
@@ -149,9 +149,10 @@ afterwards to keep context lean.
   Svelte/SvelteKit documentation MCP to confirm the version-correct idiom
   (runes, `$app/state`, etc.) instead of patterns that may be outdated.
 - **`shadcn-svelte`** (on while implementing SvelteKit UI slices): use it to
-  add/verify shadcn-svelte components rather than hand-rolling equivalents or
-  porting markup from the legacy `frontend-legacy/` (Next.js) codebase. Turn it
-  off when the UI slice is done.
+  add/verify shadcn-svelte components rather than hand-rolling equivalents. The
+  legacy Next.js app was removed in the SvelteKit migration (recover it from
+  git history if you need to compare behavior). Turn the server off when the UI
+  slice is done.
 
 If a task requires touching files in a disabled server's domain (e.g. frontend
 components while `svelte` is off), state the mismatch and ask to enable it

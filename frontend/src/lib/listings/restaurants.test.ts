@@ -105,11 +105,22 @@ describe('expiryState', () => {
 		const past = new Date(Date.now() - 1 * 86_400_000).toISOString();
 		expect(expiryState(cert(past))).toBe('expired');
 	});
+
+	it("returns 'none' for a missing/blank expiry date (never Invalid Date)", () => {
+		expect(expiryState(cert(''))).toBe('none');
+		expect(expiryState({ certifier: 'X', reviewedOn: '2026-01-01T00:00:00Z', expiresOn: '' })).toBe(
+			'none'
+		);
+	});
 });
 
 describe('formatDate', () => {
 	it('renders a human date, never raw ISO', () => {
 		expect(formatDate('2026-08-12T00:00:00Z')).toMatch(/Aug 12, 2026/);
+	});
+
+	it('parses date-only values as local calendar dates (no UTC day shift)', () => {
+		expect(formatDate('2027-01-12')).toBe('Jan 12, 2027');
 	});
 });
 

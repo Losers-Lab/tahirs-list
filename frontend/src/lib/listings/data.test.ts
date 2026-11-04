@@ -11,7 +11,7 @@ vi.mock('../api/client', async (importOriginal) => {
 	};
 });
 import { api } from '../api/client';
-import { filterListings, getFavorites, getRestaurant, searchListings } from './data';
+import { filterListings, getFavorites, getRestaurant, searchListings, toRestaurant } from './data';
 
 const getListingsMock = vi.mocked(api.getListings);
 const getListingMock = vi.mocked(api.getListing);
@@ -240,5 +240,31 @@ describe('filterListings (pure browse filter)', () => {
 	it('restricts to delivery-only when deliveryOnly is set (false/null = no delivery) (sc-184)', () => {
 		expect(filterListings(list, '', undefined, true)).toHaveLength(1);
 		expect(filterListings(list, '', undefined, false).length).toBe(3);
+	});
+});
+
+describe('toRestaurant URL scheme guard', () => {
+	it('drops non-http(s) image URLs instead of rendering them', () => {
+		const mapped = toRestaurant({
+			...card(),
+			imageThumbnailUrl: 'javascript:alert(1)',
+			imageSrcset: [{ width: 400, url: 'javascript:alert(1)' }]
+		});
+		expect(mapped.imageThumbnailUrl).toBeUndefined();
+		expect(mapped.imageSrcset).toBeUndefined();
+	});
+
+	it('drops a javascript: certificate URL', () => {
+		const detail = {
+			...card(),
+			imageUrl: '/v1/listings/x/image?variant=full',
+			certificate: {
+				certifier: 'X',
+				reviewedOn: '2026-01-01T00:00:00Z',
+				expiresOn: '2027-01-01',
+				certificateUrl: 'javascript:alert(1)'
+			}
+		} as ListingDetail;
+		expect(toRestaurant(detail).certificate?.certificateUrl).toBeUndefined();
 	});
 });

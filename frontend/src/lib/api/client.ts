@@ -219,13 +219,17 @@ async function request<T>(
 }
 
 export const api = {
-	/** POST /v1/auth/signup — create an account. */
+	/**
+	 * POST /v1/auth/signup — create an account. `attachAuth: false`: a stale
+	 * in-memory bearer must never be presented to the public auth routes, or
+	 * Spring rejects the request with 401 before the permitAll rule applies.
+	 */
 	signup: (body: SignupBody, signal?: AbortSignal): Promise<SignupResponse> =>
-		request('/v1/auth/signup', body, { signal }),
+		request('/v1/auth/signup', body, { signal, attachAuth: false }),
 
-	/** POST /v1/auth/login — authenticate, returns the access token (refresh is a cookie). */
+	/** POST /v1/auth/login — authenticate (refresh is a cookie). Never attaches a stale bearer. */
 	login: (body: LoginBody, signal?: AbortSignal): Promise<AuthResponse> =>
-		request('/v1/auth/login', body, { signal }),
+		request('/v1/auth/login', body, { signal, attachAuth: false }),
 
 	/** POST /v1/auth/refresh — rotate via the HttpOnly refresh cookie (no body). */
 	refresh: (signal?: AbortSignal): Promise<AuthResponse> =>

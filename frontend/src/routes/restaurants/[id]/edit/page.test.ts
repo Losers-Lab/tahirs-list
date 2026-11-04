@@ -125,9 +125,8 @@ describe('EditListingPage (sc-23/47/48) — auth gate + load states', () => {
 			'/login'
 		);
 		expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument();
-		// NOTE: the page's current effect still triggers this read for anonymous
-		// visitors; gating `load` on the session would restore the legacy
-		// "no fetch" guarantee. The user-visible gate is asserted above.
+		// The read is gated on the session: anonymous visitors must not fetch.
+		expect(mockedGetRestaurant).not.toHaveBeenCalled();
 	});
 
 	it('holds a neutral state while a persisted session is restoring', () => {

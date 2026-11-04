@@ -29,7 +29,9 @@
 		</div>
 		<div class="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
 			<dt class="w-36 shrink-0 font-medium text-ink-500">Expires</dt>
-			<dd class="text-ink-700">{expired ? '—' : formatDate(certificate.expiresOn)}</dd>
+			<dd class="text-ink-700">
+				{expired || !certificate.expiresOn ? '—' : formatDate(certificate.expiresOn)}
+			</dd>
 		</div>
 	</dl>
 
@@ -45,7 +47,7 @@
 		</a>
 	</div>
 
-	{#if state === 'expiring'}
+	{#if state === 'expiring' && certificate.expiresOn}
 		<p
 			class="mt-4 flex items-start gap-2 rounded-md bg-warning-50 px-3 py-2.5 text-small text-warning-700"
 		>
@@ -66,7 +68,7 @@
 			</svg>
 			<span>Expires {formatDate(certificate.expiresOn)} — review in progress</span>
 		</p>
-	{:else if expired}
+	{:else if expired && certificate.expiresOn}
 		<p
 			class="mt-4 flex items-start gap-2 rounded-md bg-ink-100 px-3 py-2.5 text-small text-ink-700"
 		>

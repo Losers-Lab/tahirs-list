@@ -10,14 +10,14 @@ CSS v4, served by the Node adapter with SSR for crawlable public listing pages.
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Framework | SvelteKit 3 / Svelte 5 (runes), TypeScript |
-| Build | Vite 8 (Rolldown) |
-| Styling | Tailwind CSS v4 (`@theme` tokens), self-hosted Fontsource fonts |
-| Tests | Vitest 4 + `@testing-library/svelte` (jsdom) |
-| API | same-origin `/v1` proxy in `src/hooks.server.ts`, typed via `openapi-typescript` |
-| Deploy | `@sveltejs/adapter-node` (SSR); `adapter-static` later for the Capacitor app |
+| Layer     | Choice                                                                           |
+| --------- | -------------------------------------------------------------------------------- |
+| Framework | SvelteKit 3 / Svelte 5 (runes), TypeScript                                       |
+| Build     | Vite 8 (Rolldown)                                                                |
+| Styling   | Tailwind CSS v4 (`@theme` tokens), self-hosted Fontsource fonts                  |
+| Tests     | Vitest 5 + `@testing-library/svelte` (jsdom)                                     |
+| API       | same-origin `/v1` proxy in `src/hooks.server.ts`, typed via `openapi-typescript` |
+| Deploy    | `@sveltejs/adapter-node` (SSR); `adapter-static` later for the Capacitor app     |
 
 ## Commands (Docker only — no host Node)
 
@@ -30,9 +30,9 @@ From the repo root:
 ./scripts/frontend-dev.sh               # dev server on http://localhost:5173
 ```
 
-Both scripts cap container memory/CPU and Rolldown worker threads; Playwright
-is intentionally not part of the default run (it is the biggest memory
-consumer). E2E runs are a separate, opt-in follow-up.
+Both scripts cap container memory/CPU and the Node heap; Playwright is
+intentionally not part of the default run (it is the biggest memory consumer).
+E2E runs are a separate, opt-in follow-up.
 
 ## Environment
 

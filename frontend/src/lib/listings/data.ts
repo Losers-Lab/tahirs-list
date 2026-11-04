@@ -58,24 +58,37 @@ export function filterListings(
  * The backend builds image URLs from its own context path and returns them as
  * ABSOLUTE cross-origin URLs (e.g. `http://localhost:8080/v1/listings/{id}/
  * image?variant=thumbnail`). The browser must load them through the frontend's
- * own origin so `next/image` and the `img-src 'self'` CSP are satisfied. Since
- * next.config.ts rewrites `/v1/*` to the backend, dropping the origin (keeping
- * the `/v1/...` path + query) serves the same bytes same-origin in every
- * environment — dev and prod. Non-/v1 or already-relative URLs pass through.
+ * own origin so the `img-src 'self'` CSP is satisfied. The SvelteKit server
+ * proxies `/v1/*` to the backend (hooks.server.ts), so dropping the origin
+ * (keeping the `/v1/...` path + query) serves the same bytes same-origin in
+ * every environment — dev and prod. Non-/v1 http(s) URLs pass through; any
+ * non-http(s) scheme is dropped.
  */
-function sameOriginPath(url: string): string {
+function sameOriginPath(url: string): string | undefined {
 	try {
-		const parsed = new URL(url);
+		// Allow only http(s) URLs/relative paths. Anything else (notably
+		// `javascript:` / `data:`) is dropped rather than rendered into an href —
+		// CSP does not restrict anchor navigation.
+		const parsed = new URL(url, 'http://same-origin.invalid');
+		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
 		if (parsed.pathname.startsWith('/v1/')) {
 			return `${parsed.pathname}${parsed.search}`;
 		}
 		return url;
 	} catch {
-		return url;
+		return undefined;
 	}
 }
 
-function toRestaurant(b: BrowseListing | ListingDetail): Restaurant {
+export function toRestaurant(b: BrowseListing | ListingDetail): Restaurant {
+	const thumbnail = sameOriginPath(b.imageThumbnailUrl);
+	const srcset = b.imageSrcset
+		?.map((entry) => ({ width: entry.width, url: sameOriginPath(entry.url) }))
+		.filter((entry): entry is { width: number; url: string } => !!entry.url);
+	const imageUrl = 'imageUrl' in b ? sameOriginPath(b.imageUrl) : undefined;
+	const certificateUrl =
+		'certificate' in b && b.certificate ? sameOriginPath(b.certificate.certificateUrl) : undefined;
+
 	return {
 		id: b.id,
 		name: b.name,
@@ -99,17 +112,10 @@ function toRestaurant(b: BrowseListing | ListingDetail): Restaurant {
 		...(b.verificationStatus
 			? { verificationStatus: b.verificationStatus as VerificationStatus }
 			: {}),
-		imageThumbnailUrl: sameOriginPath(b.imageThumbnailUrl),
+		...(thumbnail ? { imageThumbnailUrl: thumbnail } : {}),
 		// sc-183: normalize every srcset entry URL to the same-origin proxy path.
-		...(b.imageSrcset?.length
-			? {
-					imageSrcset: b.imageSrcset.map((entry) => ({
-						width: entry.width,
-						url: sameOriginPath(entry.url)
-					}))
-				}
-			: {}),
-		...('imageUrl' in b ? { imageUrl: sameOriginPath(b.imageUrl) } : {}),
+		...(srcset?.length ? { imageSrcset: srcset } : {}),
+		...(imageUrl ? { imageUrl } : {}),
 		// sc-73 read surface: carry the certificate display facts (certifier /
 		// reviewedOn / expiresOn / certificateUrl) through so the detail page's
 		// CertificatePanel renders them from LIVE backend data. sameOriginPath
@@ -121,7 +127,7 @@ function toRestaurant(b: BrowseListing | ListingDetail): Restaurant {
 						certifier: b.certificate.certifier ?? '',
 						reviewedOn: b.certificate.reviewedOn,
 						expiresOn: b.certificate.expiresOn ?? '',
-						certificateUrl: sameOriginPath(b.certificate.certificateUrl)
+						...(certificateUrl ? { certificateUrl } : {})
 					}
 				}
 			: {})

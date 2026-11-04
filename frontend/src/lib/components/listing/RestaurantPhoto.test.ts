@@ -27,6 +27,21 @@ describe('RestaurantPhoto', () => {
 		expect(img).toHaveAttribute('sizes', '25vw');
 	});
 
+	it('forwards the responsive srcset candidates to the image', () => {
+		render(RestaurantPhoto, {
+			src: '/v1/listings/l-1/image?variant=thumbnail_1920',
+			srcset:
+				'/v1/listings/l-1/image?variant=thumbnail 400w, /v1/listings/l-1/image?variant=thumbnail_1920 1920w',
+			alt: 'Al-Amir Grill',
+			sizes: '100vw'
+		});
+
+		expect(screen.getByRole('img', { name: 'Al-Amir Grill' })).toHaveAttribute(
+			'srcset',
+			'/v1/listings/l-1/image?variant=thumbnail 400w, /v1/listings/l-1/image?variant=thumbnail_1920 1920w'
+		);
+	});
+
 	it('lazy-loads by default (cards) and can be forced eager (detail hero)', () => {
 		const first = render(RestaurantPhoto, {
 			src: '/v1/listings/l-1/image?variant=thumbnail',

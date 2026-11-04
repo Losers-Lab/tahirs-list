@@ -15,11 +15,20 @@
 	import type { Restaurant } from '#lib/listings/restaurants';
 	import { expiryState, fullAddress, verificationStatus } from '#lib/listings/restaurants';
 	import { getRestaurant } from '#lib/listings/data';
+	import type { PageData } from './$types';
 
-	let restaurant = $state<Restaurant | null>(null);
-	let status = $state<'loading' | 'success' | 'error'>('loading');
+	let { data }: { data?: PageData } = $props();
+
+	let restaurant = $state<Restaurant | null>(data?.restaurant ?? null);
+	let status = $state<'loading' | 'success' | 'error'>(
+		data?.failed ? 'error' : data ? 'success' : 'loading'
+	);
 	let reload = $state(0);
 	let generation = 0;
+	// Non-reactive: the id whose data is already rendered, so the first client
+	// effect skips the redundant fetch. Set by the adopt effect below.
+	let seededId: string | null =
+		data && (data.restaurant || data.notFound) ? (page.params.id ?? '') : null;
 
 	// Compute "today" only in the browser so SSR and hydration agree.
 	let todayIdx = $state(-1);
@@ -40,9 +49,23 @@
 		}
 	}
 
+	// Adopt server-loaded data (initial render and client-side id navigation).
+	// Declared before the load effect so the matching fetch is skipped.
+	$effect(() => {
+		if (!data) return;
+		const id = page.params.id ?? '';
+		restaurant = data.restaurant ?? null;
+		status = data.failed ? 'error' : 'success';
+		seededId = id;
+	});
+
 	$effect(() => {
 		const id = page.params.id ?? '';
 		void reload;
+		if (seededId === id) {
+			seededId = null;
+			return;
+		}
 		void load(id);
 	});
 

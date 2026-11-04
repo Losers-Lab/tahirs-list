@@ -50,9 +50,6 @@ docker run --rm -it \
   -v "$NODE_MODULES_VOLUME":/app/node_modules \
   -v "$PNPM_STORE_VOLUME":/pnpm-store \
   -e API_PROXY_TARGET="$API_TARGET" \
-  -e ROLLDOWN_WORKER_THREADS=2 \
-  -e ROLLDOWN_MAX_BLOCKING_THREADS=2 \
-  -e RAYON_NUM_THREADS=2 \
   -e NODE_OPTIONS="--max-old-space-size=768" \
   "$IMAGE" \
   bash -lc "corepack enable >/dev/null 2>&1; pnpm config set store-dir /pnpm-store >/dev/null 2>&1; pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0"

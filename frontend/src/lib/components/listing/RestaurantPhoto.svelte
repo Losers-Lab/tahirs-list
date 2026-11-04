@@ -2,11 +2,13 @@
 	type Props = {
 		src?: string;
 		fallbackSrc?: string;
+		/** Backend multi-width candidates, e.g. "/v1/... 768w, /v1/... 1280w". */
+		srcset?: string;
 		alt: string;
 		sizes: string;
 		eager?: boolean;
 	};
-	let { src, fallbackSrc, alt, sizes, eager = false }: Props = $props();
+	let { src, fallbackSrc, srcset, alt, sizes, eager = false }: Props = $props();
 
 	// Source chain: primary, then fallback, deduped. Advancing on each error lets
 	// a 404 swap to the guaranteed thumbnail instead of a blank card; the
@@ -30,11 +32,15 @@
 	});
 
 	const current = $derived(candidates[attempt]);
+	// Only the primary source has the multi-width variants; the guaranteed
+	// fallback thumbnail is a single width.
+	const responsiveSrcset = $derived(attempt === 0 ? srcset : undefined);
 </script>
 
 {#if current}
 	<img
 		src={current}
+		srcset={responsiveSrcset}
 		{alt}
 		{sizes}
 		loading={eager ? 'eager' : 'lazy'}

@@ -177,10 +177,22 @@ export type ExpiryState = 'valid' | 'expiring' | 'expired' | 'none';
 
 const EXPIRING_SOON_DAYS = 60;
 
+/**
+ * `expiresOn` is a calendar date (`YYYY-MM-DD`). `new Date('2027-01-12')`
+ * parses as UTC midnight, which renders as the *previous* day in the Americas.
+ * Parse date-only values in local time; leave instants to the native parser.
+ */
+function parseDate(iso: string): Date {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+	if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+	return new Date(iso);
+}
+
 export function expiryState(c?: Certificate): ExpiryState {
-	if (!c) return 'none';
+	if (!c || !c.expiresOn) return 'none';
+	const expires = parseDate(c.expiresOn).getTime();
+	if (!Number.isFinite(expires)) return 'none';
 	const now = Date.now();
-	const expires = new Date(c.expiresOn).getTime();
 	if (expires < now) return 'expired';
 	const daysLeft = Math.ceil((expires - now) / 86_400_000);
 	if (daysLeft <= EXPIRING_SOON_DAYS) return 'expiring';
@@ -189,7 +201,7 @@ export function expiryState(c?: Certificate): ExpiryState {
 
 /** Human date, e.g. "Aug 12, 2026" — never raw ISO in UI. */
 export function formatDate(iso: string): string {
-	return new Date(iso).toLocaleDateString('en-US', {
+	return parseDate(iso).toLocaleDateString('en-US', {
 		month: 'short',
 		day: 'numeric',
 		year: 'numeric'

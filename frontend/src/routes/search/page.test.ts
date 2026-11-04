@@ -87,6 +87,11 @@ describe('SearchPage — search-first + browse chips (search-browse.md)', () => 
 		expect(img).toHaveAttribute('src', '/v1/listings/l-1/image?variant=thumbnail_1920');
 		// sizes="100vw" = founder's max-monitor-context baseline (sc-183).
 		expect(img).toHaveAttribute('sizes', '100vw');
+		// All backend variants are offered so the browser can pick per DPR.
+		expect(img).toHaveAttribute(
+			'srcset',
+			'/v1/listings/l-1/image?variant=thumbnail 400w, /v1/listings/l-1/image?variant=thumbnail_768 768w, /v1/listings/l-1/image?variant=thumbnail_1280 1280w, /v1/listings/l-1/image?variant=thumbnail_1920 1920w'
+		);
 		// The full-res URL exists on the read-model but a card must not request it.
 		expect(img).not.toHaveAttribute('src', '/v1/listings/l-1/image?variant=full');
 		// Lazy: off-screen cards defer the transfer.
@@ -105,6 +110,14 @@ describe('SearchPage — search-first + browse chips (search-browse.md)', () => 
 
 		const img = await screen.findByRole('img', { name: 'Al-Amir Grill' });
 		expect(img).toHaveAttribute('src', '/v1/listings/l-1/image?variant=thumbnail');
+	});
+
+	it('renders server-loaded cards without a client fetch (SSR/SEO)', () => {
+		const seeded = [restaurant({ id: 'l-9', name: 'Seed Spot' })];
+		render(Page, { data: { listings: seeded } });
+
+		expect(screen.getByRole('link', { name: 'Seed Spot' })).toBeInTheDocument();
+		expect(searchMock).not.toHaveBeenCalled();
 	});
 
 	it('shows a verified badge on verified cards and an unverified tag otherwise', async () => {

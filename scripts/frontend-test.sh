@@ -9,9 +9,8 @@
 #
 # Resource guards (memory is a first-class requirement):
 #   - jsdom + a bounded Vitest fork pool (maxWorkers=2) — never Playwright/Chromium
-#   - Rolldown worker threads are capped; the pool otherwise sizes to host cores
-#     and ignores the container CPU quota (rolldown issue #10812)
-#   - hard --memory / --cpus ceilings on the container itself
+#   - hard --memory / --cpus / --pids-limit ceilings on the container itself
+#   - a bounded Node heap; cgroup CPU throttling covers the build workers
 set -euo pipefail
 
 # Works from repo root OR from a worktree (e.g. .worktrees/...) — finds the nearest frontend/ dir.
@@ -77,9 +76,6 @@ docker run --rm \
   -v "$NODE_MODULES_VOLUME":/app/node_modules \
   -v "$PNPM_STORE_VOLUME":/pnpm-store \
   --pids-limit=512 \
-  -e ROLLDOWN_WORKER_THREADS=2 \
-  -e ROLLDOWN_MAX_BLOCKING_THREADS=2 \
-  -e RAYON_NUM_THREADS=2 \
   -e NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}" \
   "$IMAGE" \
   bash -lc "corepack enable >/dev/null 2>&1; pnpm config set store-dir /pnpm-store >/dev/null 2>&1; $RUN_CMD"

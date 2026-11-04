@@ -64,8 +64,11 @@
 	--color-focus: #c6381f;
 
 	/* Typography — Archivo (display/labels) + Space Grotesk (body/UI). */
-	--font-sans: 'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-	--font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+	/* Fontsource variable packages register the family names with a "Variable"
+	   suffix; without it the browser silently falls back to system fonts. */
+	--font-sans:
+		'Space Grotesk Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--font-display: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
 	--font-wordmark: 'Archivo Black', ui-sans-serif, system-ui, sans-serif;
 	--text-display: 2.5rem;
 	--text-display--line-height: 2.75rem;
