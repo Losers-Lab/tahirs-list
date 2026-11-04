@@ -6,7 +6,7 @@ import org.jetbrains.exposed.v1.javatime.timestampWithTimeZone
 
 /**
  * Exposed table objects mirroring the Flyway-managed PostgreSQL schema
- * (`src/main/resources/db/migration`, V1–V20).
+ * (`src/main/resources/db/migration`, V1–V21).
  *
  * Two deliberate boundaries:
  *
@@ -183,9 +183,10 @@ object Favorites : Table("favorites") {
 
 /**
  * `V13__create_halal_certification_reviews.sql` + V14 (AI consent) + V16
- * (certifier / expiry). One row per owner claim; the whole review aggregate
- * (state, AI suggestion, human decision, consent, certificate metadata) lives in
- * this row, so every read yields a consistent snapshot.
+ * (certifier / expiry) + V21 (certificate key). One row per owner claim; the
+ * whole review aggregate (state, AI suggestion, human decision, consent,
+ * certificate metadata and the identity of the reviewed evidence) lives in this
+ * row, so every read yields a consistent snapshot.
  *
  * FKs (SQL-side, `NO ACTION`): `listing_id -> restaurant_listings(id)`,
  * `submitted_by -> users(id)`.
@@ -205,6 +206,7 @@ object HalalCertificationReviews : Table("halal_certification_reviews") {
     val aiConsentAt = timestampWithTimeZone("ai_consent_at").nullable()
     val certifier = varchar("certifier", 200).nullable()
     val expiresOn = date("expires_on").nullable()
+    val certificateKey = varchar("certificate_key", 300).nullable()
     val createdAt = timestampWithTimeZone("created_at")
     val updatedAt = timestampWithTimeZone("updated_at")
 

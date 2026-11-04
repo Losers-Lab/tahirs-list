@@ -19,6 +19,9 @@ import org.testcontainers.utility.DockerImageName
 /**
  * MinIO-backed proof that the certification-image adapter (sc-46) persists under
  * its own `certifications/` key namespace and round-trips bytes + content type.
+ * Also pins the sc-73 identity contract: `save` returns the object key and
+ * `load(key)` reads exactly that object (and only that object), so the public
+ * certificate display cannot drift to "whatever was uploaded last".
  * Runs in the containerized test (CI); no live storage is touched.
  *
  * The adapter and its [S3Client] come from the production Kotlin-SDK factories
@@ -118,6 +121,44 @@ class S3CertificationImageStorageTest : FunSpec() {
                         ) { }
                     }
                 }
+            }
+        }
+
+        test("load returns null for a key that does not exist") {
+            runTest {
+                val phantom = "certifications/${Uuid.random()}/${Uuid.random()}"
+
+                storage.load(phantom) shouldBe null
+            }
+        }
+
+        test("save returns the object key and load(key) reads exactly that object (approved-artifact addressing)") {
+            runTest {
+                val listingId = Uuid.random()
+                val bytes = byteArrayOf(5, 6, 7)
+
+                val key = storage.save(listingId, "image/png", bytes)
+
+                key.startsWith("certifications/$listingId/") shouldBe true
+                val loaded = storage.load(key)
+                loaded shouldNotBe null
+                loaded!!.contentType shouldBe "image/png"
+                loaded.bytes shouldBe bytes
+            }
+        }
+
+        test("load(key) keeps addressing the reviewed object after a later re-claim uploads new evidence") {
+            runTest {
+                val listingId = Uuid.random()
+                val reviewed = byteArrayOf(1, 1, 1)
+
+                val reviewedKey = storage.save(listingId, "image/jpeg", reviewed)
+                // owner replaces the certificate after approval: a new object, new key
+                storage.save(listingId, "image/png", byteArrayOf(2, 2, 2))
+
+                val stillReviewed = storage.load(reviewedKey)
+                stillReviewed!!.contentType shouldBe "image/jpeg"
+                stillReviewed.bytes shouldBe reviewed
             }
         }
 

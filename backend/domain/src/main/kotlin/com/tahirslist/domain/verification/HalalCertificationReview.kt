@@ -21,7 +21,8 @@ import kotlinx.datetime.LocalDate
  * [decision] is the human's final (or reversal) record. [aiConsentGivenAt]
  * records when the submitter explicitly consented to the certification image
  * being analysed by the hosted AI (sc-120) — it may be null for reviews that
- * predate consent (no consent was ever given).
+ * predate consent (no consent was ever given). [certificateKey] identifies the
+ * exact archived evidence this review is about (sc-73 public read surface).
  *
  * NOTE: sc-117 ships the forward path (SUBMITTED -> ... -> AI_SUGGESTED), the
  * human actions (HUMAN_REVIEW -> APPROVED/DENIED) and reversal (APPROVED/DENIED
@@ -40,6 +41,19 @@ data class HalalCertificationReview(
     val aiConsentGivenAt: Instant? = null,
     val certifier: String? = null,
     val expiresOn: LocalDate? = null,
+    /**
+     * The immutable identity of the certification evidence this review is about:
+     * the object-storage key returned when the claim archived the image (the key
+     * is opaque to the domain; only the storage adapter interprets it).
+     *
+     * The committee decides on *these* bytes, so the public verification display
+     * must resolve this key — never "the most recent upload" — otherwise an owner
+     * could expose still-unreviewed evidence or swap the displayed certificate
+     * after approval without re-review. Set at claim time and preserved by every
+     * transition (approve/deny/reverse copy the aggregate). Null for reviews that
+     * predate identity-tracked evidence.
+     */
+    val certificateKey: String? = null,
 ) {
     companion object {
 

@@ -269,6 +269,32 @@ class ExposedHalalCertificationReviewRepositoryTest : FunSpec() {
             }
         }
 
+        test("save/findById round-trips the certificate key that identifies the reviewed evidence (sc-73)") {
+            runTest {
+                val owner = newAccount()
+                val listing = aListing(owner)
+                val vc = newAccount()
+                val key = "certifications/$listing/${Uuid.random()}"
+                val suggested = HalalCertificationReview.create(listing, owner, now)
+                    .beginAiReview(now)
+                    .recordAiSuggestion(VerificationSuggestion(SuggestionVerdict.APPROVE, 0.95), now)
+                    .copy(certificateKey = key)
+
+                reviews.save(suggested)
+                reviews.findById(suggested.id)!!.certificateKey shouldBe key
+
+                // the key survives the approval transition (approve copies the aggregate)
+                val approved = suggested.beginHumanReview(now).approve(decidedBy = vc, now = now)
+                reviews.save(approved)
+                reviews.findById(approved.id)!!.certificateKey shouldBe key
+
+                // no identity-tracked evidence -> NULL (fail-closed: nothing addressable)
+                val bare = HalalCertificationReview.create(listing, owner, now)
+                reviews.save(bare)
+                reviews.findById(bare.id)!!.certificateKey.shouldBeNull()
+            }
+        }
+
         test("findLatestApprovedByListing returns the latest APPROVED review for a listing, else null") {
             runTest {
                 val owner = newAccount()

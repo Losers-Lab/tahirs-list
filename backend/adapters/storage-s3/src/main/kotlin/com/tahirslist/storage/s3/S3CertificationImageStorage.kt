@@ -22,16 +22,19 @@ import kotlin.uuid.Uuid
  * Storage layout (bucket owned like the hero adapter):
  *   `certifications/{listingId}/{uuid}`  ->  object bytes  (content-type on object)
  *
- * Keys live entirely inside this adapter (never leaked to the application layer),
- * and each upload gets a fresh UUID so re-claims never silently overwrite earlier
- * evidence. The bucket is created lazily on first save, mirroring [S3ImagePort].
+ * Each upload gets a fresh UUID so re-claims never silently overwrite earlier
+ * evidence. The generated key is returned from [save] and recorded on the review
+ * (opaque to the application layer, but persisted there): [load] resolves that
+ * exact object, so the public display serves the artifact the committee reviewed
+ * rather than the most recent upload. The bucket is created lazily on first save,
+ * mirroring [S3ImagePort].
  */
 class S3CertificationImageStorage(
     private val s3: S3Client,
     private val bucket: String,
 ) : CertificationImageStorage {
 
-    override suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray) {
+    override suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray): String {
         ensureBucket()
         val objectKey = "certifications/$listingId/${Uuid.random()}"
         val mediaType = contentType
@@ -41,6 +44,12 @@ class S3CertificationImageStorage(
             this.contentType = mediaType
             body = ByteStream.fromBytes(bytes)
         }
+        return objectKey
+    }
+
+    override suspend fun load(key: String): CertificationImageStorage.StoredCertificationImage? {
+        ensureBucket()
+        return readObject(key)
     }
 
     override suspend fun loadLatest(listingId: Uuid): CertificationImageStorage.StoredCertificationImage? {
@@ -58,15 +67,24 @@ class S3CertificationImageStorage(
             ?.first
             ?: return null
         val latestKey = latest.key ?: return null
+        return readObject(latestKey)
+    }
+
+    /** Read [key] back, or null when the object does not exist (404). */
+    private suspend fun readObject(key: String): CertificationImageStorage.StoredCertificationImage? {
         val request = GetObjectRequest {
             bucket = this@S3CertificationImageStorage.bucket
-            key = latestKey
+            this.key = key
         }
-        return s3.getObject(request) { response ->
-            CertificationImageStorage.StoredCertificationImage(
-                contentType = response.contentType ?: "application/octet-stream",
-                bytes = response.body?.toByteArray() ?: ByteArray(0),
-            )
+        return try {
+            s3.getObject(request) { response ->
+                CertificationImageStorage.StoredCertificationImage(
+                    contentType = response.contentType ?: "application/octet-stream",
+                    bytes = response.body?.toByteArray() ?: ByteArray(0),
+                )
+            }
+        } catch (e: S3Exception) {
+            if (e.isNotFound()) null else throw e // no object at this key
         }
     }
 

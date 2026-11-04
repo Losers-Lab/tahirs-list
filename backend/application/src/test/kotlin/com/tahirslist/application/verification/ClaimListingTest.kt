@@ -18,6 +18,7 @@ import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -28,7 +29,9 @@ import kotlinx.coroutines.test.runTest
  *
  *  - an authenticated listing **owner** submits proof of ownership + a certification
  *    image;
- *  - the image is stored (MinIO via the [CertificationImageStorage] seam);
+ *  - the image is stored (MinIO via the [CertificationImageStorage] seam) and the
+ *    key it returns is recorded on the persisted review — that key is the
+ *    immutable identity of the evidence the committee will review (sc-73);
  *  - the review is driven SUBMITTED -> AI_REVIEW -> AI_SUGGESTED via the sc-117
  *    [RequestVerification] seam and the resulting review is persisted;
  *  - non-owners / unknown listings are rejected; a provider outage holds the review
@@ -40,7 +43,7 @@ class ClaimListingTest : FunSpec({
 
     val listings = mockk<RestaurantListingRepository>()
     val reviews = mockk<HalalCertificationReviewRepository>()
-    val certificates = mockk<CertificationImageStorage>()
+    val certificates = FakeCertificationImageStorage()
     val requestVerification = mockk<RequestVerification>()
     val claimListing = ClaimListing(listings, reviews, certificates, requestVerification)
 
@@ -49,27 +52,31 @@ class ClaimListingTest : FunSpec({
     val proof = " I own this restaurant; business license TAH-2024-118. "
     val contentType = "image/jpeg"
     val imageBytes = byteArrayOf(1, 2, 3, 4)
-    val consentGivenAt = Instant.parse("2026-09-01T12:30:00Z")
 
-    beforeTest { clearMocks(listings, reviews, certificates, requestVerification) }
+    beforeTest {
+        clearMocks(listings, reviews, requestVerification)
+        certificates.reset()
+    }
 
-    test("an owner's claim stores the certification, drives AI review to AI_SUGGESTED, and persists") {
+    test("an owner's claim stores the certification, records its key, and drives AI review to AI_SUGGESTED") {
         runTest {
             coEvery { listings.findById(listingId) } returns aListing(listingId, ownerId = claimerId)
-            coEvery { certificates.save(listingId, contentType, imageBytes) } returns Unit
             val suggested = HalalCertificationReview.create(listingId, claimerId, now)
                 .beginAiReview(now)
                 .recordAiSuggestion(VerificationSuggestion(SuggestionVerdict.NEEDS_REVIEW, 0.4), now)
             coEvery { requestVerification.execute(listingId, claimerId, any(), now, aiConsentGivenAt = now) } returns suggested
-            coEvery { reviews.save(suggested) } returns suggested
+            coEvery { reviews.save(any()) } answers { firstArg() }
 
             val result = claimListing.execute(listingId, claimerId, proof, true, contentType, imageBytes, now)
 
-            result shouldBe suggested
+            // the key returned by storage is the review's certificate identity
+            val storedKey = certificates.savedKeys.single()
+            result.certificateKey shouldBe storedKey
             result.state shouldBe VerificationState.AI_SUGGESTED
-            coVerify { certificates.save(listingId, contentType, imageBytes) }
             coVerify { requestVerification.execute(listingId, claimerId, any(), now, aiConsentGivenAt = now) }
-            coVerify { reviews.save(suggested) }
+            coVerify(exactly = 1) {
+                reviews.save(match { it.id == suggested.id && it.certificateKey == storedKey })
+            }
         }
     }
 
@@ -82,7 +89,7 @@ class ClaimListingTest : FunSpec({
             }
 
             // the image must never be archived or uploaded without consent
-            coVerify(exactly = 0) { certificates.save(any(), any(), any()) }
+            certificates.nothingSaved shouldBe true
             coVerify(exactly = 0) { requestVerification.execute(any(), any(), any(), now) }
             coVerify(exactly = 0) { reviews.save(any()) }
         }
@@ -91,12 +98,11 @@ class ClaimListingTest : FunSpec({
     test("an AI APPROVE suggestion is carried but never elevates the review past AI_SUGGESTED") {
         runTest {
             coEvery { listings.findById(listingId) } returns aListing(listingId, ownerId = claimerId)
-            coEvery { certificates.save(any(), any(), any()) } returns Unit
             val approve = HalalCertificationReview.create(listingId, claimerId, now)
                 .beginAiReview(now)
                 .recordAiSuggestion(VerificationSuggestion(SuggestionVerdict.APPROVE, 0.95), now)
             coEvery { requestVerification.execute(any(), any(), any(), now, aiConsentGivenAt = now) } returns approve
-            coEvery { reviews.save(approve) } returns approve
+            coEvery { reviews.save(any()) } answers { firstArg() }
 
             val result = claimListing.execute(listingId, claimerId, proof, true, contentType, imageBytes, now)
 
@@ -104,6 +110,8 @@ class ClaimListingTest : FunSpec({
             result.suggestion!!.verdict shouldBe SuggestionVerdict.APPROVE
             // the listing must NOT be auto-verified: the human (sc-73) decides that.
             result.state shouldNotBe VerificationState.APPROVED
+            // the suggested evidence is still identity-tracked
+            result.certificateKey shouldBe certificates.savedKeys.single()
         }
     }
 
@@ -117,7 +125,7 @@ class ClaimListingTest : FunSpec({
                 claimListing.execute(listingId, intruder, proof, true, contentType, imageBytes, now)
             }
 
-            coVerify(exactly = 0) { certificates.save(any(), any(), any()) }
+            certificates.nothingSaved shouldBe true
             coVerify(exactly = 0) { reviews.save(any()) }
             coVerify(exactly = 0) { requestVerification.execute(any(), any(), any(), now) }
         }
@@ -132,7 +140,7 @@ class ClaimListingTest : FunSpec({
                 claimListing.execute(listingId, stranger, proof, true, contentType, imageBytes, now)
             }
 
-            coVerify(exactly = 0) { certificates.save(any(), any(), any()) }
+            certificates.nothingSaved shouldBe true
             coVerify(exactly = 0) { reviews.save(any()) }
         }
     }
@@ -145,17 +153,18 @@ class ClaimListingTest : FunSpec({
                 claimListing.execute(listingId, claimerId, "   ", true, contentType, imageBytes, now)
             }
 
-            coVerify(exactly = 0) { certificates.save(any(), any(), any()) }
+            certificates.nothingSaved shouldBe true
             coVerify(exactly = 0) { reviews.save(any()) }
         }
     }
 
-    test("a provider outage holds the review in AI_REVIEW and raises verification_unavailable") {
+    test("a provider outage holds the review in AI_REVIEW, records the evidence key, and raises verification_unavailable") {
         runTest {
             coEvery { listings.findById(listingId) } returns aListing(listingId, ownerId = claimerId)
-            coEvery { certificates.save(any(), any(), any()) } returns Unit
-            coEvery { requestVerification.execute(any(), any(), any(), now, aiConsentGivenAt = now) } throws VerificationProviderException("provider unreachable")
-            coEvery { reviews.save(match { it.state == VerificationState.AI_REVIEW }) } coAnswers { firstArg() }
+            coEvery { requestVerification.execute(any(), any(), any(), now, aiConsentGivenAt = now) } throws
+                VerificationProviderException("provider unreachable")
+            val held = slot<HalalCertificationReview>()
+            coEvery { reviews.save(capture(held)) } answers { firstArg() }
 
             val ex = shouldThrow<VerificationUnavailableException> {
                 claimListing.execute(listingId, claimerId, proof, true, contentType, imageBytes, now)
@@ -164,9 +173,34 @@ class ClaimListingTest : FunSpec({
             ex.cause!!.message shouldBe "provider unreachable"
             // the claim is not dropped: a durable AI_REVIEW record was saved for a later retry
             coVerify(exactly = 1) { reviews.save(match { it.state == VerificationState.AI_REVIEW }) }
+            // the archived evidence is still identity-tracked, so the retry reviews the same artifact
+            held.captured.certificateKey shouldBe certificates.savedKeys.single()
         }
     }
 })
+
+/**
+ * Test double for [CertificationImageStorage]: records every save and returns a
+ * distinct, listing-scoped key per call, mirroring the S3 adapter's contract that
+ * a key identifies exactly one stored object.
+ */
+private class FakeCertificationImageStorage : CertificationImageStorage {
+
+    private val keys = mutableListOf<String>()
+
+    val savedKeys: List<String> get() = keys.toList()
+
+    val nothingSaved: Boolean get() = keys.isEmpty()
+
+    fun reset() = keys.clear()
+
+    override suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray): String =
+        "certifications/$listingId/${Uuid.random()}".also { keys += it }
+
+    override suspend fun load(key: String): CertificationImageStorage.StoredCertificationImage? = null
+
+    override suspend fun loadLatest(listingId: Uuid): CertificationImageStorage.StoredCertificationImage? = null
+}
 
 private fun aListing(id: Uuid, ownerId: Uuid): RestaurantListing = RestaurantListing.fromStorage(
     id = id,

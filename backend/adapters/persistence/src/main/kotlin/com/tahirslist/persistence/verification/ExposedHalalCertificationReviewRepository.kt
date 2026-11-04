@@ -38,6 +38,9 @@ import kotlin.uuid.toKotlinUuid
  *
  * [findById] / [findByState] back the sc-73 VC decision loop and workqueue; the
  * row is mapped back into the full aggregate so a decision can be applied to it.
+ * [certificateKey] (V21) rides along in the same row: it is written at claim time
+ * and preserved across the state transitions (including approval), so the public
+ * certificate surface can resolve the exact artifact the committee reviewed.
  */
 class ExposedHalalCertificationReviewRepository(
     private val db: Database,
@@ -51,10 +54,10 @@ class ExposedHalalCertificationReviewRepository(
                     id, listing_id, submitted_by, state,
                     suggestion_verdict, suggestion_confidence, suggestion_reasoning,
                     decision_outcome, decision_by, decision_reason, decision_at,
-                    ai_consent_at, certifier, expires_on,
+                    ai_consent_at, certifier, expires_on, certificate_key,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO UPDATE SET
                     state = EXCLUDED.state,
                     suggestion_verdict = EXCLUDED.suggestion_verdict,
@@ -67,6 +70,7 @@ class ExposedHalalCertificationReviewRepository(
                     ai_consent_at = EXCLUDED.ai_consent_at,
                     certifier = EXCLUDED.certifier,
                     expires_on = EXCLUDED.expires_on,
+                    certificate_key = EXCLUDED.certificate_key,
                     updated_at = EXCLUDED.updated_at
                 """.trimIndent(),
                 listOf(
@@ -84,6 +88,7 @@ class ExposedHalalCertificationReviewRepository(
                     HalalCertificationReviews.aiConsentAt bind review.aiConsentGivenAt?.toSqlTimestamp(),
                     HalalCertificationReviews.certifier bind review.certifier,
                     HalalCertificationReviews.expiresOn bind review.expiresOn?.toJavaLocalDate(),
+                    HalalCertificationReviews.certificateKey bind review.certificateKey,
                     HalalCertificationReviews.createdAt bind review.createdAt.toSqlTimestamp(),
                     HalalCertificationReviews.updatedAt bind review.updatedAt.toSqlTimestamp(),
                 ),
@@ -141,6 +146,7 @@ class ExposedHalalCertificationReviewRepository(
         aiConsentGivenAt = rs.getTimestamp("ai_consent_at")?.toInstant()?.toKotlinInstant(),
         certifier = rs.getString("certifier"),
         expiresOn = rs.getDate("expires_on")?.toLocalDate()?.toKotlinLocalDate(),
+        certificateKey = rs.getString("certificate_key"),
     )
 
     private companion object {
@@ -150,7 +156,7 @@ class ExposedHalalCertificationReviewRepository(
                 id, listing_id, submitted_by, state,
                 suggestion_verdict, suggestion_confidence, suggestion_reasoning,
                 decision_outcome, decision_by, decision_reason, decision_at,
-                ai_consent_at, certifier, expires_on, created_at, updated_at
+                ai_consent_at, certifier, expires_on, certificate_key, created_at, updated_at
             FROM halal_certification_reviews r
             """
     }

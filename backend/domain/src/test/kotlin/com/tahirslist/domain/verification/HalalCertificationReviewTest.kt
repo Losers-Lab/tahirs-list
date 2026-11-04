@@ -125,6 +125,25 @@ class HalalCertificationReviewTest : FunSpec({
         approved.expiresOn shouldBe null
     }
 
+    test("the certificate key survives every transition (the approved evidence keeps its identity)") {
+        val key = "certifications/${Uuid.random()}/${Uuid.random()}"
+
+        val suggested = review(VerificationState.AI_SUGGESTED).copy(certificateKey = key)
+        suggested.certificateKey shouldBe key
+
+        val approved = suggested.beginHumanReview(now).approve(Uuid.random(), "ok", now)
+        approved.certificateKey shouldBe key
+        approved.reverse(Uuid.random(), "cert revoked", now).certificateKey shouldBe key
+
+        val denied = suggested.beginHumanReview(now).deny(Uuid.random(), "unreadable", now)
+        denied.certificateKey shouldBe key
+        denied.reverse(Uuid.random(), "overturned", now).certificateKey shouldBe key
+    }
+
+    test("a review created without a certificate key has none (pre-identity evidence)") {
+        review().certificateKey shouldBe null
+    }
+
     test("DENIED can be REVERSED (wrongful denial overturned)") {
         val denied = review(VerificationState.AI_SUGGESTED)
             .beginHumanReview().deny(Uuid.random(), "mistaken denial", now)
