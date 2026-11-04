@@ -12,11 +12,11 @@ import java.util.Base64
 
 /**
  * sc-134 fail-fast config: loads the RS256 JWT signing key pair from the
- * `app.jwt.rsa-private-key-base64` property (base64 of a PKCS#8 DER private
+ * `APP_JWT_RSA_PRIVATE_KEY_BASE64` environment variable (base64 of a PKCS#8 DER private
  * key) and FAILS FAST with a clear, actionable message when a value is provided
  * but cannot be decoded / is not a valid RSA private key.
  *
- * The message names the misconfigured property but deliberately never echoes
+ * The message names the misconfigured variable but deliberately never echoes
  * the (secret) configured value, so the failure is diagnosable without dumping
  * the key into logs. Only a blank value falls back to an ephemeral local-dev key.
  *
@@ -31,11 +31,11 @@ import java.util.Base64
  *     key that is public in the repo is equivalent to having no signing key at
  *     all: anyone with repo access can forge admin tokens.
  *
- * In the `dev` profile the guard is bypassed so local workflows keep working.
+ * In non-production profiles the guard is bypassed so local workflows keep working.
  */
 object JwtRsaKeyPairLoader {
 
-    private const val KEY_PROP = "app.jwt.rsa-private-key-base64"
+    private const val KEY_PROP = "APP_JWT_RSA_PRIVATE_KEY_BASE64"
 
     /**
      * SHA-256 fingerprints (hex) of known dev/default JWT signing keys, keyed by
@@ -50,8 +50,8 @@ object JwtRsaKeyPairLoader {
 
     /**
      * Returns the configured key pair, or an ephemeral generated pair when the
-     * property is blank AND [prodProfile] is false (local dev only). Throws
-     * [IllegalStateException] (which aborts Spring context startup) on any
+     * variable is blank AND [prodProfile] is false (local dev only). Throws
+     * [IllegalStateException] (which aborts application startup) on any
      * invalid provided value, and in prod also on blank values and on any key
      * whose fingerprint matches a known dev/default key.
      */

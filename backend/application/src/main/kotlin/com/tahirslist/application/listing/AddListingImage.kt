@@ -20,10 +20,11 @@ import kotlin.uuid.Uuid
  *     ([NotListingOwnerException] → 403) — the same owner guard as
  *     [UpdateListing]. RBAC is enforced at the edge (deny-by-default resource
  *     server, JWT `sub`); this is the second, owner-scoped guard.
- *  3. The bytes must be a decodable image; [IngestHeroImage] resizes and stores
- *     every thumbnail width FIRST and rejects an undecodable upload with an
- *     [IllegalArgumentException] (→ 400) before anything is persisted — a
- *     half-written row is impossible.
+ *  3. The bytes must be a decodable image; [IngestHeroImage] derives the stored
+ *     media type from the bytes (never from the upload's `Content-Type` header),
+ *     resizes and stores every thumbnail width FIRST and rejects an undecodable
+ *     upload with an [IllegalArgumentException] (→ 400) before anything is
+ *     persisted — a half-written row is impossible.
  *
  * This is a **last-write-wins replace**: the listing has exactly ONE hero
  * image (the sc-157 read surface exposes a single hero), so uploading again

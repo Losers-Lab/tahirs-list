@@ -1,7 +1,9 @@
 package com.tahirslist.web
 
+import com.tahirslist.application.image.ImageResizer
 import com.tahirslist.domain.account.Role
 import com.tahirslist.domain.verification.HalalCertificationReview
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.authenticate
@@ -104,7 +106,13 @@ fun Route.verificationRoutes(verification: VerificationUseCases) {
                 claimerId = claimerId,
                 proof = proof,
                 aiConsentGiven = consentRaw.trim().equals("true", ignoreCase = true),
-                contentType = certificate.contentType,
+                // The multipart part header is client input: derive the archived
+                // type from the bytes instead, so the public certificate proxy
+                // can never re-serve a client-chosen media type. Evidence the JDK
+                // cannot decode keeps the legacy opaque type (it is then served
+                // as an attachment, never rendered inline).
+                contentType = ImageResizer.contentTypeOrNull(certificate.bytes)
+                    ?: ContentType.Application.OctetStream.toString(),
                 imageBytes = certificate.bytes,
             )
             call.respond(HttpStatusCode.Created, ClaimResponse.from(review))

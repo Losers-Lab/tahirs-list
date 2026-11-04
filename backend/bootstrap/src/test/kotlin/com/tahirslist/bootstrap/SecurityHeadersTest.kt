@@ -7,11 +7,14 @@ import io.kotest.matchers.string.shouldContain
  * sc-134 security headers + error containment at the HTTP edge, re-pinned on the
  * Ktor stack.
  *
- * Security headers (finding #8): nosniff, frame-deny and the CSP are applied to
- * every response by the web plugin pipeline (including responses the deny guard
- * rejects), and the uniform cache policy is `no-store`. HSTS is a transport
- * concern of the deployment (TLS terminator), not of the in-process app, so the
- * plain-HTTP test transport asserts the headers it can observe.
+ * Security headers (finding #8): nosniff, frame-deny, the CSP — and now HSTS —
+ * are applied to every response by the web plugin pipeline (including responses
+ * the deny guard rejects), and the uniform cache policy is `no-store`.
+ *
+ * HSTS is asserted here because the app is only ever reachable over TLS (the
+ * Cloudflare tunnel terminates it), so pinning browsers to HTTPS for a year is
+ * safe to do unconditionally; the plain-HTTP in-process test transport simply
+ * carries the header like any other.
  *
  * Error containment (finding #6): the manual credential validation that replaced
  * bean validation must still answer 400 with the generic `invalid_input`
@@ -37,6 +40,8 @@ class SecurityHeadersTest : KtorPostgresTest() {
             resp.header("X-Content-Type-Options") shouldBe "nosniff"
             // API serves no embedded pages: deny frames outright, never 'self'.
             resp.header("Content-Security-Policy")!! shouldContain "frame-ancestors 'none'"
+            // TLS is terminated by the tunnel; HSTS pins the browser to it.
+            resp.header("Strict-Transport-Security") shouldBe "max-age=31536000; includeSubDomains"
         }
 
         test("responses default to a no-store cache policy") {
@@ -59,6 +64,7 @@ class SecurityHeadersTest : KtorPostgresTest() {
             resp.status shouldBe 401
             resp.header("X-Content-Type-Options") shouldBe "nosniff"
             resp.header("Content-Security-Policy")!! shouldContain "frame-ancestors 'none'"
+            resp.header("Strict-Transport-Security") shouldBe "max-age=31536000; includeSubDomains"
             resp.header("Cache-Control") shouldBe "no-store"
         }
 

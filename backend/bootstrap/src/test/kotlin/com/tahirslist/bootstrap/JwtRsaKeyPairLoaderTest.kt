@@ -10,7 +10,7 @@ import io.kotest.matchers.string.shouldNotContain
  * sc-134 fail-fast config: the HTTP app must not silently start (or fail later
  * with an obscure crypto exception) when a JWT signing key IS provided but is
  * invalid. Loading an invalid configured key must fail fast with a clear,
- * actionable message that names the property without echoing the (secret) value.
+ * actionable message that names the environment variable without echoing the (secret) value.
  *
  * The deliberate long-jump around ephemeral key generation for local dev is
  * unchanged; the prod-profile guard refuses to boot on known dev/default keys.
@@ -32,7 +32,7 @@ class JwtRsaKeyPairLoaderTest : FunSpec({
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair("!!!not-base64!!!")
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldNotContain "!!!not-base64!!!"
     }
 
@@ -42,7 +42,7 @@ class JwtRsaKeyPairLoaderTest : FunSpec({
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair(garbage)
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldNotContain garbage
     }
 
@@ -67,7 +67,7 @@ class JwtRsaKeyPairLoaderTest : FunSpec({
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair(devKeyB64, prodProfile = true)
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldContain "KNOWN DEVELOPMENT key"
         err.message shouldNotContain devKeyB64.take(20)
     }
@@ -81,7 +81,7 @@ class JwtRsaKeyPairLoaderTest : FunSpec({
         val err = shouldThrow<IllegalStateException> {
             JwtRsaKeyPairLoader.loadKeyPair("", prodProfile = true)
         }
-        err.message shouldContain "app.jwt.rsa-private-key-base64"
+        err.message shouldContain "APP_JWT_RSA_PRIVATE_KEY_BASE64"
         err.message shouldNotContain "\n"
     }
 

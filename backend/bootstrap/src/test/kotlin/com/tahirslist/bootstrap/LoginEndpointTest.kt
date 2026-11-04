@@ -94,6 +94,19 @@ class LoginEndpointTest : KtorPostgresTest() {
             resp.json()["code"].asString() shouldBe "invalid_input"
         }
 
+        test("a login body over the JSON cap is refused with 413 payload_too_large") {
+            // 64 KiB mirrors the adapter's MAX_JSON_BODY_BYTES (a web-api internal
+            // constant). The point: the body is refused on SIZE, before it is
+            // parsed and before any password hashing work is spent on it.
+            val oversized = "{\"email\":\"big@example.com\",\"password\":\"" + "a".repeat(64 * 1024) + "\"}"
+
+            val resp = post("/v1/auth/login", jsonText = oversized)
+
+            resp.status shouldBe 413
+            resp.code() shouldBe "payload_too_large"
+            resp.message() shouldBe "Request payload is too large."
+        }
+
         test("refresh rotates within a family: old cookie consumed, new cookie progressively rotates") {
             val session = signupAndLogin("iris@example.com")
             val oldRefresh = session.refreshCookie.value

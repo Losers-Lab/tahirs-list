@@ -2,6 +2,7 @@ package com.tahirslist.bootstrap
 
 import com.tahirslist.bootstrap.config.AppConfig
 import com.tahirslist.bootstrap.config.loadConfig
+import com.tahirslist.bootstrap.config.requireValidProductionConfig
 import com.tahirslist.bootstrap.image.SeedImageIngestRunner
 import com.tahirslist.bootstrap.modules.appModules
 import com.tahirslist.persistence.db.Migrations
@@ -35,8 +36,9 @@ fun main() {
 }
 
 /**
- * Ktor application module: compose the object graph with Koin, apply pending
- * Flyway migrations, install the web plugins, and mount every route group.
+ * Ktor application module: validate production configuration, compose the
+ * object graph with Koin, apply pending Flyway migrations, install the web
+ * plugins, and mount every route group.
  *
  * [extraModules] lets tests override infrastructure definitions (in-memory
  * storage, fake verification provider, test clock) without touching production
@@ -46,6 +48,11 @@ fun Application.module(
     config: AppConfig = loadConfig(),
     extraModules: List<Module> = emptyList(),
 ) {
+    // Fail fast, before Koin or any connection pool/object store exists: a prod
+    // profile still carrying dev-default credentials must not start at all.
+    // One call site means the endpoint tests boot through the same guard.
+    requireValidProductionConfig(config)
+
     install(Koin) {
         modules(*(appModules(config) + extraModules).toTypedArray())
         allowOverride(true)

@@ -36,8 +36,8 @@ data class JwtConfig(
 )
 
 /**
- * In-process auth rate-limit budget (login + refresh only). Keys are bounded so
- * a client cannot grow the bucket map without limit; [trustProxy] opts in to
+ * In-process auth rate-limit budget (signup, login + refresh). Keys are bounded
+ * so a client cannot grow the bucket map without limit; [trustProxy] opts in to
  * deriving the client IP from the first `X-Forwarded-For` hop.
  */
 data class RateLimitConfig(

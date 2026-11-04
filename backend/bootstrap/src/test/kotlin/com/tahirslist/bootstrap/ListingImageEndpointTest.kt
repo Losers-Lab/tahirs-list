@@ -163,6 +163,35 @@ class ListingImageEndpointTest : KtorPostgresTest() {
             resp.json()["code"].asString() shouldBe "invalid_input"
             getImage(listingId).status shouldBe 404
         }
+
+        test("an upload over the 8 MiB file cap is refused with 413 and stores nothing") {
+            val session = signupAndLogin("img-too-big@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+
+            // 8 MiB + 1 mirrors the adapter's MAX_UPLOAD_BYTES; the cap fires
+            // while the part is being streamed, so nothing is decoded or stored.
+            val oversized = ByteArray(8 * 1024 * 1024 + 1)
+            val resp = putImage(listingId, oversized, bearer = session.accessToken)
+
+            resp.status shouldBe 413
+            resp.json()["code"].asString() shouldBe "payload_too_large"
+            getImage(listingId).status shouldBe 404
+        }
+
+        test("the stored image type comes from the bytes, never from the part's Content-Type") {
+            val session = signupAndLogin("img-html-label@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+
+            // The client lies about the type; the bytes are a real JPEG, so the
+            // stored type is the derived image type and the proxy renders it inline.
+            putImage(listingId, jpegBytes(), contentType = "text/html", bearer = session.accessToken)
+                .status shouldBe 204
+
+            val full = getImage(listingId)
+            full.status shouldBe 200
+            full.header("Content-Type") shouldBe "image/jpeg"
+            full.header("Content-Disposition") shouldBe "inline"
+        }
     }
 
     /** A valid, decodable JPEG (a solid-color 3000x2000 image). */

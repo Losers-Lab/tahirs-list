@@ -26,12 +26,14 @@ import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.ContentTransformationException
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import java.io.IOException
 
 /**
  * Installs the framework-level web plugins shared by every route module:
@@ -41,8 +43,8 @@ import kotlinx.serialization.json.Json
  *  - the custom Nimbus RS256 [JwtAuthenticationProvider] (deny-by-default);
  *  - the ratified status-pages whitelist (generic envelopes only, never a raw
  *    exception message);
- *  - baseline security headers and a `no-store` cache policy;
- *  - the in-process sc-136 auth rate-limit gate (login + refresh only).
+ *  - baseline security headers (including HSTS) and a `no-store` cache policy;
+ *  - the in-process sc-136 auth rate-limit gate (signup, login + refresh).
  *
  * Route modules are plain `Route` extensions so bootstrap owns routing while
  * this module owns the HTTP contract.
@@ -85,6 +87,40 @@ fun Application.configureWebPlugins(
     install(StatusPages) {
         exception<InvalidInputException> { call, cause ->
             call.respondError(HttpStatusCode.BadRequest, ErrorCodes.INVALID_INPUT, cause.message)
+        }
+        // Declared BEFORE the generic transformation mapping below: the two
+        // overlap, and `PayloadTooLargeException` travels as a
+        // ContentTransformationException. StatusPages resolves the handler whose
+        // class is nearest to the thrown type (not the registration order), yet
+        // keeping the specific case first makes the precedence explicit instead
+        // of relying on that resolution rule.
+        exception<PayloadTooLargeException> { call, _ ->
+            call.respondError(
+                HttpStatusCode.PayloadTooLarge,
+                ErrorCodes.PAYLOAD_TOO_LARGE,
+                ErrorMessages.PAYLOAD_TOO_LARGE,
+            )
+        }
+        // Ktor's multipart parser enforces `formFieldLimit` on a producer
+        // coroutine: an oversized part throws a bare IOException on the call
+        // rather than at the route's suspend point, so `receiveForm` cannot
+        // translate it. Map the limit case here; any other I/O failure keeps the
+        // generic 500 shape (a client disconnect has no response to deliver).
+        exception<IOException> { call, cause ->
+            if (cause.isMultipartLimitExceeded()) {
+                call.respondError(
+                    HttpStatusCode.PayloadTooLarge,
+                    ErrorCodes.PAYLOAD_TOO_LARGE,
+                    ErrorMessages.PAYLOAD_TOO_LARGE,
+                )
+            } else {
+                log.error(cause) { "I/O failure while handling the request" }
+                call.respondError(
+                    HttpStatusCode.InternalServerError,
+                    ErrorCodes.INTERNAL_ERROR,
+                    ErrorMessages.INTERNAL_ERROR,
+                )
+            }
         }
         exception<ContentTransformationException> { call, _ ->
             call.respondError(
@@ -171,6 +207,10 @@ fun Application.configureWebPlugins(
         call.response.headers.append("X-Content-Type-Options", "nosniff")
         call.response.headers.append("X-Frame-Options", "DENY")
         call.response.headers.append("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        // The deployment is TLS-only (Cloudflare tunnel terminates TLS), so HSTS
+        // is safe to assert unconditionally: it pins browsers to HTTPS for this
+        // host and its subdomains for a year.
+        call.response.headers.append("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     }
 
     // Deny-by-default: everything except the explicitly public surface requires
@@ -206,6 +246,14 @@ private val SecurityHeadersPlugin = createApplicationPlugin("SecurityHeaders") {
 }
 
 private val log = KotlinLogging.logger("com.tahirslist.web.WebApi")
+
+/**
+ * Ktor signals an oversized multipart part with a plain [IOException] whose
+ * message names the `formFieldLimit` it exceeded (see `ktor-http-cio`'s
+ * `throwLimitExceeded`). There is no dedicated type to match on.
+ */
+private fun IOException.isMultipartLimitExceeded(): Boolean =
+    message?.contains("Multipart content length exceeds limit", ignoreCase = true) == true
 
 private val PUBLIC_POST_PATHS = setOf(
     "/v1/auth/signup",

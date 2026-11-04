@@ -58,6 +58,23 @@ class IngestHeroImageTest : FunSpec() {
             }
         }
 
+        test("the stored FULL media type is derived from the bytes, not from the caller's label") {
+            runTest {
+                val port = InMemoryImagePort()
+                val useCase = IngestHeroImage(port)
+                val id = Uuid.random()
+
+                // A client labelling its JPEG `text/html` must not influence what
+                // is stored: these bytes are re-served on the public image route.
+                useCase.ingest(id, StoredImage(jpeg(3000, 2000), "text/html"))
+
+                port.load(id, ImageVariant.FULL)!!.contentType shouldBe "image/jpeg"
+                ImageVariant.thumbnailVariants.forEach {
+                    port.load(id, it)!!.contentType shouldBe "image/jpeg"
+                }
+            }
+        }
+
         test("unreadable input throws before anything is persisted") {
             runTest {
                 val port = InMemoryImagePort()

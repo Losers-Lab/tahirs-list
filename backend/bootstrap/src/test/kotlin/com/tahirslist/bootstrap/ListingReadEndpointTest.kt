@@ -196,6 +196,61 @@ class ListingReadEndpointTest : KtorPostgresTest() {
             get("/v1/listings/${UUID.randomUUID()}/image?variant=thumbnail").status shouldBe 404
         }
 
+        test("the certificate proxy serves only the approved artifact, never pending or later evidence") {
+            val session = signupAndLogin("read-cert-owner@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+            val listingUuid = UUID.fromString(listingId)
+
+            // The claim archives certification evidence. These bytes are not a
+            // decodable image, so no image type can be derived for them — and
+            // the client's `text/html` part header must not be adopted either.
+            post(
+                "/v1/listings/$listingId/claim",
+                token = session.accessToken,
+                multipart = multipart {
+                    field("proof", "I own this; license TAH-2024-118.")
+                    field("aiConsent", "true")
+                    file("certImage", byteArrayOf(1, 2, 3, 4), "text/html", "cert.html")
+                },
+            ).status shouldBe 201
+
+            // Pending evidence is private: nothing is served before approval.
+            get("/v1/listings/$listingId/certificate").status shouldBe 404
+
+            // Approve out of band — the gate, not the committee flow, is under test.
+            dbUpdate(
+                "UPDATE restaurant_listings SET verification_status = 'VERIFIED' WHERE id = ?",
+                listingUuid,
+            )
+            dbUpdate(
+                "UPDATE halal_certification_reviews SET state = 'APPROVED' WHERE listing_id = ?",
+                listingUuid,
+            )
+
+            val approved = get("/v1/listings/$listingId/certificate")
+            approved.status shouldBe 200
+            approved.header("Content-Type") shouldBe "application/octet-stream"
+            approved.header("Content-Disposition") shouldBe "attachment"
+            assertPublicCached(approved)
+            val approvedBytes = approved.bytes.toList()
+
+            // A later re-claim stores new evidence, but the approved identity is
+            // fixed: the public surface keeps serving what the committee reviewed.
+            post(
+                "/v1/listings/$listingId/claim",
+                token = session.accessToken,
+                multipart = multipart {
+                    field("proof", "I own this; license TAH-2024-118.")
+                    field("aiConsent", "true")
+                    file("certImage", byteArrayOf(9, 9, 9), "text/html", "cert2.html")
+                },
+            ).status shouldBe 201
+
+            val afterReclaim = get("/v1/listings/$listingId/certificate")
+            afterReclaim.status shouldBe 200
+            afterReclaim.bytes.toList() shouldBe approvedBytes
+        }
+
         test("public browse/detail reads need no token; writes stay authenticated (401)") {
             // Public reads (already exercised above without a token) work; a write
             // without a token is refused by the deny-by-default resource guard.

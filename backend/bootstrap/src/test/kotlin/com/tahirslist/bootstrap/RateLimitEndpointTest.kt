@@ -62,6 +62,31 @@ class RateLimitEndpointTest : KtorPostgresTest(
             throttled.code() shouldBe "rate_limited"
         }
 
+        test("signup rate-limit kicks in after its own burst capacity (429, generic envelope)") {
+            // Signup keys its own bucket (the route is part of the key), so the
+            // login exhaustion above does not pre-throttle it: the first two
+            // account creations succeed...
+            repeat(2) { index ->
+                post(
+                    "/v1/auth/signup",
+                    json = linkedMapOf(
+                        "email" to "cap-signup-$index@example.com",
+                        "password" to TEST_PASSWORD,
+                    ),
+                ).status shouldBe 201
+            }
+
+            // ...and the third from the same client+route is refused before the
+            // account is created, so Argon2 is no longer an unthrottled sink.
+            val throttled = post(
+                "/v1/auth/signup",
+                json = linkedMapOf("email" to "cap-signup-3@example.com", "password" to TEST_PASSWORD),
+            )
+            throttled.status shouldBe 429
+            throttled.code() shouldBe "rate_limited"
+            throttled.message().orEmpty().shouldNotBeBlank()
+        }
+
         test("a different client IP is not throttled by another's exhaustion") {
             val first = refresh("tok", forwardedFor = "203.0.113.7")
             val second = refresh("tok", forwardedFor = "203.0.113.8")

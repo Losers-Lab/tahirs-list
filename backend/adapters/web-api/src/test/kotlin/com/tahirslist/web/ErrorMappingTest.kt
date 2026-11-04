@@ -103,6 +103,7 @@ class ErrorMappingTest : FunSpec({
             response.headers["X-Content-Type-Options"] shouldBe "nosniff"
             response.headers["X-Frame-Options"] shouldBe "DENY"
             response.headers["Content-Security-Policy"] shouldContain "frame-ancestors 'none'"
+            response.headers["Strict-Transport-Security"] shouldBe "max-age=31536000; includeSubDomains"
             response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
             response.bodyAsText() shouldBe """{"status":"ok"}"""
         }

@@ -40,9 +40,11 @@ internal fun bearerToken(call: ApplicationCall): String? =
  *
  * A token is accepted only when ALL of the following hold:
  *  - the compact serialization parses and is signed with RS256;
+ *  - the JOSE `typ` header is `JWT` (anything else is not an access token);
  *  - the signature verifies against the configured RSA public key;
  *  - `iss` equals the configured issuer;
  *  - `exp` is present and not older than now minus the configured clock skew;
+ *  - `nbf`, when present, is not later than now plus the same clock skew;
  *  - `role` is present and is one of the six [Role] names;
  *  - `sub` is present.
  *
@@ -57,10 +59,23 @@ internal class JwtVerifier(private val config: JwtConfig) {
         val signed = SignedJWT.parse(token)
         val claims = signed.jwtClaimsSet
         if (signed.header.algorithm != JWSAlgorithm.RS256) return null
+        // Pin the JOSE type: the issuer always stamps `typ: JWT`, so a token
+        // carrying another type (or none) is not one of ours and must not be
+        // accepted as an access token.
+        if (signed.header.type?.type != "JWT") return null
         if (!signed.verify(verifier)) return null
         if (claims.issuer != config.issuer) return null
         val expiry: Date = claims.expirationTime ?: return null
         if (expiry.time + config.clockSkewSeconds * 1_000L <= System.currentTimeMillis()) return null
+        // `nbf` is honoured whenever the minted token carries one: a token that
+        // is not valid yet is rejected, with the same skew tolerance as `exp` so
+        // a slightly fast issuer clock does not lock clients out.
+        val notBefore: Date? = claims.notBeforeTime
+        if (notBefore != null &&
+            notBefore.time - config.clockSkewSeconds * 1_000L > System.currentTimeMillis()
+        ) {
+            return null
+        }
         val subject = claims.subject
         if (subject.isNullOrBlank()) return null
         val role = claims.getStringClaim("role")
@@ -77,7 +92,7 @@ internal class JwtVerifier(private val config: JwtConfig) {
  *
  * The challenge always writes the same generic 401 envelope, regardless of the
  * concrete failure (missing header, malformed token, bad signature, expired,
- * wrong issuer, missing/unknown role) — no auth detail leaks.
+ * not yet valid, wrong type/issuer, missing/unknown role) — no auth detail leaks.
  */
 internal class JwtAuthenticationProvider(
     config: Config,

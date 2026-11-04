@@ -20,10 +20,10 @@ class RateLimitGate(
 )
 
 /**
- * The rate-limit budget key: route + client IP, so login and refresh never
- * starve each other. `X-Forwarded-For` is client-controlled and trusted only
- * when [trustProxy] is explicitly enabled; otherwise the socket peer keys the
- * bucket, so clients cannot rotate their budget by forging headers. Only the
+ * The rate-limit budget key: route + client IP, so signup, login and refresh
+ * never starve each other. `X-Forwarded-For` is client-controlled and trusted
+ * only when [trustProxy] is explicitly enabled; otherwise the socket peer keys
+ * the bucket, so clients cannot rotate their budget by forging headers. Only the
  * first XFF hop is used.
  */
 fun authRateLimitKey(

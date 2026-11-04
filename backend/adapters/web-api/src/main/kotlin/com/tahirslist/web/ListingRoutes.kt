@@ -6,12 +6,11 @@ import com.tahirslist.application.listing.ListingSearchFilters
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.Price
 import com.tahirslist.domain.restaurant.Rating
-import io.ktor.http.ContentType
+import com.tahirslist.domain.restaurant.VerificationStatus
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.authenticate
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -78,28 +77,55 @@ fun Route.listingRoutes(listing: ListingUseCases) {
     get("/v1/listings/{id}") {
         val id = call.pathUuid("id")
         val found = listing.listings.findById(id)
-            ?: return@get call.respond(HttpStatusCode.NotFound)
+            ?: return@get call.respondError(
+                HttpStatusCode.NotFound,
+                ErrorCodes.LISTING_NOT_FOUND,
+                ErrorMessages.RESOURCE_NOT_FOUND,
+            )
         call.respond(HttpStatusCode.OK, call.toDetail(found, listing.reviews))
     }
 
+    /**
+     * The public "View certificate" proxy.
+     *
+     * It serves **only** the artifact the Verification Committee approved:
+     *  - the listing must be `VERIFIED` (pending/denied evidence is private);
+     *  - the latest APPROVED review must carry an archived key (V21);
+     *  - that exact object must still exist.
+     * Anything else is a 404. Serving "the newest upload" instead let an owner
+     * swap the displayed certificate after approval without a re-review, and
+     * exposed in-review evidence to anyone with the listing id.
+     */
     get("/v1/listings/{id}/certificate") {
         val id = call.pathUuid("id")
-        val stored = listing.certificates.loadLatest(id)
-            ?: return@get call.respond(HttpStatusCode.NotFound)
+        val listingRow = listing.listings.findById(id)
+        val approved = listingRow
+            ?.takeIf { it.verificationStatus == VerificationStatus.VERIFIED }
+            ?.let { listing.reviews.findLatestApprovedByListing(id) }
+        val stored = approved?.certificateKey?.let { listing.certificates.load(it) }
+            ?: return@get call.respondError(
+                HttpStatusCode.NotFound,
+                ErrorCodes.NOT_FOUND,
+                ErrorMessages.RESOURCE_NOT_FOUND,
+            )
         call.setCacheControl(PUBLIC_CACHE_CONTROL)
-        call.respondBytes(stored.bytes, mediaTypeOf(stored.contentType))
+        call.respondStoredBytes(stored.bytes, stored.contentType)
     }
 
     get("/v1/listings/{id}/image") {
         val id = call.pathUuid("id")
         val rawVariant = call.request.queryParameters["variant"]
-            ?: return@get call.respond(HttpStatusCode.BadRequest)
+            ?: throw InvalidInputException("variant query parameter is required")
         val variant = parseVariant(rawVariant)
-            ?: return@get call.respond(HttpStatusCode.BadRequest)
+            ?: throw InvalidInputException("variant must be one of the supported image variants")
         val stored = listing.images.load(id, variant)
-            ?: return@get call.respond(HttpStatusCode.NotFound)
+            ?: return@get call.respondError(
+                HttpStatusCode.NotFound,
+                ErrorCodes.NOT_FOUND,
+                ErrorMessages.RESOURCE_NOT_FOUND,
+            )
         call.setCacheControl(PUBLIC_CACHE_CONTROL)
-        call.respondBytes(stored.bytes, mediaTypeOf(stored.contentType))
+        call.respondStoredBytes(stored.bytes, stored.contentType)
     }
 
     // ---- authenticated writes ------------------------------------------------
@@ -178,9 +204,6 @@ private const val PUBLIC_CACHE_CONTROL = "public, max-age=86400"
 
 /** Upper bound of the closed 0..5 rating scale (sc-45), mirrored from the domain. */
 private val RATING_MAX: Double = Rating.MAX.toDouble()
-
-private fun mediaTypeOf(raw: String): ContentType =
-    runCatching { ContentType.parse(raw) }.getOrDefault(ContentType.Application.OctetStream)
 
 private fun ApplicationCall.intQueryParameter(name: String, default: Int): Int {
     val raw = request.queryParameters[name] ?: return default

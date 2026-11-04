@@ -90,11 +90,45 @@ class AuthenticateAccountTest : FunSpec({
     test("rejects an unknown email with a generic InvalidCredentialsException and issues nothing") {
         runTest {
             coEvery { repository.findByEmail(Email("nobody@example.com")) } returns null
+            every { hasher.verify(any(), any()) } returns false
 
             val ex = shouldThrow<InvalidCredentialsException> { authenticate.execute("nobody@example.com", "anything") }
 
             ex.message shouldBe "Invalid email or password."
-            verify(exactly = 0) { hasher.verify(any(), any()) }
+            // The verification now runs even for an unknown email: see the
+            // timing-parity test below for why.
+            verify(exactly = 1) { hasher.verify("anything", any()) }
+            verify(exactly = 0) { tokenIssuer.issue(any()) }
+            coVerify(exactly = 0) { refreshTokenStore.store(any(), any(), any(), any()) }
+        }
+    }
+
+    test("performs a full password verification against the dummy hash when the email is unknown (no timing oracle)") {
+        runTest {
+            coEvery { repository.findByEmail(Email("nobody@example.com")) } returns null
+            val verifiedAgainst = slot<String>()
+            every { hasher.verify("anything", capture(verifiedAgainst)) } returns false
+
+            shouldThrow<InvalidCredentialsException> { authenticate.execute("nobody@example.com", "anything") }
+
+            // The submitted password must be checked against a real Argon2id PHC
+            // string with the production parameters, so the unknown-email path
+            // costs the same Argon2id work as a wrong-password check. The value
+            // is a pre-computed constant: no hashing is added per request.
+            verify(exactly = 1) { hasher.verify("anything", any()) }
+            verifiedAgainst.captured shouldBe AuthenticateAccount.DUMMY_PASSWORD_HASH
+            verifiedAgainst.captured.startsWith("\$argon2id\$v=19\$m=16384,t=2,p=1\$") shouldBe true
+        }
+    }
+
+    test("never authenticates an unknown email even if the verification reports success") {
+        runTest {
+            coEvery { repository.findByEmail(Email("nobody@example.com")) } returns null
+            // Guard against a degenerate dummy hash that happens to match.
+            every { hasher.verify(any(), any()) } returns true
+
+            shouldThrow<InvalidCredentialsException> { authenticate.execute("nobody@example.com", "anything") }
+
             verify(exactly = 0) { tokenIssuer.issue(any()) }
             coVerify(exactly = 0) { refreshTokenStore.store(any(), any(), any(), any()) }
         }

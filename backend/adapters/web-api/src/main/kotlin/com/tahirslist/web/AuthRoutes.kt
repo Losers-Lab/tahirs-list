@@ -48,15 +48,19 @@ data class LoginRequest(val email: String, val password: String)
 
 /**
  * Auth endpoints:
- *  - `POST /v1/auth/signup`  — create an account (409 taken / 422 weak password);
+ *  - `POST /v1/auth/signup`  — create an account (409 taken / 422 weak password; rate limited);
  *  - `POST /v1/auth/login`   — issue an access token + refresh cookie (rate limited);
  *  - `POST /v1/auth/refresh` — rotate the cookie (no request body; rate limited);
  *  - `POST /v1/auth/logout`  — revoke the cookie server-side and clear it (always 204).
  *
- * All four are public; the JWT they mint guards every other route.
+ * All four are public; the JWT they mint guards every other route. The rate
+ * limit is the same gate instance for all three mutations — the bucket key
+ * includes the route, so signup cannot starve login (or vice versa) while
+ * account creation can no longer be used as an unthrottled CPU sink (Argon2).
  */
 fun Route.authRoutes(auth: AuthUseCases) {
     post("/v1/auth/signup") {
+        if (!call.passesAuthRateLimit()) return@post
         val request = call.receiveJson<SignupRequest>()
         requireValid(validateCredentials(request.email, request.password))
         val account = auth.signup.execute(emailRaw = request.email, password = request.password)
@@ -105,9 +109,10 @@ fun Route.authRoutes(auth: AuthUseCases) {
 }
 
 /**
- * Counts this request against the login/refresh budget. Returns `false` (and
- * writes the generic 429 envelope) when the budget is exhausted, in which case
- * the caller must stop before touching the auth use case or the request body.
+ * Counts this request against the auth budget for its route. Returns `false`
+ * (and writes the generic 429 envelope) when the budget is exhausted, in which
+ * case the caller must stop before touching the auth use case or the request
+ * body.
  */
 private suspend fun ApplicationCall.passesAuthRateLimit(): Boolean {
     val gate = application.attributes.getOrNull(AuthRateLimitGateKey) ?: return true

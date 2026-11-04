@@ -90,6 +90,18 @@ class AddListingImageTest : FunSpec({
         }
     }
 
+    test("a client-supplied upload label never reaches storage (the stored type is derived)") {
+        runTest {
+            val ownerId = Uuid.random()
+            val listing = existingListing(ownerId = ownerId)
+            coEvery { listings.findById(listing.id) } returns listing
+
+            useCase.execute(listing.id, ownerId, StoredImage(jpeg(), "text/html"))
+
+            images.load(listing.id, ImageVariant.FULL).shouldNotBeNull().contentType shouldBe "image/jpeg"
+        }
+    }
+
     test("re-uploading overwrites the earlier hero (last-write-wins)") {
         runTest {
             val ownerId = Uuid.random()

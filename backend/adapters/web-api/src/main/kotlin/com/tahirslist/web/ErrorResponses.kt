@@ -16,6 +16,7 @@ data class ErrorResponse(val code: String, val message: String? = null)
 /** Error codes ratified for the public HTTP contract. */
 internal object ErrorCodes {
     const val INVALID_INPUT = "invalid_input"
+    const val PAYLOAD_TOO_LARGE = "payload_too_large"
     const val NOT_FOUND = "not_found"
     const val UNAUTHORIZED = "unauthorized"
     const val RATE_LIMITED = "rate_limited"
@@ -36,6 +37,7 @@ internal object ErrorCodes {
 internal object ErrorMessages {
     const val AUTHENTICATION_REQUIRED = "Authentication required."
     const val RATE_LIMITED = "Too many requests. Please try again later."
+    const val PAYLOAD_TOO_LARGE = "Request payload is too large."
     const val INTERNAL_ERROR = "An unexpected server error occurred."
     const val INVALID_CREDENTIALS = "Invalid email or password."
     const val REQUEST_BODY_NOT_READABLE = "Request body is not readable."
