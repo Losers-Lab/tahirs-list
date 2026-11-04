@@ -1,6 +1,6 @@
 package com.tahirslist.application.verification
 
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Object-storage seam for certification images (hexagonal "out" port), mirroring
@@ -19,10 +19,10 @@ import java.util.UUID
  * (each save is a new object), so "latest" means most-recent submission.
  */
 interface CertificationImageStorage {
-    fun save(listingId: UUID, contentType: String, bytes: ByteArray)
+    suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray)
 
     /** The most recently saved certification image for [listingId], or null if none. */
-    fun loadLatest(listingId: UUID): StoredCertificationImage?
+    suspend fun loadLatest(listingId: Uuid): StoredCertificationImage?
 
     /** The certification image as read back from storage. */
     class StoredCertificationImage(

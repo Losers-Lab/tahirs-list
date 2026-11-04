@@ -7,11 +7,12 @@ import com.tahirslist.domain.verification.VerificationState
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.mockk.every
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.verify
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.test.runTest
 
 /**
  * RequestVerification drives the forward verification path through the
@@ -27,54 +28,62 @@ class RequestVerificationTest : FunSpec({
 
     val now = Instant.parse("2026-08-31T12:00:00Z")
     val image = CertificationImage("image/jpeg", byteArrayOf(1, 2, 3))
-    val listingId = UUID.randomUUID()
-    val submittedBy = UUID.randomUUID()
+    val listingId = Uuid.random()
+    val submittedBy = Uuid.random()
 
     test("walks SUBMITTED -> AI_REVIEW -> AI_SUGGESTED with a conservative suggestion") {
-        val provider = mockk<VerificationProvider>()
-        val suggestion = VerificationSuggestion(SuggestionVerdict.NEEDS_REVIEW, 0.4)
-        every { provider.suggest(image) } returns suggestion
+        runTest {
+            val provider = mockk<VerificationProvider>()
+            val suggestion = VerificationSuggestion(SuggestionVerdict.NEEDS_REVIEW, 0.4)
+            coEvery { provider.suggest(image) } returns suggestion
 
-        val result = RequestVerification(provider).execute(listingId, submittedBy, image, now)
+            val result = RequestVerification(provider).execute(listingId, submittedBy, image, now)
 
-        // Final state is AI_SUGGESTED and the AI's conservative suggestion is recorded.
-        result.state shouldBe VerificationState.AI_SUGGESTED
-        result.suggestion shouldBe suggestion
-        result.listingId shouldBe listingId
-        result.submittedBy shouldBe submittedBy
-        verify { provider.suggest(image) }
+            // Final state is AI_SUGGESTED and the AI's conservative suggestion is recorded.
+            result.state shouldBe VerificationState.AI_SUGGESTED
+            result.suggestion shouldBe suggestion
+            result.listingId shouldBe listingId
+            result.submittedBy shouldBe submittedBy
+            coVerify { provider.suggest(image) }
+        }
     }
 
     test("the use case overrides nothing: a provider APPROVE suggestion is carried, not elevated") {
-        val provider = mockk<VerificationProvider>()
-        every { provider.suggest(image) } returns VerificationSuggestion(SuggestionVerdict.APPROVE, 0.95)
+        runTest {
+            val provider = mockk<VerificationProvider>()
+            coEvery { provider.suggest(image) } returns VerificationSuggestion(SuggestionVerdict.APPROVE, 0.95)
 
-        val result = RequestVerification(provider).execute(listingId, submittedBy, image, now)
+            val result = RequestVerification(provider).execute(listingId, submittedBy, image, now)
 
-        // The AI can only ever *suggest* — the review must still await human review.
-        result.state shouldBe VerificationState.AI_SUGGESTED
-        result.suggestion!!.verdict shouldBe SuggestionVerdict.APPROVE
+            // The AI can only ever *suggest* — the review must still await human review.
+            result.state shouldBe VerificationState.AI_SUGGESTED
+            result.suggestion!!.verdict shouldBe SuggestionVerdict.APPROVE
+        }
     }
 
     test("records the AI-analysis consent timestamp on the created review") {
-        val provider = mockk<VerificationProvider>()
-        every { provider.suggest(image) } returns VerificationSuggestion(SuggestionVerdict.NEEDS_REVIEW, 0.4)
-        val consentGivenAt = Instant.parse("2026-09-01T12:30:00Z")
+        runTest {
+            val provider = mockk<VerificationProvider>()
+            coEvery { provider.suggest(image) } returns VerificationSuggestion(SuggestionVerdict.NEEDS_REVIEW, 0.4)
+            val consentGivenAt = Instant.parse("2026-09-01T12:30:00Z")
 
-        val result = RequestVerification(provider).execute(listingId, submittedBy, image, now, consentGivenAt)
+            val result = RequestVerification(provider).execute(listingId, submittedBy, image, now, consentGivenAt)
 
-        result.aiConsentGivenAt shouldBe consentGivenAt
-        result.state shouldBe VerificationState.AI_SUGGESTED
+            result.aiConsentGivenAt shouldBe consentGivenAt
+            result.state shouldBe VerificationState.AI_SUGGESTED
+        }
     }
 
     test("a provider failure aborts without producing an AI_SUGGESTED review") {
-        val provider = mockk<VerificationProvider>()
-        every { provider.suggest(image) } throws VerificationProviderException("provider unreachable")
+        runTest {
+            val provider = mockk<VerificationProvider>()
+            coEvery { provider.suggest(image) } throws VerificationProviderException("provider unreachable")
 
-        val ex = shouldThrow<VerificationProviderException> {
-            RequestVerification(provider).execute(listingId, submittedBy, image, now)
+            val ex = shouldThrow<VerificationProviderException> {
+                RequestVerification(provider).execute(listingId, submittedBy, image, now)
+            }
+
+            ex.message shouldBe "provider unreachable"
         }
-
-        ex.message shouldBe "provider unreachable"
     }
 })

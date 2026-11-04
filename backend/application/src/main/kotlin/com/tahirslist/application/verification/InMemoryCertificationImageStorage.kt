@@ -1,7 +1,8 @@
 package com.tahirslist.application.verification
 
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * In-memory [CertificationImageStorage] used only for dev/test boot when no real
@@ -13,20 +14,24 @@ class InMemoryCertificationImageStorage : CertificationImageStorage {
 
     data class StoredCertificationImage(val contentType: String, val bytes: ByteArray)
 
+    private val mutex = Mutex()
+
     /** listingId -> certification images stored for it, in submission order. */
-    val stored = ConcurrentHashMap<UUID, MutableList<StoredCertificationImage>>()
+    val stored: MutableMap<Uuid, MutableList<StoredCertificationImage>> = mutableMapOf()
 
-    override fun save(listingId: UUID, contentType: String, bytes: ByteArray) {
-        stored.computeIfAbsent(listingId) { mutableListOf() }
-            .add(StoredCertificationImage(contentType, bytes.copyOf()))
+    override suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray) {
+        mutex.withLock {
+            stored.getOrPut(listingId) { mutableListOf() }
+                .add(StoredCertificationImage(contentType, bytes.copyOf()))
+        }
     }
 
-    override fun loadLatest(listingId: UUID): CertificationImageStorage.StoredCertificationImage? {
-        val list = stored[listingId] ?: return null
-        val latest = list.lastOrNull() ?: return null
-        return CertificationImageStorage.StoredCertificationImage(
-            contentType = latest.contentType,
-            bytes = latest.bytes.copyOf(),
-        )
-    }
+    override suspend fun loadLatest(listingId: Uuid): CertificationImageStorage.StoredCertificationImage? =
+        mutex.withLock {
+            val latest = stored[listingId]?.lastOrNull() ?: return@withLock null
+            CertificationImageStorage.StoredCertificationImage(
+                contentType = latest.contentType,
+                bytes = latest.bytes.copyOf(),
+            )
+        }
 }

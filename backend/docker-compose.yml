@@ -6,7 +6,7 @@
 #   - Postgres 17 + PostGIS 3.4  (the persistence adapter's database)
 #   - MinIO S3-compatible storage (private buckets; presigned access from the app)
 #
-# The Spring Boot app itself runs on the host via `./gradlew :bootstrap:bootRun`
+# The Ktor app itself runs on the host via `./gradlew :bootstrap:run`
 # and connects to these services on localhost.
 name: tahirs-list
 

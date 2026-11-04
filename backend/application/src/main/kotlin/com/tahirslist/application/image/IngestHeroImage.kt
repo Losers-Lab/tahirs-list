@@ -1,6 +1,6 @@
 package com.tahirslist.application.image
 
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Ingest (or re-ingest) one restaurant's hero image: stores the full-res
@@ -23,7 +23,7 @@ class IngestHeroImage(private val port: ImagePort) {
      * @param listingId the owning restaurant listing.
      * @param original the original image bytes + its content type.
      */
-    fun ingest(listingId: UUID, original: StoredImage) {
+    suspend fun ingest(listingId: Uuid, original: StoredImage) {
         // Resize every thumbnail width FIRST: reject a bad image before persisting
         // the original, so a half-ingested row (original saved, a thumb failed)
         // is impossible.

@@ -1,6 +1,6 @@
 package com.tahirslist.application.verification
 
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Thrown when an authenticated account tries to claim (request verification of)
@@ -8,6 +8,6 @@ import java.util.UUID
  * `restaurant_listings.owner_id` may submit proof of ownership + certification.
  */
 class NotListingOwnerException(
-    val listingId: UUID,
-    val claimerId: UUID,
+    val listingId: Uuid,
+    val claimerId: Uuid,
 ) : RuntimeException("Account $claimerId is not the owner of listing $listingId")

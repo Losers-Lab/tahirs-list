@@ -1,25 +1,24 @@
 package com.tahirslist.bootstrap
 
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.web.client.TestRestTemplate
 
 /**
- * Boot smoke test: proves the assembled Spring Boot application boots
- * (blocking + Virtual Threads + a live PostGIS datasource + Flyway migration)
- * and serves the `/v1/health` endpoint.
+ * Boot smoke test: proves the assembled Ktor application boots (CIO engine +
+ * Koin graph + a live PostGIS datasource + Flyway migration) and serves the
+ * `/v1/health` liveness probe.
+ *
+ * The exact JSON body is part of the orchestration contract, so it is asserted
+ * verbatim.
  */
-class HealthEndpointTest : PostgresBootTest() {
-
-    @Autowired
-    lateinit var restTemplate: TestRestTemplate
+class HealthEndpointTest : KtorPostgresTest() {
 
     init {
         test("GET /v1/health returns 200 with status ok") {
-            val resp = restTemplate.getForEntity("/v1/health", String::class.java)
+            val resp = get("/v1/health")
 
-            resp.statusCode.is2xxSuccessful shouldBe true
+            resp.status shouldBe 200
             resp.body shouldBe """{"status":"ok"}"""
+            resp.json()["status"].asString() shouldBe "ok"
         }
     }
 }

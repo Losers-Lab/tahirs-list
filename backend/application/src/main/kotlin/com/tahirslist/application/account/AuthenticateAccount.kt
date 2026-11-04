@@ -1,8 +1,10 @@
 package com.tahirslist.application.account
 
 import com.tahirslist.domain.account.Email
-import java.time.Clock
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.uuid.Uuid
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Log In (sc-40) use case. Looks up the account by its canonical email, verifies
@@ -18,14 +20,17 @@ class AuthenticateAccount(
     private val hasher: PasswordHasher,
     private val tokenIssuer: TokenIssuer,
     private val refreshTokenStore: RefreshTokenStore,
-    private val clock: Clock = Clock.systemUTC(),
+    private val clock: Clock = Clock.System,
 ) {
 
-    fun execute(emailRaw: String, password: String): AuthSession {
+    suspend fun execute(emailRaw: String, password: String): AuthSession {
         val email = Email(emailRaw)
 
         val account = repository.findByEmail(email)
-        val verified = account != null && hasher.verify(password, account.passwordHash)
+        // Argon2id verification is CPU-bound: keep it off the caller's thread.
+        val verified = account?.let {
+            withContext(Dispatchers.Default) { hasher.verify(password, it.passwordHash) }
+        } ?: false
         if (!verified) {
             // Identical signal for "no such user" and "wrong password".
             throw InvalidCredentialsException()
@@ -36,8 +41,8 @@ class AuthenticateAccount(
         refreshTokenStore.store(
             token = tokens.refreshToken,
             accountId = account.id,
-            familyId = UUID.randomUUID(),
-            expiresAt = clock.instant().plus(SessionLifetimes.REFRESH_LIFETIME),
+            familyId = Uuid.random(),
+            expiresAt = clock.now() + SessionLifetimes.REFRESH_LIFETIME,
         )
         return AuthSession(account, tokens)
     }

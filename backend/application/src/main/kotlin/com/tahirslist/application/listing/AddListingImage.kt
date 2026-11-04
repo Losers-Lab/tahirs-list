@@ -5,7 +5,7 @@ import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.IngestHeroImage
 import com.tahirslist.application.image.StoredImage
 import com.tahirslist.application.verification.NotListingOwnerException
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Add / replace a listing's hero image (sc-53). An authenticated listing owner
@@ -38,7 +38,7 @@ class AddListingImage(
 
     private val ingest: IngestHeroImage = IngestHeroImage(images)
 
-    fun execute(listingId: UUID, ownerId: UUID, original: StoredImage) {
+    suspend fun execute(listingId: Uuid, ownerId: Uuid, original: StoredImage) {
         val listing = listings.findById(listingId)
             ?: throw ListingNotFoundException(listingId)
 

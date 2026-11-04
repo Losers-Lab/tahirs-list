@@ -5,8 +5,9 @@ import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.domain.verification.CertificationImage
 import com.tahirslist.domain.verification.HalalCertificationReview
 import com.tahirslist.domain.verification.VerificationState
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * Owner claim (sc-46): an authenticated listing **owner** submits proof of
@@ -41,14 +42,14 @@ class ClaimListing(
     private val requestVerification: RequestVerification,
 ) {
 
-    fun execute(
-        listingId: UUID,
-        claimerId: UUID,
+    suspend fun execute(
+        listingId: Uuid,
+        claimerId: Uuid,
         proof: String,
         aiConsentGiven: Boolean,
         contentType: String,
         imageBytes: ByteArray,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview {
         require(proof.trim().isNotBlank()) { "Ownership proof must not be blank." }
         // sc-120 privacy guard: the certification image may be sent to the hosted

@@ -1,7 +1,7 @@
 package com.tahirslist.application.favorite
 
 import com.tahirslist.application.listing.RestaurantListingRepository
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Favorite a listing (sc-50): records the user↔listing relation. Idempotent —
@@ -16,7 +16,7 @@ class FavoriteListing(
     private val listings: RestaurantListingRepository,
 ) {
 
-    fun execute(userId: UUID, listingId: UUID) {
+    suspend fun execute(userId: Uuid, listingId: Uuid) {
         if (listings.findById(listingId) == null) {
             throw ListingNotFoundException(listingId)
         }

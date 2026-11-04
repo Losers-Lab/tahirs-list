@@ -1,22 +1,23 @@
 package com.tahirslist.storage.s3
 
+import aws.sdk.kotlin.services.s3.S3Client
+import aws.sdk.kotlin.services.s3.createBucket
+import aws.sdk.kotlin.services.s3.headBucket
+import aws.sdk.kotlin.services.s3.listObjectsV2
+import aws.sdk.kotlin.services.s3.model.GetObjectRequest
+import aws.sdk.kotlin.services.s3.model.S3Exception
+import aws.sdk.kotlin.services.s3.putObject
+import aws.smithy.kotlin.runtime.content.ByteStream
+import aws.smithy.kotlin.runtime.content.toByteArray
 import com.tahirslist.application.verification.CertificationImageStorage
-import java.util.UUID
-import software.amazon.awssdk.core.sync.RequestBody
-import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest
-import software.amazon.awssdk.services.s3.model.GetObjectRequest
-import software.amazon.awssdk.services.s3.model.HeadBucketRequest
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
-import software.amazon.awssdk.services.s3.model.NoSuchBucketException
-import software.amazon.awssdk.services.s3.model.PutObjectRequest
-import software.amazon.awssdk.services.s3.model.S3Exception
+import kotlin.uuid.Uuid
 
 /**
- * S3-compatible [CertificationImageStorage] (MinIO now, Cloudflare R2 later) — the
- * certification image archive for the owner-claim vertical (sc-46). Shares the
- * same S3 client/bucket as [S3ImagePort] but a distinct key namespace, so a cert
- * image can never be mistaken for a hero variant.
+ * S3-compatible [CertificationImageStorage] (MinIO now, Cloudflare R2 later) —
+ * the certification image archive for the owner-claim vertical (sc-46), using
+ * the suspend **AWS SDK for Kotlin**. Shares the same S3 client/bucket as
+ * [S3ImagePort] but a distinct key namespace, so a cert image can never be
+ * mistaken for a hero variant.
  *
  * Storage layout (bucket owned like the hero adapter):
  *   `certifications/{listingId}/{uuid}`  ->  object bytes  (content-type on object)
@@ -30,46 +31,54 @@ class S3CertificationImageStorage(
     private val bucket: String,
 ) : CertificationImageStorage {
 
-    override fun save(listingId: UUID, contentType: String, bytes: ByteArray) {
+    override suspend fun save(listingId: Uuid, contentType: String, bytes: ByteArray) {
         ensureBucket()
-        val request = PutObjectRequest.builder()
-            .bucket(bucket)
-            .key("certifications/$listingId/${UUID.randomUUID()}")
-            .contentType(contentType)
-            .build()
-        s3.putObject(request, RequestBody.fromBytes(bytes))
+        val objectKey = "certifications/$listingId/${Uuid.random()}"
+        val mediaType = contentType
+        s3.putObject {
+            bucket = this@S3CertificationImageStorage.bucket
+            key = objectKey
+            this.contentType = mediaType
+            body = ByteStream.fromBytes(bytes)
+        }
     }
 
-    override fun loadLatest(listingId: UUID): CertificationImageStorage.StoredCertificationImage? {
+    override suspend fun loadLatest(listingId: Uuid): CertificationImageStorage.StoredCertificationImage? {
         ensureBucket()
-        val objects = s3.listObjectsV2(
-            ListObjectsV2Request.builder()
-                .bucket(bucket)
-                .prefix("certifications/$listingId/")
-                .build(),
-        ).contents()
+        val keyPrefix = "certifications/$listingId/"
+        val objects = s3.listObjectsV2 {
+            bucket = this@S3CertificationImageStorage.bucket
+            prefix = keyPrefix
+        }.contents.orEmpty()
         // Keys carry no timestamps; history keeps one object per submission, so
         // "latest" is the most recently modified of the listing's objects.
-        val latest = objects.maxByOrNull { it.lastModified() } ?: return null
-        val got = s3.getObject(GetObjectRequest.builder().bucket(bucket).key(latest.key()).build())
-        val bytes = got.readAllBytes()
-        return CertificationImageStorage.StoredCertificationImage(
-            contentType = got.response().contentType() ?: "application/octet-stream",
-            bytes = bytes,
-        )
+        val latest = objects
+            .mapNotNull { obj -> obj.lastModified?.let { modified -> obj to modified } }
+            .maxByOrNull { it.second }
+            ?.first
+            ?: return null
+        val latestKey = latest.key ?: return null
+        val request = GetObjectRequest {
+            bucket = this@S3CertificationImageStorage.bucket
+            key = latestKey
+        }
+        return s3.getObject(request) { response ->
+            CertificationImageStorage.StoredCertificationImage(
+                contentType = response.contentType ?: "application/octet-stream",
+                bytes = response.body?.toByteArray() ?: ByteArray(0),
+            )
+        }
     }
 
-    private fun ensureBucket() {
+    private suspend fun ensureBucket() {
         val exists = try {
-            s3.headBucket(HeadBucketRequest.builder().bucket(bucket).build())
+            s3.headBucket { bucket = this@S3CertificationImageStorage.bucket }
             true
-        } catch (e: NoSuchBucketException) {
-            false
         } catch (e: S3Exception) {
-            if (e.statusCode() == 404) false else throw e
+            if (e.isNotFound()) false else throw e
         }
         if (!exists) {
-            s3.createBucket(CreateBucketRequest.builder().bucket(bucket).build())
+            s3.createBucket { bucket = this@S3CertificationImageStorage.bucket }
         }
     }
 }

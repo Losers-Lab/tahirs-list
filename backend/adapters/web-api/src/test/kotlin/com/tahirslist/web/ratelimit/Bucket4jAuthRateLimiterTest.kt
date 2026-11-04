@@ -1,12 +1,15 @@
 package com.tahirslist.web.ratelimit
 
+import io.github.bucket4j.TimeMeter
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import java.time.Duration
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * In-process rate limiter (sc-136) tests, using a controllable [TestTimeMeter]
- * so burst-capacity, steady-state refill, and per-key isolation are asserted
+ * so burst capacity, steady-state refill, and per-key isolation are asserted
  * deterministically (no wall-clock sleeps).
  */
 class Bucket4jAuthRateLimiterTest : FunSpec({
@@ -15,7 +18,7 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
         val limiter = Bucket4jAuthRateLimiter(
             capacity = 5,
             refillTokensPerWindow = 5,
-            refillWindow = Duration.ofMinutes(1),
+            refillWindow = 1.minutes,
         )
 
         (1..5).forEach { limiter.tryAcquire("ip-a") shouldBe true }
@@ -26,7 +29,7 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
         val limiter = Bucket4jAuthRateLimiter(
             capacity = 2,
             refillTokensPerWindow = 2,
-            refillWindow = Duration.ofMinutes(1),
+            refillWindow = 1.minutes,
         )
 
         limiter.tryAcquire("ip-a") shouldBe true
@@ -39,7 +42,7 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
     }
 
     test("refills tokens over the window (sustained steady-state rate is honoured)") {
-        val window = Duration.ofSeconds(60)
+        val window = 60.seconds
         val meter = TestTimeMeter()
         val limiter = Bucket4jAuthRateLimiter(
             capacity = 2,
@@ -59,7 +62,7 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
     }
 
     test("a partially-elapsed window refills proportionally and still admits one more") {
-        val window = Duration.ofSeconds(60)
+        val window = 60.seconds
         val meter = TestTimeMeter()
         val limiter = Bucket4jAuthRateLimiter(
             capacity = 2,
@@ -73,7 +76,7 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
         limiter.tryAcquire("ip-d") shouldBe false
 
         // Half the window elapses => greedy refill has partially replenished.
-        meter.advance(window.dividedBy(2))
+        meter.advance(window / 2)
         limiter.tryAcquire("ip-d") shouldBe true
     }
 
@@ -81,7 +84,7 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
         val limiter = Bucket4jAuthRateLimiter(
             capacity = 5,
             refillTokensPerWindow = 5,
-            refillWindow = Duration.ofMinutes(1),
+            refillWindow = 1.minutes,
             maxKeys = 3,
         )
 
@@ -95,7 +98,7 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
         val limiter = Bucket4jAuthRateLimiter(
             capacity = 5,
             refillTokensPerWindow = 5,
-            refillWindow = Duration.ofMinutes(1),
+            refillWindow = 1.minutes,
         )
 
         (1..2000).forEach { limiter.tryAcquire("client-$it") }
@@ -105,12 +108,12 @@ class Bucket4jAuthRateLimiterTest : FunSpec({
     }
 })
 
-/** [io.github.bucket4j.TimeMeter] whose time the test controls, making refill deterministic. */
-class TestTimeMeter : io.github.bucket4j.TimeMeter {
+/** [TimeMeter] whose time the test controls, making refill deterministic. */
+class TestTimeMeter : TimeMeter {
     private var nanos = 0L
     override fun currentTimeNanos(): Long = nanos
     override fun isWallClockBased(): Boolean = false
     fun advance(duration: Duration) {
-        nanos += duration.toNanos()
+        nanos += duration.inWholeNanoseconds
     }
 }

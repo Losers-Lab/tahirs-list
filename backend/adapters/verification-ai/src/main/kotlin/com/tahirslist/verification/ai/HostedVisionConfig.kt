@@ -9,8 +9,8 @@ package com.tahirslist.verification.ai
  * literal — the bootstrap/app wiring supplies it from a secret source at runtime;
  * null is valid for tests/local servers. [timeoutMillis] bounds a call.
  *
- * Wiring this into a Spring bean and reading the key from an env/secret manager
- * is sc-46 (bootstrap) work — deliberately not done in sc-117.
+ * Wiring this into the composition root (and reading the key from an env/secret
+ * manager) is bootstrap work — deliberately not done in this adapter.
  */
 data class HostedVisionConfig(
     val endpoint: String,

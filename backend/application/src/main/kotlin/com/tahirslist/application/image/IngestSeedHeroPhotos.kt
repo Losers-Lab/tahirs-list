@@ -1,6 +1,6 @@
 package com.tahirslist.application.image
 
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Per-row ingest outcome, so a batch run reports which rows landed and why the
@@ -8,7 +8,7 @@ import java.util.UUID
  * partial success).
  */
 data class SeedPhotoIngestResult(
-    val listingId: UUID?,
+    val listingId: Uuid?,
     val photoName: String,
     val status: Status,
     val message: String,
@@ -35,10 +35,10 @@ class IngestSeedHeroPhotos(
     private val ingestHeroImage: IngestHeroImage,
 ) {
 
-    fun ingestAll(photos: List<SeedHeroPhoto>): List<SeedPhotoIngestResult> =
-        photos.map(this::ingestOne)
+    suspend fun ingestAll(photos: List<SeedHeroPhoto>): List<SeedPhotoIngestResult> =
+        photos.map { ingestOne(it) }
 
-    private fun ingestOne(photo: SeedHeroPhoto): SeedPhotoIngestResult {
+    private suspend fun ingestOne(photo: SeedHeroPhoto): SeedPhotoIngestResult {
         val resolution = resolver.resolve(photo)
         val listingId = when (resolution) {
             is SeedPhotoResolution.Resolved -> resolution.listingId

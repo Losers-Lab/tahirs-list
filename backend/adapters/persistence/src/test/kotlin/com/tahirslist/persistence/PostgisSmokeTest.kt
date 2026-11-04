@@ -1,55 +1,45 @@
 package com.tahirslist.persistence
 
+import com.tahirslist.persistence.db.Migrations
+import com.tahirslist.persistence.db.queryRows
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
-import org.flywaydb.core.Flyway
-import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
-import java.sql.DriverManager
+import kotlinx.coroutines.test.runTest
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * TDD harness smoke test. Proves that a real PostGIS container can be started
- * via Testcontainers, reached over JDBC, queried with PostGIS spatial functions,
- * and migrated by Flyway — the exact tooling every persistence test will rely on.
+ * via Testcontainers, reached through Exposed, queried with PostGIS spatial
+ * functions, and migrated by Flyway — the exact tooling every persistence test
+ * relies on.
  */
 class PostgisSmokeTest : FunSpec() {
 
-    private val postgis: PostgreSQLContainer<*> = PostgreSQLContainer(
-        // postgis/postgis extends the official postgres image; declare it compatible
-        // so Testcontainers accepts it for PostgreSQLContainer.
-        DockerImageName.parse("postgis/postgis:17-3.4").asCompatibleSubstituteFor("postgres"),
-    )
-        .withDatabaseName("test")
-        .withUsername("test")
-        .withPassword("test")
+    private val postgis = PostgisTestDatabase()
 
     init {
-        beforeSpec { postgis.start() }
+        // No migration here: the second test exercises the Flyway facade itself.
+        beforeSpec { postgis.start(migrate = false) }
         afterSpec { postgis.stop() }
 
-        test("connects to PostGIS over JDBC and can run a spatial query") {
+        test("connects to PostGIS over Exposed and can run a spatial query") {
             postgis.isRunning shouldBe true
 
-            DriverManager.getConnection(postgis.jdbcUrl, postgis.username, postgis.password).use { conn ->
-                conn.createStatement().use { st ->
+            runTest {
+                suspendTransaction(postgis.database) {
                     // idempotent — exercises the PostGIS extension regardless of
                     // whether the image pre-enabled it in the test database.
-                    st.execute("CREATE EXTENSION IF NOT EXISTS postgis")
-                    st.executeQuery("SELECT postgis_version()").use { rs ->
-                        rs.next()
-                        rs.getString(1).shouldNotBeBlank()
-                    }
+                    exec("CREATE EXTENSION IF NOT EXISTS postgis")
+                    queryRows("SELECT postgis_version()") { rs -> rs.getString(1) }
+                        .single()
+                        .shouldNotBeBlank()
                 }
             }
         }
 
         test("Flyway connects and runs against the live PostGIS database") {
-            val flyway = Flyway.configure()
-                .dataSource(postgis.jdbcUrl, postgis.username, postgis.password)
-                .load()
-
-            val result = flyway.migrate()
+            val result = Migrations.migrate(postgis.jdbcUrl, postgis.username, postgis.password)
 
             // users (V1), refresh_tokens (V2), the sc-136 token-family
             // columns on refresh_tokens (V3), restaurant_listings (V4),

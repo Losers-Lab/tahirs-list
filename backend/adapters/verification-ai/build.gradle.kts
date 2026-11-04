@@ -1,9 +1,13 @@
-description = "Verification adapter: hosted image-recognition model for certification photos. Default VerificationProvider = HostedVisionAdapter (Gemini 2.5 Flash paid tier, human-in-the-loop)."
+description = "Verification adapter: hosted image-recognition model for certification photos (Ktor client + kotlinx.serialization)."
 
 dependencies {
     implementation(project(":domain"))
     implementation(project(":application"))
 
-    // JSON tree parsing of the hosted provider's response (model verdict + confidence).
-    implementation(libs.jackson.databind)
+    implementation(platform(libs.ktor.bom))
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.kotlinx.serialization.json)
 }

@@ -3,7 +3,7 @@ package com.tahirslist.application.image
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * The [ImagePort] contract, shared as a test fixture so the SAME assertions run
@@ -16,12 +16,16 @@ import java.util.UUID
  *
  * Each scenario is exercised on an isolated listing id so parallel adapters
  * cannot cross-contaminate.
+ *
+ * The port is suspend-based; Kotest test bodies are themselves suspend, so each
+ * scenario exercises the port directly without a coroutine-test dependency that
+ * every consumer of this fixture would have to provide.
  */
 abstract class ImagePortContractSpec(private val port: ImagePort) : FunSpec() {
 
     init {
-        val listingA = UUID.randomUUID()
-        val listingB = UUID.randomUUID()
+        val listingA = Uuid.random()
+        val listingB = Uuid.random()
 
         test("save then load round-trips bytes and contentType exactly") {
             val bytes = "hero-image-data".toByteArray()

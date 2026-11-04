@@ -1,0 +1,89 @@
+package com.tahirslist.bootstrap
+
+import com.tahirslist.bootstrap.config.AppConfig
+import com.tahirslist.bootstrap.config.loadConfig
+import com.tahirslist.bootstrap.image.SeedImageIngestRunner
+import com.tahirslist.bootstrap.modules.appModules
+import com.tahirslist.persistence.db.Migrations
+import com.tahirslist.web.AuthUseCases
+import com.tahirslist.web.FavoriteUseCases
+import com.tahirslist.web.ListingUseCases
+import com.tahirslist.web.VerificationUseCases
+import com.tahirslist.web.authRoutes
+import com.tahirslist.web.configureWebPlugins
+import com.tahirslist.web.favoriteRoutes
+import com.tahirslist.web.healthRoutes
+import com.tahirslist.web.listingRoutes
+import com.tahirslist.web.meRoutes
+import com.tahirslist.web.verificationRoutes
+import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopped
+import io.ktor.server.application.install
+import io.ktor.server.cio.CIO
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.routing.routing
+import kotlinx.coroutines.launch
+import org.koin.core.module.Module
+import org.koin.ktor.ext.get
+import org.koin.ktor.plugin.Koin
+import javax.sql.DataSource
+
+fun main() {
+    val config = loadConfig()
+    embeddedServer(CIO, host = config.host, port = config.port) { module(config) }
+        .start(wait = true)
+}
+
+/**
+ * Ktor application module: compose the object graph with Koin, apply pending
+ * Flyway migrations, install the web plugins, and mount every route group.
+ *
+ * [extraModules] lets tests override infrastructure definitions (in-memory
+ * storage, fake verification provider, test clock) without touching production
+ * wiring; later modules override earlier ones (`allowOverride = true`).
+ */
+fun Application.module(
+    config: AppConfig = loadConfig(),
+    extraModules: List<Module> = emptyList(),
+) {
+    install(Koin) {
+        modules(*(appModules(config) + extraModules).toTypedArray())
+        allowOverride(true)
+    }
+
+    // Koin does not close singletons and Ktor has no bean lifecycle: close the
+    // connection pool explicitly when the server stops (tests start one server
+    // per spec and would otherwise leak a pool each).
+    val dataSource: DataSource = get()
+    monitor.subscribe(ApplicationStopped) {
+        (dataSource as? AutoCloseable)?.close()
+    }
+
+    // Migrations run before any repository resolves the pool (Boot's Flyway
+    // auto-migration equivalent, now explicit).
+    Migrations.migrate(
+        jdbcUrl = config.database.jdbcUrl,
+        user = config.database.user,
+        password = config.database.password,
+    )
+
+    configureWebPlugins(get(), get(), get())
+
+    val auth: AuthUseCases = get()
+    val listings: ListingUseCases = get()
+    val favorites: FavoriteUseCases = get()
+    val verification: VerificationUseCases = get()
+
+    routing {
+        healthRoutes()
+        authRoutes(auth)
+        meRoutes()
+        listingRoutes(listings)
+        favoriteRoutes(favorites)
+        verificationRoutes(verification)
+    }
+
+    if (config.seedIngest.enabled) {
+        launch { get<SeedImageIngestRunner>().run() }
+    }
+}

@@ -1,7 +1,7 @@
 package com.tahirslist.application.favorite
 
 import com.tahirslist.domain.restaurant.RestaurantListing
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * List the authenticated user's favourites (sc-52). Returns the favourited
@@ -10,6 +10,6 @@ import java.util.UUID
  */
 class ListFavorites(private val favorites: FavoritesRepository) {
 
-    fun execute(userId: UUID): List<RestaurantListing> =
+    suspend fun execute(userId: Uuid): List<RestaurantListing> =
         favorites.findFavoriteListings(userId)
 }

@@ -1,7 +1,7 @@
 package com.tahirslist.application.favorite
 
 import com.tahirslist.domain.restaurant.RestaurantListing
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Persistence port (hexagonal "out" port) for the user↔listing favorite
@@ -18,9 +18,9 @@ import java.util.UUID
  * with no per-row N+1.
  */
 interface FavoritesRepository {
-    fun add(userId: UUID, listingId: UUID)
+    suspend fun add(userId: Uuid, listingId: Uuid)
 
-    fun remove(userId: UUID, listingId: UUID)
+    suspend fun remove(userId: Uuid, listingId: Uuid)
 
-    fun findFavoriteListings(userId: UUID): List<RestaurantListing>
+    suspend fun findFavoriteListings(userId: Uuid): List<RestaurantListing>
 }

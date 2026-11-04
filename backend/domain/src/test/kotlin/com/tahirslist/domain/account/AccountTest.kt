@@ -2,6 +2,7 @@ package com.tahirslist.domain.account
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlin.uuid.Uuid
 
 class AccountTest : FunSpec({
 
@@ -20,7 +21,7 @@ class AccountTest : FunSpec({
 
     test("the persisted form of an account can restore a non-default role") {
         val account = Account.fromStorage(
-            id = java.util.UUID.randomUUID(),
+            id = Uuid.random(),
             email = Email("a@example.com"),
             passwordHash = "hash",
             role = Role.RESTAURANT_OWNER,

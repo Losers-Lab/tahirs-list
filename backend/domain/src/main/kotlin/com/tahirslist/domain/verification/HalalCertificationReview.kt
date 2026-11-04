@@ -1,8 +1,9 @@
 package com.tahirslist.domain.verification
 
-import java.time.Instant
-import java.time.LocalDate
-import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDate
 
 /**
  * The certification-review aggregate. Owns the verification state machine:
@@ -28,9 +29,9 @@ import java.util.UUID
  * commands/endpoints land in sc-46/sc-73.
  */
 data class HalalCertificationReview(
-    val id: UUID,
-    val listingId: UUID,
-    val submittedBy: UUID,
+    val id: Uuid,
+    val listingId: Uuid,
+    val submittedBy: Uuid,
     val state: VerificationState,
     val createdAt: Instant,
     val updatedAt: Instant,
@@ -44,12 +45,12 @@ data class HalalCertificationReview(
 
         /** Start a review in [VerificationState.SUBMITTED] for [listingId]. */
         fun create(
-            listingId: UUID,
-            submittedBy: UUID,
-            now: Instant = Instant.now(),
+            listingId: Uuid,
+            submittedBy: Uuid,
+            now: Instant = Clock.System.now(),
             aiConsentGivenAt: Instant? = null,
         ): HalalCertificationReview = HalalCertificationReview(
-            id = UUID.randomUUID(),
+            id = Uuid.random(),
             listingId = listingId,
             submittedBy = submittedBy,
             state = VerificationState.SUBMITTED,
@@ -60,7 +61,7 @@ data class HalalCertificationReview(
     }
 
     /** SUBMITTED -> AI_REVIEW (the hosted model now reviews the certification). */
-    fun beginAiReview(now: Instant = Instant.now()): HalalCertificationReview =
+    fun beginAiReview(now: Instant = Clock.System.now()): HalalCertificationReview =
         transition(setOf(VerificationState.SUBMITTED), "begin AI review") {
             copy(state = VerificationState.AI_REVIEW, updatedAt = now)
         }
@@ -68,7 +69,7 @@ data class HalalCertificationReview(
     /** AI_REVIEW -> AI_SUGGESTED (records the AI's conservative [suggestion]). */
     fun recordAiSuggestion(
         suggestion: VerificationSuggestion,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview =
         transition(setOf(VerificationState.AI_REVIEW), "record an AI suggestion") {
             copy(
@@ -79,16 +80,16 @@ data class HalalCertificationReview(
         }
 
     /** AI_SUGGESTED -> HUMAN_REVIEW (a committee member takes the review up). */
-    fun beginHumanReview(now: Instant = Instant.now()): HalalCertificationReview =
+    fun beginHumanReview(now: Instant = Clock.System.now()): HalalCertificationReview =
         transition(setOf(VerificationState.AI_SUGGESTED), "begin human review") {
             copy(state = VerificationState.HUMAN_REVIEW, updatedAt = now)
         }
 
     /** AI_SUGGESTED -> HUMAN_REVIEW -> APPROVED (the listing may become VERIFIED — sc-46/73). */
     fun approve(
-        decidedBy: UUID,
+        decidedBy: Uuid,
         reason: String? = null,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
         certifier: String? = null,
         expiresOn: LocalDate? = null,
     ): HalalCertificationReview =
@@ -104,9 +105,9 @@ data class HalalCertificationReview(
 
     /** HUMAN_REVIEW -> DENIED (verification refused). */
     fun deny(
-        decidedBy: UUID,
+        decidedBy: Uuid,
         reason: String? = null,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview =
         transition(setOf(VerificationState.HUMAN_REVIEW), "deny") {
             copy(
@@ -123,9 +124,9 @@ data class HalalCertificationReview(
      * posture (a separate, caller concern); it never reopens this review.
      */
     fun reverse(
-        decidedBy: UUID,
+        decidedBy: Uuid,
         reason: String? = null,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): HalalCertificationReview =
         transition(setOf(VerificationState.APPROVED, VerificationState.DENIED), "reverse") {
             copy(

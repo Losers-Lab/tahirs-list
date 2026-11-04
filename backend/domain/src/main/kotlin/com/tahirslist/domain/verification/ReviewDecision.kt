@@ -1,7 +1,7 @@
 package com.tahirslist.domain.verification
 
-import java.time.Instant
-import java.util.UUID
+import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * The human (Verification Committee) decision recorded when a review is
@@ -10,7 +10,7 @@ import java.util.UUID
  */
 class ReviewDecision(
     val outcome: VerificationOutcome,
-    val decidedBy: UUID,
+    val decidedBy: Uuid,
     val reason: String?,
     val decidedAt: Instant,
 )

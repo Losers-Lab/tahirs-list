@@ -1,37 +1,22 @@
 package com.tahirslist.bootstrap
 
-import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.ImageVariant
-import com.tahirslist.application.image.InMemoryImagePort
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.ApplicationRunner
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.client.TestRestTemplate
-import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.context.ApplicationContext
-import org.springframework.core.io.ClassPathResource
-import org.springframework.http.HttpEntity
-import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpMethod
-import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
-import org.springframework.http.ResponseEntity
-import org.springframework.http.client.ClientHttpResponse
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
-import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.web.client.ResponseErrorHandler
-import org.springframework.web.client.RestTemplate
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.util.UUID
+import javax.imageio.ImageIO
 
 /**
  * sc-157 public read surface (docs/design/sc-157-image-variants.md §"URL / serving
  * contract"): end-to-end against the full application graph with the real Flyway
- * seed data and the in-memory [ImagePort] fallback (no MinIO — the S3 adapter is
- * gated behind `app.storage.s3.endpoint`, which boot tests never set).
+ * seed data and the in-memory [com.tahirslist.application.image.ImagePort]
+ * fallback (no MinIO — the S3 adapter is gated behind `storage`, which boot tests
+ * never set).
  *
  *  - browse carries thumbnail-size URLs ONLY — full-res never appears on a card;
  *  - detail carries the full-res `imageUrl` (and MAY carry the thumbnail);
@@ -40,69 +25,53 @@ import java.util.UUID
  *  - unknown variant = 400, absent image = 404;
  *  - the list and sub-resource routes under /v1/listings are public (search /
  *    browse is core public UX) while writes stay authenticated (deny-by-default);
- *  - the context boots without MinIO, the InMemoryImagePort fallback bean wins,
- *    and the seed-image ingest runner stays gated off so boot tests never hit
- *    the network.
+ *  - no object store is configured, so the in-memory image port is wired, and the
+ *    seed-image ingest runner stays gated off so boot tests never hit the network.
+ *
+ * The variants are produced through the real owner upload path (ingest stores the
+ * original as FULL and pre-generates the sc-183 thumbnail widths), so the proxy
+ * assertions read back real, independently stored objects.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ListingReadEndpointTest : PostgresBootTest() {
+class ListingReadEndpointTest : KtorPostgresTest() {
 
-    @Autowired
-    lateinit var restTemplate: TestRestTemplate
+    private suspend fun seededListingId(name: String): String =
+        (dbRow("SELECT id FROM restaurant_listings WHERE name = ? LIMIT 1", name).values.single() as UUID)
+            .toString()
 
-    @Autowired
-    lateinit var jdbc: JdbcTemplate
-
-    @Autowired
-    lateinit var images: ImagePort
-
-    @Autowired
-    lateinit var objectMapper: ObjectMapper
-
-    @Autowired
-    lateinit var context: ApplicationContext
-
-    @LocalServerPort
-    var port: Int = 0
-
-    // HC5 request factory so the client can read 4xx bodies (JDK client cannot in streaming mode).
-    private val client: RestTemplate by lazy {
-        RestTemplate().apply {
-            requestFactory = HttpComponentsClientHttpRequestFactory()
-            setErrorHandler(object : ResponseErrorHandler {
-                override fun hasError(response: ClientHttpResponse): Boolean = false
-                override fun handleError(response: ClientHttpResponse) { /* return body as-is */ }
-            })
-        }
+    /** Uploads a real 3000x2000 JPEG as the listing's hero and returns its bytes. */
+    private suspend fun uploadHero(bearer: String, listingId: String): ByteArray {
+        val original = jpegBytes()
+        val resp = put(
+            "/v1/listings/$listingId/image",
+            token = bearer,
+            multipart = multipart { file("image", original, "image/jpeg", "hero.jpg") },
+        )
+        resp.status shouldBe 204
+        return original
     }
 
-    private fun url(path: String) = "http://localhost:$port$path"
+    private fun imageWidth(bytes: ByteArray): Int =
+        ImageIO.read(ByteArrayInputStream(bytes))?.width ?: error("response is not a decodable image")
 
-    private fun seededListingId(name: String): UUID =
-        jdbc.queryForObject(
-            "SELECT id FROM restaurant_listings WHERE name = ? LIMIT 1",
-            UUID::class.java,
-            name,
-        ) ?: error("expected a seed row named '$name'")
-
-    private fun getBytes(path: String): ResponseEntity<ByteArray> =
-        client.exchange(url(path), HttpMethod.GET, HttpEntity.EMPTY, ByteArray::class.java)
+    private fun assertPublicCached(resp: ApiResponse) {
+        resp.header("Cache-Control") shouldBe "public, max-age=86400"
+    }
 
     init {
         test("browse cards expose a thumbnail URL ONLY — full-res never appears on cards") {
-            val body = restTemplate.getForEntity("/v1/listings", String::class.java).body!!
+            val resp = get("/v1/listings")
+            resp.status shouldBe 200
 
-            val cards: JsonNode = objectMapper.readTree(body)
-            cards.isArray shouldBe true
-            (cards.size() >= 5) shouldBe true // the 30-seed DB backs the browse surface
+            val cards = resp.jsonArray()
+            (cards.size >= 5) shouldBe true // the 30-seed DB backs the browse surface
 
             cards.forEach { card ->
-                card.has("imageThumbnailUrl") shouldBe true
-                val thumbUrl = card.get("imageThumbnailUrl").asText()
+                card.jsonObject.containsKey("imageThumbnailUrl") shouldBe true
+                val thumbUrl = card.jsonObject["imageThumbnailUrl"].asString()
                 thumbUrl.contains("/v1/listings/") shouldBe true
                 thumbUrl.contains("variant=thumbnail") shouldBe true
                 // The sc-157 "no oversized fetch on cards" rule.
-                card.has("imageUrl") shouldBe false
+                card.jsonObject.containsKey("imageUrl") shouldBe false
                 thumbUrl.contains("variant=full") shouldBe false
             }
         }
@@ -110,100 +79,104 @@ class ListingReadEndpointTest : PostgresBootTest() {
         test("detail carries the full-res imageUrl and the thumbnail URL") {
             val id = seededListingId("Aroma Fine Indian Cuisine")
 
-            val body = restTemplate.getForEntity("/v1/listings/$id", String::class.java).body!!
+            val resp = get("/v1/listings/$id")
+            resp.status shouldBe 200
+            val detail = resp.json()
 
-            val detail: JsonNode = objectMapper.readTree(body)
-            detail.get("imageUrl").asText().contains("variant=full") shouldBe true
-            detail.get("imageThumbnailUrl").asText().contains("variant=thumbnail") shouldBe true
-            detail.get("imageThumbnailUrl").asText().contains("variant=full") shouldBe false
+            detail["imageUrl"].asString().contains("variant=full") shouldBe true
+            detail["imageThumbnailUrl"].asString().contains("variant=thumbnail") shouldBe true
+            detail["imageThumbnailUrl"].asString().contains("variant=full") shouldBe false
 
             // Detail hero also gets the responsive sc-183 width set.
-            detail.has("imageSrcset") shouldBe true
-            detail.get("imageSrcset").size() shouldBe ImageVariant.thumbnailVariants.size
+            detail.containsKey("imageSrcset") shouldBe true
+            detail["imageSrcset"]!!.jsonArray.size shouldBe ImageVariant.thumbnailVariants.size
         }
 
         test("browse and detail cards expose the structured address fields (sc-187)") {
             // Browse card for a US seed row surfaces city/province/postal/country.
-            val browseBody = restTemplate.getForEntity("/v1/listings", String::class.java).body!!
-            val cards: JsonNode = objectMapper.readTree(browseBody)
-            val alAmir = (0 until cards.size()).map { cards[it] }
-                .first { it.get("name").asText() == "Al-Amir Lebanese Restaurant & Club" }
-            alAmir.get("address").asText() shouldBe "3885 Belt Line Rd"  // street line preserved
-            alAmir.get("city").asText() shouldBe "Addison"
-            alAmir.get("province").asText() shouldBe "TX"
-            alAmir.get("postal").asText() shouldBe "75001"
-            alAmir.get("country").asText() shouldBe "US"
+            val alAmir = get("/v1/listings").jsonArray()
+                .map { it.jsonObject }
+                .first { it["name"].asString() == "Al-Amir Lebanese Restaurant & Club" }
+            alAmir["address"].asString() shouldBe "3885 Belt Line Rd" // street line preserved
+            alAmir["city"].asString() shouldBe "Addison"
+            alAmir["province"].asString() shouldBe "TX"
+            alAmir["postal"].asString() shouldBe "75001"
+            alAmir["country"].asString() shouldBe "US"
 
             // Detail for a CA seed row surfaces the same fields (non-US locality).
             val id = seededListingId("Aroma Fine Indian Cuisine")
-            val detailBody = restTemplate.getForEntity("/v1/listings/$id", String::class.java).body!!
-            val detail: JsonNode = objectMapper.readTree(detailBody)
-            detail.get("address").asText() shouldBe "287 King St W"
-            detail.get("city").asText() shouldBe "Toronto"
-            detail.get("province").asText() shouldBe "ON"
-            detail.get("postal").asText() shouldBe "M5V 0W3"
-            detail.get("country").asText() shouldBe "CA"
+            val detail = get("/v1/listings/$id").json()
+            detail["address"].asString() shouldBe "287 King St W"
+            detail["city"].asString() shouldBe "Toronto"
+            detail["province"].asString() shouldBe "ON"
+            detail["postal"].asString() shouldBe "M5V 0W3"
+            detail["country"].asString() shouldBe "CA"
         }
 
         test("detail for an unknown listing returns 404") {
-            val resp = getBytes("/v1/listings/${UUID.randomUUID()}")
+            get("/v1/listings/${UUID.randomUUID()}").status shouldBe 404
+        }
 
-            resp.statusCode shouldBe HttpStatus.NOT_FOUND
+        test("detail for a malformed listing id returns 400 invalid_input (not a 500)") {
+            val resp = get("/v1/listings/not-a-uuid")
+
+            resp.status shouldBe 400
+            resp.code() shouldBe "invalid_input"
         }
 
         test("the image proxy serves the exact requested variant bytes with content-type + cache header") {
-            val id = UUID.randomUUID()
-            val thumbBytes = "thumb-bytes-0001".toByteArray()
-            val fullBytes = "full-bytes-9001".toByteArray()
-            images.save(id, ImageVariant.THUMBNAIL_400, "image/jpeg", thumbBytes)
-            images.save(id, ImageVariant.FULL, "image/png", fullBytes)
+            val session = signupAndLogin("read-image-owner@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+            val original = uploadHero(session.accessToken, listingId)
 
-            val thumb = getBytes("/v1/listings/$id/image?variant=thumbnail")
-            thumb.statusCode shouldBe HttpStatus.OK
-            thumb.headers.contentType shouldBe MediaType.parseMediaType("image/jpeg")
-            assertPublicCached(thumb)
-            thumb.body!!.contentEquals(thumbBytes) shouldBe true
-
-            val full = getBytes("/v1/listings/$id/image?variant=full")
-            full.statusCode shouldBe HttpStatus.OK
-            full.headers.contentType shouldBe MediaType.parseMediaType("image/png")
+            // FULL is the untouched original.
+            val full = get("/v1/listings/$listingId/image?variant=full")
+            full.status shouldBe 200
+            full.header("Content-Type") shouldBe "image/jpeg"
             assertPublicCached(full)
-            full.body!!.contentEquals(fullBytes) shouldBe true
+            full.bytes.contentEquals(original) shouldBe true
+
+            // The thumbnail is a separately stored, genuinely resized object.
+            val thumb = get("/v1/listings/$listingId/image?variant=thumbnail")
+            thumb.status shouldBe 200
+            thumb.header("Content-Type") shouldBe "image/jpeg"
+            assertPublicCached(thumb)
+            imageWidth(thumb.bytes) shouldBe 400
+            thumb.bytes.contentEquals(original) shouldBe false
         }
 
         test("the image proxy serves each sc-183 thumbnail width as a distinct variant") {
-            val id = UUID.randomUUID()
-            val slugByVariant = mapOf(
-                ImageVariant.THUMBNAIL_400 to "thumbnail",
-                ImageVariant.THUMBNAIL_768 to "thumbnail_768",
-                ImageVariant.THUMBNAIL_1280 to "thumbnail_1280",
-                ImageVariant.THUMBNAIL_1920 to "thumbnail_1920",
-            )
-            slugByVariant.forEach { (variant, _) ->
-                images.save(id, variant, "image/jpeg", "${variant.name}-bytes".toByteArray())
-            }
+            val session = signupAndLogin("read-image-widths@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+            uploadHero(session.accessToken, listingId)
 
-            slugByVariant.forEach { (variant, slug) ->
-                val resp = getBytes("/v1/listings/$id/image?variant=$slug")
-                resp.statusCode shouldBe HttpStatus.OK
-                resp.headers.contentType shouldBe MediaType.parseMediaType("image/jpeg")
-                resp.body!!.contentEquals("${variant.name}-bytes".toByteArray()) shouldBe true
+            val widthBySlug = linkedMapOf(
+                "thumbnail" to 400,
+                "thumbnail_768" to 768,
+                "thumbnail_1280" to 1280,
+                "thumbnail_1920" to 1920,
+            )
+            widthBySlug.forEach { (slug, expectedWidth) ->
+                val resp = get("/v1/listings/$listingId/image?variant=$slug")
+                resp.status shouldBe 200
+                resp.header("Content-Type") shouldBe "image/jpeg"
+                imageWidth(resp.bytes) shouldBe expectedWidth
             }
         }
 
         test("browse cards carry an imageSrcset covering every sc-183 width, never the full-res variant") {
-            val body = restTemplate.getForEntity("/v1/listings", String::class.java).body!!
+            val resp = get("/v1/listings")
+            resp.status shouldBe 200
 
-            val cards: JsonNode = objectMapper.readTree(body)
-            cards.forEach { card ->
-                card.has("imageSrcset") shouldBe true
-                val srcset = card.get("imageSrcset")
-                srcset.isArray shouldBe true
-                srcset.size() shouldBe ImageVariant.thumbnailVariants.size
-                val widths = srcset.map { it.get("width").asInt() }
+            resp.jsonArray().forEach { card ->
+                val node = card.jsonObject
+                node.containsKey("imageSrcset") shouldBe true
+                val srcset = node["imageSrcset"]!!.jsonArray
+                srcset.size shouldBe ImageVariant.thumbnailVariants.size
+                val widths = srcset.map { it.jsonObject["width"].asString().toInt() }
                 widths shouldBe listOf(400, 768, 1280, 1920)
                 srcset.forEach { entry ->
-                    val url = entry.get("url").asText()
+                    val url = entry.jsonObject["url"].asString()
                     url.contains("/v1/listings/") shouldBe true
                     // srcset is a thumbnail *set* — full-res never leaks into it.
                     url.contains("variant=full") shouldBe false
@@ -212,56 +185,54 @@ class ListingReadEndpointTest : PostgresBootTest() {
         }
 
         test("the image proxy returns 400 for an unknown variant") {
-            val id = UUID.randomUUID()
-            images.save(id, ImageVariant.THUMBNAIL_400, "image/jpeg", "x".toByteArray())
+            val session = signupAndLogin("read-image-badvariant@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+            uploadHero(session.accessToken, listingId)
 
-            val resp = getBytes("/v1/listings/$id/image?variant=blur")
-
-            resp.statusCode shouldBe HttpStatus.BAD_REQUEST
+            get("/v1/listings/$listingId/image?variant=blur").status shouldBe 400
         }
 
         test("the image proxy returns 404 when no image is stored for the variant") {
-            val resp = getBytes("/v1/listings/${UUID.randomUUID()}/image?variant=thumbnail")
-
-            resp.statusCode shouldBe HttpStatus.NOT_FOUND
+            get("/v1/listings/${UUID.randomUUID()}/image?variant=thumbnail").status shouldBe 404
         }
 
         test("public browse/detail reads need no token; writes stay authenticated (401)") {
             // Public reads (already exercised above without a token) work; a write
-            // without a token is refused by the deny-by-default resource server.
-            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
-            val resp = client.exchange(
-                url("/v1/listings"),
-                HttpMethod.POST,
-                HttpEntity(mapOf("name" to "X", "address" to "1 St", "lat" to 1.0, "lng" to 1.0), headers),
-                Map::class.java,
+            // without a token is refused by the deny-by-default resource guard.
+            val resp = post(
+                "/v1/listings",
+                json = linkedMapOf("name" to "X", "address" to "1 St", "lat" to 1.0, "lng" to 1.0),
             )
 
-            resp.statusCode shouldBe HttpStatus.UNAUTHORIZED
-            resp.body!!["code"] shouldBe "unauthorized"
+            resp.status shouldBe 401
+            resp.json()["code"].asString() shouldBe "unauthorized"
         }
 
-        test("the context boots without MinIO and the InMemoryImagePort fallback wins") {
-            // `app.storage.s3.endpoint` is absent in tests, so the S3 adapter is
-            // never activated and the @ConditionalOnMissingBean fallback is the
-            // single ImagePort bean. A real deployment configures S3 instead.
-            images::class shouldBe InMemoryImagePort::class
+        test("the app boots without object storage, so the in-memory image port is in use") {
+            // `storage` is absent in tests: no S3 adapter is activated and the
+            // in-memory port backs the upload/serve round-trip asserted above.
+            (appConfig.storage == null) shouldBe true
+            (appConfig.verification == null) shouldBe true
         }
 
         test("the seed-image ingest runner is gated OFF by default (boot tests never hit the network)") {
-            val runners = context.getBeanNamesForType(ApplicationRunner::class.java)
-            ("seedImageIngestRunner" in runners) shouldBe false
+            appConfig.seedIngest.enabled shouldBe false
 
             // The manifest is on the classpath for the gated runner's default
             // `classpath:seed-photos.json`, ready for an explicitly-enabled ingest.
-            ClassPathResource("seed-photos.json").exists() shouldBe true
+            (javaClass.classLoader.getResource("seed-photos.json") != null) shouldBe true
         }
     }
 
-    private fun assertPublicCached(resp: ResponseEntity<ByteArray>) {
-        // Spring may serialize the Cache-Control directive in either order; the
-        // contract is that it is public and cached for one day, not the ordering.
-        val cc = resp.headers.getFirst("Cache-Control") ?: ""
-        cc.split(",").map { it.trim() } shouldContainAll listOf("max-age=86400", "public")
+    /** A valid, decodable JPEG (a solid-color 3000x2000 image). */
+    private fun jpegBytes(width: Int = 3000, height: Int = 2000): ByteArray {
+        val img = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val g = img.createGraphics()
+        g.color = Color(40, 90, 180)
+        g.fillRect(0, 0, width, height)
+        g.dispose()
+        val out = ByteArrayOutputStream()
+        ImageIO.write(img, "jpeg", out)
+        return out.toByteArray()
     }
 }
