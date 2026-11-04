@@ -254,7 +254,7 @@ class FavoritesEndpointTest : PostgresBootTest() {
     private fun mint(role: String?, sub: String, expSecondsAhead: Long): String {
         val builder = JWTClaimsSet.Builder()
             .subject(sub)
-            .issuer("halal-food-finder")
+            .issuer("tahirs-list")
             .issueTime(Date.from(Instant.now()))
             .expirationTime(Date.from(Instant.now().plusSeconds(expSecondsAhead)))
         if (role != null) builder.claim("role", role)
@@ -287,7 +287,7 @@ class FavoritesEndpointTest : PostgresBootTest() {
         override fun initialize(context: ConfigurableApplicationContext) {
             TestPropertyValues.of(
                 "app.jwt.rsa-private-key-base64=$TEST_PRIVATE_KEY_B64",
-                "app.jwt.issuer=halal-food-finder",
+                "app.jwt.issuer=tahirs-list",
             ).applyTo(context.environment)
         }
     }

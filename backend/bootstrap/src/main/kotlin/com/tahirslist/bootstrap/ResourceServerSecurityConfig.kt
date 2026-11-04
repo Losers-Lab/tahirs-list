@@ -91,7 +91,7 @@ class ResourceServerSecurityConfig {
     @Bean
     fun jwtDecoder(
         jwtRsaKeyPair: KeyPair,
-        @Value("\${app.jwt.issuer:halal-food-finder}") issuer: String,
+        @Value("\${app.jwt.issuer:tahirs-list}") issuer: String,
     ): JwtDecoder {
         val decoder = NimbusJwtDecoder.withPublicKey(jwtRsaKeyPair.public as RSAPublicKey).build()
         decoder.setJwtValidator(

@@ -25,7 +25,7 @@ class JwtTokenIssuerTest : FunSpec({
     val keyPair: KeyPair = KeyPairGenerator.getInstance("RSA")
         .apply { initialize(2048) }
         .generateKeyPair()
-    val issuerName = "halal-food-finder"
+    val issuerName = "tahirs-list"
     val ttlSeconds = 900L
     val issuer = JwtTokenIssuer(
         signingKey = keyPair.private as RSAPrivateKey,

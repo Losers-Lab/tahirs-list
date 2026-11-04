@@ -95,8 +95,8 @@ toolchain is missing, that's a signal to containerize, not to install.
   No JDK/Gradle needed on the machine.
 - **Frontend:** `./scripts/frontend-test.sh` — `npm ci` + `next build` in a
   `node:22` container. `./scripts/frontend-test.sh dev-install` skips the clean install.
-- Dependencies are cached in **named volumes** (`halal-gradle-cache`,
-  `halal-npm-cache`) — never inside the repo tree, never on the host.
+- Dependencies are cached in **named volumes** (`tahirs-list-gradle-cache`,
+  `tahirs-list-npm-cache`) — never inside the repo tree, never on the host.
 
 ### Testcontainers-in-Docker notes (backend)
 

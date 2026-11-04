@@ -50,7 +50,7 @@ class TokenIssuerConfig {
     @Bean
     fun tokenIssuer(
         jwtRsaKeyPair: KeyPair,
-        @Value("\${app.jwt.issuer:halal-food-finder}") issuer: String,
+        @Value("\${app.jwt.issuer:tahirs-list}") issuer: String,
         @Value("\${app.jwt.access-ttl-seconds:900}") accessTtlSeconds: Long,
     ): TokenIssuer = JwtTokenIssuer(
         signingKey = jwtRsaKeyPair.private as RSAPrivateKey,

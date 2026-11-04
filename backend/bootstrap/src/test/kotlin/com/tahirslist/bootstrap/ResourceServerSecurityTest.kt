@@ -149,7 +149,7 @@ class ResourceServerSecurityTest : PostgresBootTest() {
     private fun mint(
         role: String?,
         sub: String,
-        issuer: String = "halal-food-finder",
+        issuer: String = "tahirs-list",
         expSecondsAhead: Long,
     ): String {
         val builder = JWTClaimsSet.Builder()
@@ -189,7 +189,7 @@ class ResourceServerSecurityTest : PostgresBootTest() {
         override fun initialize(context: ConfigurableApplicationContext) {
             TestPropertyValues.of(
                 "app.jwt.rsa-private-key-base64=$TEST_PRIVATE_KEY_B64",
-                "app.jwt.issuer=halal-food-finder",
+                "app.jwt.issuer=tahirs-list",
             ).applyTo(context.environment)
         }
     }

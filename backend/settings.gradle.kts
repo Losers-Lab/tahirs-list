@@ -1,4 +1,4 @@
-rootProject.name = "halal-food-finder-backend"
+rootProject.name = "tahirs-list-backend"
 
 include(":domain")
 include(":application")

@@ -29,7 +29,7 @@ docker run -d \
   --network tahirs-list_default \
   -p 8080:8080 \
   -v "$repo_root/backend":/workspace \
-  -v halal-gradle-cache:/root/.gradle \
+  -v tahirs-list-gradle-cache:/root/.gradle \
   -w /workspace \
   -e SPRING_PROFILES_ACTIVE=live \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgis:5432/halal \

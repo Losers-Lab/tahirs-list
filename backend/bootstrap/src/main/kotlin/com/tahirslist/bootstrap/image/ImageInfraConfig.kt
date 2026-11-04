@@ -22,7 +22,7 @@ import java.time.Duration
  * refs (which the manifest image_policy PREFERS) fetch instead of 403ing.
  */
 private const val DEFAULT_USER_AGENT =
-    "TahirsList/0.1 (halal-food-finder seed-photo ingest; https://github.com/Losers-Lab/halal-food-finder)"
+    "TahirsList/0.1 (Tahirs List seed-photo ingest; https://github.com/Losers-Lab/tahirs-list)"
 
 /**
  * Wires the sc-157 image plumbing that lives OUTSIDE the adapters:

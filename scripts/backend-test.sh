@@ -39,7 +39,7 @@ fi
 docker run --rm \
   -v "$PWD":/app \
   -w /app \
-  -v halal-gradle-test-cache:/gradle-home \
+  -v tahirs-list-gradle-test-cache:/gradle-home \
   -e GRADLE_USER_HOME=/gradle-home \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \

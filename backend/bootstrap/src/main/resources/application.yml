@@ -1,6 +1,6 @@
 spring:
   application:
-    name: halal-food-finder
+    name: tahirs-list
   threads:
     # Blocking thread-per-request model, but on JDK 21 Virtual Threads (NOT WebFlux).
     virtual:

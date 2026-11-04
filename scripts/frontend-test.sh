@@ -38,7 +38,7 @@ docker run --rm \
   -v "$PWD":/app \
   -w /app \
   -v /app/node_modules \
-  -v halal-npm-cache:/npm-cache \
+  -v tahirs-list-npm-cache:/npm-cache \
   -e npm_config_cache=/npm-cache \
   node:22 \
   bash -lc "$NPM_CMD"
