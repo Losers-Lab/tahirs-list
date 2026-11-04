@@ -1,72 +1,49 @@
-# Tahir's List — Frontend
+# Tahir's List — frontend (SvelteKit 3)
 
-Next.js 16 (App Router, TypeScript strict, Tailwind v4) frontend. Design tokens
-live in the Tailwind `@theme` block in `src/app/globals.css` (spec:
-`docs/design/tokens.md`).
+The web app for Tahir's List: a searchable, verification-first directory of
+halal restaurants. SvelteKit 3 (Svelte 5 runes) + Vite 8 (Rolldown) + Tailwind
+CSS v4, served by the Node adapter with SSR for crawlable public listing pages.
 
-## Getting started
+> Design tokens live in `src/app.css` (`@theme`), derived from the
+> founder-ratified "Stamps & Search" v2 system (`docs/design/tokens.md`).
+> Never hardcode hex values in components.
 
-```bash
-npm install
-npm run dev        # http://localhost:3000
-```
+## Stack
 
-The app needs the backend running (Kotlin/Spring Boot on `http://127.0.0.1:8080`,
-see `backend/README.md`). PostGIS + MinIO are required — `docker compose up -d`
-in `backend/`.
+| Layer     | Choice                                                                           |
+| --------- | -------------------------------------------------------------------------------- |
+| Framework | SvelteKit 3 / Svelte 5 (runes), TypeScript                                       |
+| Build     | Vite 8 (Rolldown)                                                                |
+| Styling   | Tailwind CSS v4 (`@theme` tokens), self-hosted Fontsource fonts                  |
+| Tests     | Vitest 5 + `@testing-library/svelte` (jsdom)                                     |
+| API       | same-origin `/v1` proxy in `src/hooks.server.ts`, typed via `openapi-typescript` |
+| Deploy    | `@sveltejs/adapter-node` (SSR); `adapter-static` later for the Capacitor app     |
 
-## API client & typed contract
+## Commands (Docker only — no host Node)
 
-The API client is type-safe, generated from the backend's committed OpenAPI
-spec:
-
-- `src/lib/api/openapi.json` — snapshot of `backend/openapi/v1.json`.
-- `src/lib/api/schema.d.ts` — generated TypeScript types (openapi-typescript).
-- `src/lib/api/client.ts` — thin typed fetch client (`api.signup` / `api.login`
-  / `api.refresh`); throws `ApiError` with the backend's `code` + optional
-  `detail`, or `network_error` for transport failures.
-
-Regenerate types after the backend contract changes:
+From the repo root:
 
 ```bash
-npm run codegen:api   # must run from frontend/
+./scripts/frontend-test.sh              # install + svelte-check + vitest + vite build
+./scripts/frontend-test.sh test-only    # check + tests only
+./scripts/frontend-test.sh dev-install  # allow lockfile drift while developing
+./scripts/frontend-dev.sh               # dev server on http://localhost:5173
 ```
 
-Keep `openapi.json` in sync with `backend/openapi/v1.json` when the API changes.
+Both scripts cap container memory/CPU and the Node heap; Playwright is
+intentionally not part of the default run (it is the biggest memory consumer).
+E2E runs are a separate, opt-in follow-up.
 
-### Same-origin API proxy
+## Environment
 
-The browser calls the API via Next.js rewrites (`/v1/*` → backend) so all
-requests are same-origin and the backend needs no CORS config. Override the
-target with the `API_PROXY_TARGET` env var, or point the client directly at an
-origin with `NEXT_PUBLIC_API_BASE`.
+- `API_PROXY_TARGET` (private, server-only) — backend origin for the `/v1`
+  proxy. Defaults to `http://127.0.0.1:8080`; the dev script defaults to
+  `http://host.docker.internal:8080`.
 
-## Auth (Sign Up sc-39 / Log In sc-40)
+## Security-relevant behavior
 
-- `src/app/signup/page.tsx` — create-account form (Zod + react-hook-form):
-  email-uniqueness, weak-password, and inline validation errors; success
-  redirects to Log In (`?created=1`).
-- `src/app/login/page.tsx` — sign-in form with a single combined
-  "Incorrect email or password." alert (anti-enumeration); clears + refocuses
-  the password field on bad credentials; success persists the session and goes
-  home.
-- `src/lib/auth/AuthProvider.tsx` — session store (localStorage-backed,
-  `useSyncExternalStore`); `useAuth()` exposes `session` / `signIn` / `signOut`.
-- `src/components/auth/*` — shared form primitives (Button, Field,
-  PasswordField, Alert, AuthCard, AuthHeader) per the auth-screens design spec.
-
-## Checks
-
-```bash
-npm run lint   # eslint
-npm test       # vitest (unit)
-npm run build  # production build + typecheck
-```
-
-## Auth notes / open questions
-
-Per Fatima's `docs/design/auth-screens.md`, the Sign Up spec lists a **Full
-name** field, but the sc-39 backend contract (`SignupRequest`) accepts only
-email + password. The form intentionally matches the API so signup works
-end-to-end. Collecting a name requires a backend contract change first — see
-kanban task t_514f91af for the escalation to Adnan.
+- Access token: memory only. Refresh token: HttpOnly cookie, never in JS.
+- Only `{accountId, role, email}` is persisted (`hff.session.v1`) as a
+  non-secret identity hint.
+- Security headers (CSP/HSTS/nosniff/frame denial) are applied in
+  `src/hooks.server.ts`, including to proxied API responses.

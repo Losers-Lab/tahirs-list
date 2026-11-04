@@ -15,98 +15,101 @@ export type DayHours = { day: string; value: string; closed?: boolean };
 
 /** Verification certificate — the trust centerpiece (detail-page.md §1.2). */
 export type Certificate = {
-  certifier: string;
-  reviewedOn: string; // ISO date
-  expiresOn: string; // ISO date
-  certificateUrl?: string;
+	certifier: string;
+	reviewedOn: string; // ISO date
+	expiresOn: string; // ISO date
+	certificateUrl?: string;
 };
 
 /** One pre-rendered thumbnail width the backend serves (sc-183). */
 export type ImageSrcsetEntry = {
-  /** Approximate served width in px (400/768/1280/1920). */
-  width: number;
-  /** Same-origin `GET /v1/listings/{id}/image?variant=thumbnail_<width>` URL. */
-  url: string;
+	/** Approximate served width in px (400/768/1280/1920). */
+	width: number;
+	/** Same-origin `GET /v1/listings/{id}/image?variant=thumbnail_<width>` URL. */
+	url: string;
 };
 
 export type Restaurant = {
-  /** The listing's backend UUID (routes: /restaurants/{id}). */
-  id: string;
-  name: string;
-  /** Flat street line — remains the single source even after sc-187. */
-  address: string;
-  /**
-   * sc-187 structured address fields (read surface). Nullable/absent on
-   * pre-ingest/legacy rows and user-added listings yet to be geocoded — see
-   * `fullAddress()` for the graceful fallback to the flat `address` line.
-   */
-  city?: string;
-  province?: string;
-  postal?: string;
-  country?: string;
-  lat: number;
-  lng: number;
-  cuisine: string;
-  /** sc-42: hand-cut is an on/off boolean extra. null = unknown (e.g. legacy/seed rows). */
-  isHandCut: boolean | null;
-  /**
-   * sc-184: service-mode delivery flag, on the same tri-state pattern as
-   * `isHandCut`. Delivery is an EXTRA on/off flag a listing claims — pickup is
-   * the implicit baseline default, so `null` = unknown / not claimed and
-   * `false` = pickup-only. Cards/detail surface it only when `true`.
-   */
-  isDelivery: boolean | null;
-  rating?: number;
-  reviewCount?: number;
-  distanceMi?: number;
-  phone?: string;
-  website?: string;
-  /**
-   * sc-157 pre-sc-183 fallback: browse/search card variant (≤400px thumbnail,
-   * low bandwidth). The backend still emits it for backward compat, but since
-   * sc-183 cards source from `imageSrcset`'s WIDEST title variant (so
-   * next/image can downscale sharply at every srcset width) this is only the
-   * fallback when no `imageSrcset` is present (e.g. pre-ingest / old fixtures).
-   * Absent before a photo is ingested — render the quiet placeholder, never a
-   * broken image. Cards NEVER request `imageUrl` (full-res).
-   */
-  imageThumbnailUrl?: string;
-  /**
-   * sc-183: the backend's pre-rendered multi-width thumbnail set
-   * (400/768/1280/1920). Cards use this to pick the WIDEST title variant as
-   * the next/image `src`, so every srcset width is downscaled from a
-   * sufficiently-large source and serves sharp (no upscaling for blurry
-   * mobile thumbs). Absent pre-ingest or on old data → fall back to
-   * `imageThumbnailUrl`.
-   */
-  imageSrcset?: ImageSrcsetEntry[];
-  /**
-   * sc-157: detail-page full-res original. The detail hero is the only surface
-   * that requests this variant. Absent → same quiet placeholder as cards.
-   */
-  imageUrl?: string;
-  /** Edge: absent when unknown — render without the primitive (never "N/A"). */
-  hours?: DayHours[];
-  certificate?: Certificate;
-  /**
-   * sc-49: the backend read surface's authoritative verification state
-   * (`ListingReadController` emits it on browse/search/detail after the
-   * sc-46/73 verification vertical landed). Absent on legacy fixtures/seed —
-   * `verificationStatus()` falls back to deriving from `certificate`.
-   */
-  verificationStatus?: VerificationStatus;
+	/** The listing's backend UUID (routes: /restaurants/{id}). */
+	id: string;
+	name: string;
+	/** Flat street line — remains the single source even after sc-187. */
+	address: string;
+	/**
+	 * sc-187 structured address fields (read surface). Nullable/absent on
+	 * pre-ingest/legacy rows and user-added listings yet to be geocoded — see
+	 * `fullAddress()` for the graceful fallback to the flat `address` line.
+	 */
+	city?: string;
+	province?: string;
+	postal?: string;
+	country?: string;
+	lat: number;
+	lng: number;
+	cuisine: string;
+	/** sc-42: hand-cut is an on/off boolean extra. null = unknown (e.g. legacy/seed rows). */
+	isHandCut: boolean | null;
+	/**
+	 * sc-184: service-mode delivery flag, on the same tri-state pattern as
+	 * `isHandCut`. Delivery is an EXTRA on/off flag a listing claims — pickup is
+	 * the implicit baseline default, so `null` = unknown / not claimed and
+	 * `false` = pickup-only. Cards/detail surface it only when `true`.
+	 */
+	isDelivery: boolean | null;
+	rating?: number;
+	reviewCount?: number;
+	distanceMi?: number;
+	phone?: string;
+	website?: string;
+	/**
+	 * sc-157 pre-sc-183 fallback: browse/search card variant (≤400px thumbnail,
+	 * low bandwidth). The backend still emits it for backward compat, but since
+	 * sc-183 cards source from `imageSrcset`'s WIDEST title variant (so
+	 * next/image can downscale sharply at every srcset width) this is only the
+	 * fallback when no `imageSrcset` is present (e.g. pre-ingest / old fixtures).
+	 * Absent before a photo is ingested — render the quiet placeholder, never a
+	 * broken image. Cards NEVER request `imageUrl` (full-res).
+	 */
+	imageThumbnailUrl?: string;
+	/**
+	 * sc-183: the backend's pre-rendered multi-width thumbnail set
+	 * (400/768/1280/1920). Cards use this to pick the WIDEST title variant as
+	 * the next/image `src`, so every srcset width is downscaled from a
+	 * sufficiently-large source and serves sharp (no upscaling for blurry
+	 * mobile thumbs). Absent pre-ingest or on old data → fall back to
+	 * `imageThumbnailUrl`.
+	 */
+	imageSrcset?: ImageSrcsetEntry[];
+	/**
+	 * sc-157: detail-page full-res original. The detail hero is the only surface
+	 * that requests this variant. Absent → same quiet placeholder as cards.
+	 */
+	imageUrl?: string;
+	/** Edge: absent when unknown — render without the primitive (never "N/A"). */
+	hours?: DayHours[];
+	certificate?: Certificate;
+	/**
+	 * sc-49: the backend read surface's authoritative verification state
+	 * (`ListingReadController` emits it on browse/search/detail after the
+	 * sc-46/73 verification vertical landed). Absent on legacy fixtures/seed —
+	 * `verificationStatus()` falls back to deriving from `certificate`.
+	 */
+	verificationStatus?: VerificationStatus;
 };
 
 /** Which listing a card is: verified iff the backend (or a certificate) says so. */
-export type VerificationStatus = "VERIFIED" | "UNVERIFIED";
+export type VerificationStatus = 'VERIFIED' | 'UNVERIFIED';
 
 export function verificationStatus(r: Restaurant): VerificationStatus {
-  // The backend read surface is authoritative when present (sc-49). Without it
-  // (legacy fixtures / seeds), fall back to the certificate-derived state.
-  if (r.verificationStatus) return r.verificationStatus;
-  if (!r.certificate) return "UNVERIFIED";
-  const expired = new Date(r.certificate.expiresOn).getTime() < Date.now();
-  return expired ? "UNVERIFIED" : "VERIFIED";
+	// The backend read surface is authoritative when present (sc-49). Without it
+	// (legacy fixtures / seeds), fall back to the certificate-derived state —
+	// using the same local, date-only parsing as expiryState. A missing or
+	// invalid expiry is unknown, never treated as verified.
+	if (r.verificationStatus) return r.verificationStatus;
+	if (!r.certificate || !r.certificate.expiresOn) return 'UNVERIFIED';
+	const expires = parseDate(r.certificate.expiresOn).getTime();
+	if (!Number.isFinite(expires) || expires < Date.now()) return 'UNVERIFIED';
+	return 'VERIFIED';
 }
 
 /**
@@ -119,13 +122,13 @@ export function verificationStatus(r: Restaurant): VerificationStatus {
  * `address` street line — never an empty string, never "N/A".
  */
 export function fullAddress(r: Restaurant): string {
-  const { address, city, province, postal } = r;
-  if (!city && !province && !postal) return address;
-  const parts: string[] = [address];
-  if (city) parts.push(city);
-  const region = [province, postal].filter(Boolean).join(" ");
-  if (region) parts.push(region);
-  return parts.join(", ");
+	const { address, city, province, postal } = r;
+	if (!city && !province && !postal) return address;
+	const parts: string[] = [address];
+	if (city) parts.push(city);
+	const region = [province, postal].filter(Boolean).join(' ');
+	if (region) parts.push(region);
+	return parts.join(', ');
 }
 
 /**
@@ -140,12 +143,11 @@ export function fullAddress(r: Restaurant): string {
  * cards).
  */
 export function cardThumbSource(r: Restaurant): string | undefined {
-  if (r.imageSrcset?.length) {
-    return r.imageSrcset.reduce((widest, entry) =>
-      entry.width > widest.width ? entry : widest,
-    ).url;
-  }
-  return r.imageThumbnailUrl;
+	if (r.imageSrcset?.length) {
+		return r.imageSrcset.reduce((widest, entry) => (entry.width > widest.width ? entry : widest))
+			.url;
+	}
+	return r.imageThumbnailUrl;
 }
 
 /**
@@ -164,35 +166,47 @@ export function cardThumbSource(r: Restaurant): string | undefined {
  * sharp srcset downscaling is preserved.
  */
 export function cardThumbFallback(r: Restaurant): string | undefined {
-  if (r.imageThumbnailUrl) return r.imageThumbnailUrl;
-  if (r.imageSrcset?.length) {
-    return r.imageSrcset.reduce((narrowest, entry) =>
-      entry.width < narrowest.width ? entry : narrowest,
-    ).url;
-  }
-  return undefined;
+	if (r.imageThumbnailUrl) return r.imageThumbnailUrl;
+	if (r.imageSrcset?.length) {
+		return r.imageSrcset.reduce((narrowest, entry) =>
+			entry.width < narrowest.width ? entry : narrowest
+		).url;
+	}
+	return undefined;
 }
 
 /** Compute the detail page's cert expiry state (detail-page.md §1.2). */
-export type ExpiryState = "valid" | "expiring" | "expired" | "none";
+export type ExpiryState = 'valid' | 'expiring' | 'expired' | 'none';
 
 const EXPIRING_SOON_DAYS = 60;
 
+/**
+ * `expiresOn` is a calendar date (`YYYY-MM-DD`). `new Date('2027-01-12')`
+ * parses as UTC midnight, which renders as the *previous* day in the Americas.
+ * Parse date-only values in local time; leave instants to the native parser.
+ */
+function parseDate(iso: string): Date {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+	if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+	return new Date(iso);
+}
+
 export function expiryState(c?: Certificate): ExpiryState {
-  if (!c) return "none";
-  const now = Date.now();
-  const expires = new Date(c.expiresOn).getTime();
-  if (expires < now) return "expired";
-  const daysLeft = Math.ceil((expires - now) / 86_400_000);
-  if (daysLeft <= EXPIRING_SOON_DAYS) return "expiring";
-  return "valid";
+	if (!c || !c.expiresOn) return 'none';
+	const expires = parseDate(c.expiresOn).getTime();
+	if (!Number.isFinite(expires)) return 'none';
+	const now = Date.now();
+	if (expires < now) return 'expired';
+	const daysLeft = Math.ceil((expires - now) / 86_400_000);
+	if (daysLeft <= EXPIRING_SOON_DAYS) return 'expiring';
+	return 'valid';
 }
 
 /** Human date, e.g. "Aug 12, 2026" — never raw ISO in UI. */
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+	return parseDate(iso).toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric'
+	});
 }

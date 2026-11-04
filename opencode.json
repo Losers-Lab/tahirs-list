@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "context7": {
@@ -22,7 +22,7 @@
         "kotlin-lib-mcp-cache:/home/mcp/.cache",
         "ghcr.io/aoreshkov/kotlin-lib-mcp@sha256:f8368f3d7aa543a58726b94f417614496f5ffcad3a6a7ef660a99978ae73180b"
       ],
-      "enabled": false
+      "enabled": true
     },
     "svelte": {
       "type": "remote",

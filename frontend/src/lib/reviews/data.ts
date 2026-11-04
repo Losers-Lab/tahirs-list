@@ -1,9 +1,6 @@
-import {
-  api,
-  type VerificationReview,
-} from "@/lib/api/client";
-import { getRestaurant } from "@/lib/listings/data";
-import type { Restaurant } from "@/lib/listings/restaurants";
+import { api, type VerificationReview } from '../api/client';
+import { getRestaurant } from '../listings/data';
+import type { Restaurant } from '../listings/restaurants';
 
 /**
  * sc-73 Verification Committee review read seam. The backend's pending-workqueue
@@ -20,8 +17,8 @@ import type { Restaurant } from "@/lib/listings/restaurants";
 
 /** A pending review enriched with the listing's live details (for the UI). */
 export type ReviewWithListing = VerificationReview & {
-  /** Resolved listing details; undefined when the listing no longer exists. */
-  listing?: Restaurant;
+	/** Resolved listing details; undefined when the listing no longer exists. */
+	listing?: Restaurant;
 };
 
 /**
@@ -30,18 +27,18 @@ export type ReviewWithListing = VerificationReview & {
  * never fails the whole queue/enrichment.
  */
 export async function fetchVerificationQueue(): Promise<ReviewWithListing[]> {
-  const reviews = await api.getVerificationReviews();
-  const withListings = await Promise.all(
-    reviews.map(async (review): Promise<ReviewWithListing> => {
-      try {
-        const listing = await getRestaurant(review.listingId);
-        return { ...review, listing };
-      } catch {
-        // Treat an unresolvable listing as "listing unavailable" rather than
-        // dropping its review from the queue (or failing the whole batch).
-        return { ...review, listing: undefined };
-      }
-    }),
-  );
-  return withListings;
+	const reviews = await api.getVerificationReviews();
+	const withListings = await Promise.all(
+		reviews.map(async (review): Promise<ReviewWithListing> => {
+			try {
+				const listing = await getRestaurant(review.listingId);
+				return { ...review, listing };
+			} catch {
+				// Treat an unresolvable listing as "listing unavailable" rather than
+				// dropping its review from the queue (or failing the whole batch).
+				return { ...review, listing: undefined };
+			}
+		})
+	);
+	return withListings;
 }
