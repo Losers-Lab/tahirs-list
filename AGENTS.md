@@ -95,7 +95,7 @@ toolchain is missing, that's a signal to containerize, not to install.
   No JDK/Gradle needed on the machine.
 - **Frontend (SvelteKit 3 + Vite 8):** `./scripts/frontend-test.sh` — frozen
   `pnpm install` + `svelte-check` + `vitest run` + `vite build` in a
-  `node:22-slim` container. `./scripts/frontend-test.sh dev-install` allows
+  `node:24-slim` container. `./scripts/frontend-test.sh dev-install` allows
   lockfile drift; `test-only` runs check + tests. `./scripts/frontend-dev.sh`
   serves the dev app on `:5173`. The script caps container memory/CPU and
   Rolldown worker threads; Playwright is deliberately not in the default run.

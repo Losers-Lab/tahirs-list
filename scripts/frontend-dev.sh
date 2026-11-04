@@ -33,14 +33,16 @@ case "$(uname -s)" in
     ;;
 esac
 
-IMAGE="${FRONTEND_IMAGE:-node:22-slim}"
+IMAGE="${FRONTEND_IMAGE:-node:24-slim}"
 PNPM_STORE_VOLUME="${FRONTEND_PNPM_STORE_VOLUME:-tahirs-list-pnpm-store}"
 NODE_MODULES_VOLUME="${FRONTEND_NODE_MODULES_VOLUME:-tahirs-list-frontend-node_modules}"
-API_TARGET="${API_PROXY_TARGET:-http://host.docker.internal:8080}"
+# The self-hosted backend is published on host port 8081 (8080 inside its container).
+API_TARGET="${API_PROXY_TARGET:-http://host.docker.internal:8081}"
 
 docker run --rm -it \
-  --memory="${FRONTEND_MEMORY_LIMIT:-2g}" \
-  --cpus="${FRONTEND_CPU_LIMIT:-4}" \
+  --memory="${FRONTEND_MEMORY_LIMIT:-1g}" \
+  --cpus="${FRONTEND_CPU_LIMIT:-2}" \
+  --pids-limit=512 \
   --add-host=host.docker.internal:host-gateway \
   -p 5173:5173 \
   -v "$HOST_DIR":/app \
@@ -48,9 +50,9 @@ docker run --rm -it \
   -v "$NODE_MODULES_VOLUME":/app/node_modules \
   -v "$PNPM_STORE_VOLUME":/pnpm-store \
   -e API_PROXY_TARGET="$API_TARGET" \
-  -e ROLLDOWN_WORKER_THREADS=4 \
-  -e ROLLDOWN_MAX_BLOCKING_THREADS=4 \
-  -e RAYON_NUM_THREADS=4 \
-  -e NODE_OPTIONS="--max-old-space-size=1024" \
+  -e ROLLDOWN_WORKER_THREADS=2 \
+  -e ROLLDOWN_MAX_BLOCKING_THREADS=2 \
+  -e RAYON_NUM_THREADS=2 \
+  -e NODE_OPTIONS="--max-old-space-size=768" \
   "$IMAGE" \
   bash -lc "corepack enable >/dev/null 2>&1; pnpm config set store-dir /pnpm-store >/dev/null 2>&1; pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0"

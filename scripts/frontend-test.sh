@@ -47,12 +47,12 @@ case "$(uname -s)" in
     ;;
 esac
 
-IMAGE="${FRONTEND_IMAGE:-node:22-slim}"
+IMAGE="${FRONTEND_IMAGE:-node:24-slim}"
 PNPM_STORE_VOLUME="${FRONTEND_PNPM_STORE_VOLUME:-tahirs-list-pnpm-store}"
 NODE_MODULES_VOLUME="${FRONTEND_NODE_MODULES_VOLUME:-tahirs-list-frontend-node_modules}"
-MEMORY_LIMIT="${FRONTEND_MEMORY_LIMIT:-3g}"
-CPU_LIMIT="${FRONTEND_CPU_LIMIT:-4}"
-BUILD_HEAP_MB="${FRONTEND_BUILD_HEAP_MB:-2048}"
+MEMORY_LIMIT="${FRONTEND_MEMORY_LIMIT:-2g}"
+CPU_LIMIT="${FRONTEND_CPU_LIMIT:-2}"
+BUILD_HEAP_MB="${FRONTEND_BUILD_HEAP_MB:-1536}"
 
 INSTALL_CMD="pnpm install --frozen-lockfile"
 if [ "$MODE" = "dev-install" ]; then
@@ -76,9 +76,10 @@ docker run --rm \
   -w /app \
   -v "$NODE_MODULES_VOLUME":/app/node_modules \
   -v "$PNPM_STORE_VOLUME":/pnpm-store \
-  -e ROLLDOWN_WORKER_THREADS=4 \
-  -e ROLLDOWN_MAX_BLOCKING_THREADS=4 \
-  -e RAYON_NUM_THREADS=4 \
+  --pids-limit=512 \
+  -e ROLLDOWN_WORKER_THREADS=2 \
+  -e ROLLDOWN_MAX_BLOCKING_THREADS=2 \
+  -e RAYON_NUM_THREADS=2 \
   -e NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB}" \
   "$IMAGE" \
   bash -lc "corepack enable >/dev/null 2>&1; pnpm config set store-dir /pnpm-store >/dev/null 2>&1; $RUN_CMD"
