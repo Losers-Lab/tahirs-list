@@ -5,6 +5,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 
 export default defineConfig({
+	server: {
+		allowedHosts: ['dev.tahirslist.com', '.tahirslist.com']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({
