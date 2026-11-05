@@ -39,6 +39,7 @@
 	class="group relative overflow-hidden rounded-lg border-[1.5px] border-kraft-200 bg-ink-0 shadow-card transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:shadow-pop motion-reduce:transition-none motion-reduce:hover:translate-y-0"
 >
 	<div class="relative aspect-video bg-kraft-100">
+		<!-- sizes="100vw" is the founder's max-monitor baseline (sc-183) — do not narrow it. -->
 		<RestaurantPhoto
 			src={cardThumbSource(restaurant)}
 			fallbackSrc={cardThumbFallback(restaurant)}
@@ -46,7 +47,7 @@
 			alt={restaurant.name}
 			sizes="100vw"
 		/>
-		<div class="absolute top-3 left-3">
+		<div class="absolute top-3 left-3 z-10">
 			<FavoriteButton listingId={restaurant.id} {restaurant} variant="card" />
 		</div>
 		{#if verified}

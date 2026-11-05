@@ -19,10 +19,10 @@
 	<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 		{#each skeletonKeys as key (key)}
 			<div class="overflow-hidden rounded-lg border-[1.5px] border-kraft-200 bg-ink-0 shadow-card">
-				<div class="aspect-video bg-ink-100"></div>
+				<div class="aspect-video animate-pulse bg-ink-100 motion-reduce:animate-none"></div>
 				<div class="space-y-3 p-5">
-					<div class="h-4 w-3/4 rounded bg-ink-100"></div>
-					<div class="h-3 w-1/2 rounded bg-ink-100"></div>
+					<div class="h-4 w-3/4 animate-pulse rounded bg-ink-100 motion-reduce:animate-none"></div>
+					<div class="h-3 w-1/2 animate-pulse rounded bg-ink-100 motion-reduce:animate-none"></div>
 				</div>
 			</div>
 		{/each}
@@ -53,14 +53,13 @@
 				<button
 					type="button"
 					onclick={onRetry}
-					class="rounded-full bg-ink-900 px-3 py-1 text-small font-medium text-cream-50 shadow-chip hover:bg-ink-700"
+					class="inline-flex min-h-11 items-center rounded-md bg-ink-900 px-4 text-label text-cream-50 shadow-chip hover:bg-ink-700"
 				>
 					Retry
 				</button>
 			{/if}
 		</span>
 	</div>
-	<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"></div>
 {:else if restaurants.length === 0}
 	<div class="rounded-lg border border-dashed border-kraft-300 bg-ink-0 p-10 text-center">
 		<SealMark class="mx-auto h-12 w-12 text-ink-300" srLabel="Empty" />
@@ -70,7 +69,7 @@
 		</p>
 		<a
 			href={emptyHref}
-			class="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
+			class="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
 		>
 			Add a restaurant
 		</a>

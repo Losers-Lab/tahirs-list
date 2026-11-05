@@ -102,7 +102,7 @@
 		<button
 			type="button"
 			onclick={goBack}
-			class="text-small text-ink-700 underline-offset-2 hover:text-brand-600 hover:underline"
+			class="inline-flex min-h-11 items-center text-small text-ink-700 underline-offset-2 hover:text-brand-600 hover:underline"
 		>
 			← Back to results
 		</button>
@@ -129,7 +129,7 @@
 				<button
 					type="button"
 					onclick={() => (reload += 1)}
-					class="inline-flex h-11 items-center justify-center rounded-full bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
+					class="inline-flex h-11 items-center justify-center rounded-md bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
 				>
 					Retry
 				</button>
@@ -145,7 +145,7 @@
 			<div class="mt-6">
 				<a
 					href="/search"
-					class="inline-flex h-11 items-center justify-center rounded-full bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
+					class="inline-flex h-11 items-center justify-center rounded-md bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
 				>
 					Browse all spots
 				</a>
@@ -154,7 +154,7 @@
 	{:else}
 		<div>
 			<div
-				class="relative aspect-[16/7] overflow-hidden rounded-lg border border-kraft-200 shadow-card"
+				class="relative aspect-[16/9] overflow-hidden rounded-lg border border-kraft-200 shadow-card md:aspect-[16/7]"
 			>
 				<RestaurantPhoto
 					src={restaurant.imageUrl}
@@ -170,7 +170,7 @@
 			<div class="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<div class="flex flex-wrap items-center gap-2">
-						<h1 class="font-display text-[2rem] leading-[2.375rem] font-extrabold text-ink-900">
+						<h1 class="font-display text-page-title text-ink-900">
 							{restaurant.name}
 						</h1>
 						{#if verified && showVerifiedBadge}
@@ -259,10 +259,22 @@
 											{hour.value}
 											{#if isToday}
 												<span
-													class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-small font-medium text-stamp-700"
-													style="background-color: var(--color-stamp-50);"
+													class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-small font-medium {hour.closed
+														? 'bg-ink-100 text-ink-500'
+														: 'bg-stamp-50 text-stamp-700'}"
 												>
-													<span aria-hidden="true">●</span> Open
+													<svg
+														aria-hidden="true"
+														width="8"
+														height="8"
+														viewBox="0 0 8 8"
+														fill={hour.closed ? 'none' : 'currentColor'}
+														stroke="currentColor"
+														stroke-width="1.5"
+													>
+														<circle cx="4" cy="4" r="3" />
+													</svg>
+													{hour.closed ? 'Closed' : 'Open'}
 												</span>
 											{/if}
 										</span>

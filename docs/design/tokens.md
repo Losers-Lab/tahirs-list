@@ -119,6 +119,7 @@ Fonts (Google, free): **Archivo** — headings, buttons, labels, wordmark. **Spa
 |---|---|---|---|
 | --text-display | 40/44 | Archivo 800 | Homepage hero, page titles |
 | --text-title | 24/30 | Archivo 700 | Screen titles |
+| --text-page-title | 32/38 | Archivo 800 | Restaurant name on the detail page (`detail-page.md` §1.1) |
 | --text-heading | 18/24 | Archivo 700 | Card headings, restaurant names |
 | --text-label | 14/18 | Archivo 600 | Buttons, chips, badges, form labels |
 | --text-body | 15/24 | Space Grotesk 400 | Body copy |
@@ -187,12 +188,20 @@ Drop-in `@theme` block for Maryam (`styles/tokens.css`, imported first):
   --color-focus: #C6381F;
 
   /* Type */
+  /* NOTE (2026-11-05): Tailwind v4 only honours --text-*--line-height,
+     --text-*--font-weight and --text-*--letter-spacing. It silently ignores
+     --text-*--font-family, so the frontend binds Archivo for the display /
+     page-title / title / heading / label roles in app.css (@layer components).
+     Do not add font-family companions here; they do nothing. */
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
-  --text-display: 2.5rem; --text-display--line-height: 2.75rem; --text-display--font-weight: 800; --text-display--font-family: var(--font-display);
-  --text-title: 1.5rem; --text-title--line-height: 1.875rem; --text-title--font-weight: 700; --text-title--font-family: var(--font-display);
-  --text-heading: 1.125rem; --text-heading--line-height: 1.5rem; --text-heading--font-weight: 700; --text-heading--font-family: var(--font-display);
-  --text-label: 0.875rem; --text-label--line-height: 1.125rem; --text-label--font-weight: 600; --text-label--font-family: var(--font-display);
+  --text-display: 2.5rem; --text-display--line-height: 2.75rem; --text-display--font-weight: 800;
+  --text-title: 1.5rem; --text-title--line-height: 1.875rem; --text-title--font-weight: 700;
+  /* Detail-page name (32/38, Archivo 800). Amended 2026-11-05 from detail-page.md
+     §1.1: the value already shipped hardcoded; only the token is new. */
+  --text-page-title: 2rem; --text-page-title--line-height: 2.375rem; --text-page-title--font-weight: 800;
+  --text-heading: 1.125rem; --text-heading--line-height: 1.5rem; --text-heading--font-weight: 700;
+  --text-label: 0.875rem; --text-label--line-height: 1.125rem; --text-label--font-weight: 600;
   --text-body: 0.9375rem; --text-body--line-height: 1.5rem;
   --text-small: 0.8125rem; --text-small--line-height: 1.125rem;
 

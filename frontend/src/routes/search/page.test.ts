@@ -12,7 +12,8 @@ vi.mock('$app/state', () => ({
 }));
 
 vi.mock('$app/navigation', () => ({
-	goto: vi.fn()
+	goto: vi.fn(),
+	afterNavigate: vi.fn()
 }));
 
 // The page's ListingsController imports `./data`; the alias resolves to the
@@ -148,6 +149,8 @@ describe('SearchPage — search-first + browse chips (search-browse.md)', () => 
 		expect(await screen.findByText('Nothing matches yet')).toBeInTheDocument();
 		// Never an error surface for zero results.
 		expect(screen.queryByText(/couldn't load/i)).not.toBeInTheDocument();
+		// The count line must not contradict the panel ("showing similar").
+		expect(screen.getByTestId('result-count')).toHaveTextContent('');
 	});
 
 	it('browse chip filters through the data layer with aria-pressed', async () => {

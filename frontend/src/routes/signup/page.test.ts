@@ -7,7 +7,8 @@ import { api, ApiError } from '#lib/api/client';
 import Page from './+page.svelte';
 
 vi.mock('$app/navigation', () => ({
-	goto: vi.fn()
+	goto: vi.fn(),
+	afterNavigate: vi.fn()
 }));
 
 vi.mock('#lib/api/client', () => {

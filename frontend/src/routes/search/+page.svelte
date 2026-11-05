@@ -44,15 +44,15 @@
 		</div>
 	</section>
 
-	<section class="mt-10" aria-live="polite">
+	<section class="mt-10 border-t-[1.5px] border-dashed border-kraft-300 pt-8" aria-live="polite">
 		<p class="mb-5 text-body text-ink-500" data-testid="result-count">
-			{#if listings.status === 'success'}
-				{#if listings.restaurants.length === 0}
-					No exact match — showing similar
-				{:else}
+			{#if listings.status === 'success' && listings.restaurants.length > 0}
+				{#if listings.verifiedCount > 0}
 					{listings.verifiedCount} verified · {listings.restaurants.length} spots near you
+				{:else}
+					{listings.restaurants.length} spots near you
 				{/if}
-			{:else}
+			{:else if listings.status === 'loading'}
 				Finding halal spots…
 			{/if}
 		</p>

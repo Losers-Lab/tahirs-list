@@ -16,7 +16,8 @@ vi.mock('$app/state', () => ({
 }));
 
 vi.mock('$app/navigation', () => ({
-	goto: vi.fn()
+	goto: vi.fn(),
+	afterNavigate: vi.fn()
 }));
 
 vi.mock('#lib/listings/data', () => ({
@@ -101,6 +102,37 @@ describe('RestaurantDetailPage — certificate trust panel (detail-page.md)', ()
 		// Exactly ONE "Unverified" badge — the title-row one. The redundant badge
 		// inside the status panel was removed (sc-185 Item 3).
 		expect(screen.getAllByText('Unverified')).toHaveLength(1);
+	});
+
+	it('marks today as Closed (icon + word) when the day is flagged closed', async () => {
+		getRestaurantMock.mockResolvedValueOnce(
+			restaurant({
+				hours: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+					day,
+					value: '—',
+					closed: true
+				}))
+			})
+		);
+		render(Page);
+
+		expect(await screen.findByText('Closed')).toBeInTheDocument();
+		expect(screen.queryByText('Open')).not.toBeInTheDocument();
+	});
+
+	it('marks today as Open when the day is not flagged closed (detail-page.md §1.3)', async () => {
+		getRestaurantMock.mockResolvedValueOnce(
+			restaurant({
+				hours: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+					day,
+					value: '11:00 – 22:00'
+				}))
+			})
+		);
+		render(Page);
+
+		expect(await screen.findByText('Open')).toBeInTheDocument();
+		expect(screen.queryByText('Closed')).not.toBeInTheDocument();
 	});
 
 	it('renders the not-found panel when the id is unknown (header/footer intact)', async () => {

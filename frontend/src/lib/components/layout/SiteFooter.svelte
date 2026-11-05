@@ -8,9 +8,14 @@
 	>
 		<span><Wordmark class="text-heading" /> · find halal food</span>
 		<nav aria-label="Footer" class="flex flex-wrap gap-4">
-			<a href="/how-verification-works" class="hover:text-brand-600">How verification works</a>
-			<a href="/add-listing" class="hover:text-brand-600">Add a restaurant</a>
-			<a href="/about" class="hover:text-brand-600">About</a>
+			<a
+				href="/how-verification-works"
+				class="inline-flex min-h-11 items-center hover:text-brand-600">How verification works</a
+			>
+			<a href="/add-listing" class="inline-flex min-h-11 items-center hover:text-brand-600"
+				>Add a restaurant</a
+			>
+			<a href="/about" class="inline-flex min-h-11 items-center hover:text-brand-600">About</a>
 		</nav>
 	</div>
 </footer>

@@ -21,7 +21,7 @@
 
 	const base = $derived(
 		variant === 'card'
-			? 'inline-flex h-9 w-9 items-center justify-center rounded-full border border-kraft-300 bg-ink-0/90 shadow-chip backdrop-blur transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500'
+			? 'inline-flex h-11 w-11 items-center justify-center rounded-full border border-kraft-300 bg-ink-0 shadow-chip transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500'
 			: 'inline-flex h-11 items-center justify-center gap-2 rounded-md border-[1.5px] px-4 text-label shadow-chip transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500'
 	);
 	const tone = $derived(

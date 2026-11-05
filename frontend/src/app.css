@@ -73,19 +73,19 @@
 	--text-display: 2.5rem;
 	--text-display--line-height: 2.75rem;
 	--text-display--font-weight: 800;
-	--text-display--font-family: var(--font-display);
 	--text-title: 1.5rem;
 	--text-title--line-height: 1.875rem;
 	--text-title--font-weight: 700;
-	--text-title--font-family: var(--font-display);
+	/* Detail-page name (docs/design/detail-page.md §1.1: 32/38 Archivo 800). */
+	--text-page-title: 2rem;
+	--text-page-title--line-height: 2.375rem;
+	--text-page-title--font-weight: 800;
 	--text-heading: 1.125rem;
 	--text-heading--line-height: 1.5rem;
 	--text-heading--font-weight: 700;
-	--text-heading--font-family: var(--font-display);
 	--text-label: 0.875rem;
 	--text-label--line-height: 1.125rem;
 	--text-label--font-weight: 600;
-	--text-label--font-family: var(--font-display);
 	--text-body: 0.9375rem;
 	--text-body--line-height: 1.5rem;
 	--text-small: 0.8125rem;
@@ -113,8 +113,49 @@
 	--color-focus-ring: 2px solid var(--color-focus);
 }
 
-body {
-	background: var(--color-cream-50);
-	color: var(--color-ink-700);
-	font-family: var(--font-sans);
+@layer base {
+	body {
+		background: var(--color-cream-50);
+		color: var(--color-ink-700);
+		font-family: var(--font-sans);
+		/* Native controls and text entry inherit the brand, not the OS default. */
+		accent-color: var(--color-brand-500);
+		caret-color: var(--color-brand-500);
+	}
+
+	::selection {
+		background: var(--color-brand-100);
+		color: var(--color-brand-900);
+	}
+
+	/* Pre-seed the ring colour so `transition-colors` (which includes
+	   outline-color) cannot fade the ring in from currentColor. */
+	:where(a, button, input, select, textarea, summary, [tabindex]) {
+		outline-color: var(--color-focus);
+	}
+
+	/*
+	 * Focus is never removed (tokens.md). Kept in the base layer so component
+	 * utilities still win — e.g. the inset ring inside the mobile tab bar.
+	 */
+	:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+		outline: var(--color-focus-ring);
+		outline-offset: 2px;
+	}
+}
+
+@layer components {
+	/*
+	 * tokens.md §2 pairs these roles with Archivo. Tailwind's `--text-*--*`
+	 * companions only cover line-height / letter-spacing / font-weight — they
+	 * cannot carry a font family — so the family is bound here. Font utilities
+	 * (`font-wordmark`, `font-sans`) still win, being in the utilities layer.
+	 */
+	.text-display,
+	.text-page-title,
+	.text-title,
+	.text-heading,
+	.text-label {
+		font-family: var(--font-display);
+	}
 }
