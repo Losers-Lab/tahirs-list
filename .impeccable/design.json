@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T00:00:00.000Z",
+  "title": "Design System: Tahir's List",
+  "extensions": {
+    "colorMeta": {
+      "brand-red": {
+        "role": "primary",
+        "displayName": "Butcher Red",
+        "canonical": "#c6381f",
+        "tonalRamp": ["#5c180b", "#8a2411", "#a82d17", "#c6381f", "#e07b63", "#f6d9d1", "#fbede9", "#fdf6f3"]
+      },
+      "stamp-green": {
+        "role": "secondary",
+        "displayName": "Stamp Green",
+        "canonical": "#1f5c3d",
+        "tonalRamp": ["#113a25", "#17492f", "#1f5c3d", "#2f7150", "#6f9d82", "#c2d6c8", "#dce8df", "#edf3ee"]
+      },
+      "paper-cream": {
+        "role": "neutral",
+        "displayName": "Paper Cream",
+        "canonical": "#fbf7ee",
+        "tonalRamp": ["#2b2118", "#453a2b", "#6b5f4b", "#8a7d63", "#b8ab90", "#dccfaf", "#efe6d2", "#fbf7ee"]
+      },
+      "danger-red": {
+        "role": "neutral",
+        "displayName": "Reserved Danger Red",
+        "canonical": "#b3261e",
+        "tonalRamp": ["#921d16", "#b3261e", "#c9463c", "#db7e75", "#eeb3ac", "#f3d8d8", "#fbefef", "#fdf7f7"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Homepage hero and page titles only." },
+      "title": { "displayName": "Title", "purpose": "Screen titles and empty-state headings." },
+      "heading": { "displayName": "Heading", "purpose": "Card names, panel headings." },
+      "body": { "displayName": "Body", "purpose": "Copy, addresses, hours, values; ≤75ch measure." },
+      "label": { "displayName": "Label", "purpose": "Buttons, chips, badges, form labels — the control voice." },
+      "wordmark": { "displayName": "Wordmark", "purpose": "Tahir's List lockup; apostrophe always brand red." }
+    },
+    "shadows": [
+      { "name": "card", "value": "3px 3px 0 rgb(43 33 24 / 0.9)", "purpose": "Listing cards, panels, skeleton blocks." },
+      { "name": "chip", "value": "2px 2px 0 rgb(43 33 24 / 0.9)", "purpose": "Buttons and small controls; collapses on press." },
+      { "name": "stamp", "value": "0 0 0 1px #c2d6c8, 2px 2px 0 rgb(31 92 61 / 0.35)", "purpose": "Verification badge and certificate panel only." },
+      { "name": "pop", "value": "4px 4px 0 rgb(43 33 24 / 0.9)", "purpose": "Dropdowns, mobile menu, toasts, modals." }
+    ],
+    "motion": [
+      { "name": "press", "value": "transform 2px 2px, box-shadow none", "purpose": "Buttons and chips stamp down on active." },
+      { "name": "lift", "value": "transform translateY(-2px), 200ms ease-out", "purpose": "Card hover; removed under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The action button: butcher red on paper, hard chip shadow, stamps down on press.",
+      "html": "<button class=\"ds-btn-primary\">Find halal food</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border: none; border-radius: 6px; background: var(--color-brand-500, #c6381f); color: var(--color-cream-50, #fbf7ee); font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; line-height: 1.125rem; box-shadow: 2px 2px 0 rgb(43 33 24 / 0.9); transition: background-color 150ms ease-out, transform 100ms ease-out, box-shadow 100ms ease-out; cursor: pointer; } .ds-btn-primary:hover { background: var(--color-brand-600, #a82d17); } .ds-btn-primary:active { transform: translate(2px, 2px); box-shadow: none; } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-focus, #c6381f); outline-offset: 2px; } .ds-btn-primary:disabled { background: #dcd2be; color: #6b5f4b; box-shadow: none; cursor: not-allowed; }"
+    },
+    {
+      "name": "Dark Chip Button",
+      "kind": "button",
+      "refersTo": "button-dark-chip",
+      "description": "Secondary-of-the-group action (Directions, Call, Retry): ink surface on paper.",
+      "html": "<button class=\"ds-btn-dark\">Directions</button>",
+      "css": ".ds-btn-dark { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; border: none; border-radius: 6px; background: var(--color-ink-900, #2b2118); color: var(--color-cream-50, #fbf7ee); font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; box-shadow: 2px 2px 0 rgb(43 33 24 / 0.9); transition: background-color 150ms ease-out, transform 100ms ease-out; cursor: pointer; } .ds-btn-dark:hover { background: var(--color-ink-700, #453a2b); } .ds-btn-dark:active { transform: translate(2px, 2px); box-shadow: none; } .ds-btn-dark:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; }"
+    },
+    {
+      "name": "Browse Chip",
+      "kind": "chip",
+      "refersTo": "chip-browse-active",
+      "description": "Filter chip; unselected is ink, selected is butcher red, with aria-pressed carrying the state.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\">All</button><button class=\"ds-chip ds-chip--on\" aria-pressed=\"true\">Hand-cut</button></div>",
+      "css": ".ds-chips { display: flex; flex-wrap: wrap; gap: 8px; } .ds-chip { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: none; border-radius: 9999px; background: #2b2118; color: #fbf7ee; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; box-shadow: 2px 2px 0 rgb(43 33 24 / 0.9); transition: background-color 150ms ease-out; cursor: pointer; } .ds-chip:hover { background: #453a2b; } .ds-chip--on { background: #c6381f; box-shadow: none; } .ds-chip:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; }"
+    },
+    {
+      "name": "Verified Stamp",
+      "kind": "custom",
+      "refersTo": "badge-verified",
+      "description": "The trust mark: a seal with a dashed edge, never a generic green pill.",
+      "html": "<span class=\"ds-stamp\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 8.5 6.5 12 13 4.5\"/></svg>Verified</span>",
+      "css": ".ds-stamp { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1.5px dashed #c2d6c8; border-radius: 4px; background: #edf3ee; color: #113a25; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 600; line-height: 1.125rem; box-shadow: 0 0 0 1px #c2d6c8, 2px 2px 0 rgb(31 92 61 / 0.35); }"
+    },
+    {
+      "name": "Unverified Tag",
+      "kind": "custom",
+      "refersTo": "tag-unverified",
+      "description": "Quiet neutral state tag — same metrics as the stamp, never red.",
+      "html": "<span class=\"ds-unverified\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"5.5\"/></svg>Unverified</span>",
+      "css": ".ds-unverified { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1.5px solid #b8ab90; border-radius: 4px; background: #f1ead9; color: #6b5f4b; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 600; line-height: 1.125rem; }"
+    },
+    {
+      "name": "Listing Card",
+      "kind": "card",
+      "refersTo": "card-listing",
+      "description": "Paper sheet on cream: 16:9 photo, name + status row, meta, attribute chips; lifts on hover.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card__photo\"></div><div class=\"ds-card__body\"><div class=\"ds-card__row\"><h3 class=\"ds-card__name\">Al-Amir Grill</h3><span class=\"ds-card__chip\">Verified</span></div><p class=\"ds-card__meta\">Middle Eastern &middot; 1.2 mi &middot; &#9733; 4.6 (89)</p></div></article>",
+      "css": ".ds-card { position: relative; overflow: hidden; border: 1.5px solid #dccfaf; border-radius: 10px; background: #fffdf6; box-shadow: 3px 3px 0 rgb(43 33 24 / 0.9); transition: transform 200ms ease-out, box-shadow 200ms ease-out; } .ds-card:hover { transform: translateY(-2px); box-shadow: 4px 4px 0 rgb(43 33 24 / 0.9); } .ds-card__photo { aspect-ratio: 16 / 9; background: linear-gradient(#eadfc9, #eadfc9); } .ds-card__body { padding: 20px; } .ds-card__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; } .ds-card__name { margin: 0; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 1.125rem; font-weight: 700; line-height: 1.5rem; color: #2b2118; } .ds-card__chip { padding: 4px 10px; border: 1.5px dashed #c2d6c8; border-radius: 4px; background: #edf3ee; color: #113a25; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 600; } .ds-card__meta { margin: 4px 0 0; font-family: 'Space Grotesk Variable', system-ui, sans-serif; font-size: 0.8125rem; line-height: 1.125rem; color: #6b5f4b; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "The page's first control: 56px paper field, kraft border, red ring on focus.",
+      "html": "<div class=\"ds-search\"><input class=\"ds-search__input\" type=\"search\" placeholder=\"Search restaurants, dishes, or area&#8230;\" aria-label=\"Search restaurants, dishes, or area\" /><button class=\"ds-search__btn\">Search</button></div>",
+      "css": ".ds-search { display: flex; gap: 12px; } .ds-search__input { height: 56px; width: 100%; padding: 0 16px; border: 1.5px solid #c9b98f; border-radius: 6px; background: #fffdf6; color: #2b2118; font-family: 'Space Grotesk Variable', system-ui, sans-serif; font-size: 0.9375rem; box-shadow: 3px 3px 0 rgb(43 33 24 / 0.9); } .ds-search__input::placeholder { color: #8a7d63; } .ds-search__input:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; border-color: #c6381f; } .ds-search__btn { height: 56px; padding: 0 24px; border: none; border-radius: 6px; background: #c6381f; color: #fbf7ee; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; box-shadow: 2px 2px 0 rgb(43 33 24 / 0.9); cursor: pointer; } .ds-search__btn:hover { background: #a82d17; } .ds-search__btn:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; }"
+    },
+    {
+      "name": "Site Header",
+      "kind": "nav",
+      "refersTo": "badge-verified",
+      "description": "64px cream bar, C2 lockup with red apostrophe, secondary links and auth on the right.",
+      "html": "<header class=\"ds-header\"><a class=\"ds-header__brand\" href=\"#\"><span class=\"ds-header__mark\"></span><span class=\"ds-header__word\">Tahir<span class=\"ds-header__apos\">&#39;</span>s List</span></a><nav class=\"ds-header__nav\"><a href=\"#\">Search</a><a href=\"#\">Add a restaurant</a></nav></header>",
+      "css": ".ds-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 64px; padding: 0 20px; border-bottom: 1.5px solid #dccfaf; background: #fbf7ee; } .ds-header__brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; } .ds-header__mark { width: 40px; height: 40px; border-radius: 29%; background: #eadfc9; box-shadow: 4px 4px 0 rgb(43 33 24 / 0.9); } .ds-header__word { font-family: 'Archivo Black', system-ui, sans-serif; font-size: 1.5rem; letter-spacing: -0.03em; color: #2b2118; } .ds-header__apos { color: #c6381f; } .ds-header__nav { display: flex; gap: 12px; } .ds-header__nav a { font-family: 'Space Grotesk Variable', system-ui, sans-serif; font-size: 0.8125rem; color: #453a2b; text-decoration: none; } .ds-header__nav a:hover { color: #a82d17; } .ds-header__nav a:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Butcher's Stamp",
+    "overview": "The product looks like the paper a halal butcher wraps food in: a warm cream ground, kraft-toned rules, ink-dark type, and a red brand stamp pressed onto it. Trust is not a green dot — it is a seal, rendered as a literal stamp with a dashed edge, because the product's promise is that a human reviewed a certificate. Nothing is clinical, nothing glows, nothing floats. The system is deliberately physical. Corners are nearly square (4–10px), shadows are hard offset blocks of ink rather than soft blur, and pressing a control translates it into its own shadow. Type does the hierarchy work: Archivo carries voice (wordmark, headings, labels, buttons), Space Grotesk carries reading (body, meta, numerals).",
+    "keyCharacteristics": [
+      "Cream paper ground (#fbf7ee) everywhere, kraft-rule borders, ink type.",
+      "Butcher red for actions and the wordmark apostrophe; stamp green only for verification.",
+      "Verification drawn as a seal: dashed stamp-200 edge, stamp-50 fill, stamp-700 mark.",
+      "Hard offset shadows; press-down interaction; no soft blur, no glass, no gradients.",
+      "Colorblind-safe by construction: every status pairs a distinct glyph family with a word."
+    ],
+    "rules": [
+      { "name": "The Two Reds Rule", "body": "Brand red and danger red never share a component. Errors are recognized by the alert triangle plus wording, not by hue.", "section": "colors" },
+      { "name": "The Green Means Reviewed Rule", "body": "Stamp green is reserved for a certificate a committee actually reviewed. Form success is neutral ink confirmation; a lapse is informational, never green and never red.", "section": "colors" },
+      { "name": "The Two-Face Rule", "body": "Archivo never sets a paragraph and Space Grotesk never sets a button.", "section": "typography" },
+      { "name": "The One Ground Rule", "body": "No page introduces a second background color. Banding, if used, is cream-tinted; panels sit on it as paper-white sheets.", "section": "layout" },
+      { "name": "The Press-Down Rule", "body": "Every pressable control translates by its own shadow offset and collapses the shadow; reduced motion keeps the shadow change only.", "section": "elevation" },
+      { "name": "The No-Soft-Corner Rule", "body": "If a surface needs to feel soft, it is wrong for this world — tighten the radius.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do use tokens for every color, radius and shadow; a hardcoded hex is a bug.",
+      "Do pair every status color with a glyph family and a word.",
+      "Do keep Verified and Unverified metrics identical so grids do not shift.",
+      "Do keep interactive targets at least 44×44px, including icon-only controls.",
+      "Do reserve the dashed border for seals, dividers and empty panels."
+    ],
+    "donts": [
+      "Don't use stamp green for generic success, or danger red for Unverified.",
+      "Don't put brand red and danger red in the same component.",
+      "Don't soften to large radii, blurred shadows, glass panels, or gradient text.",
+      "Don't introduce a second page background or a second accent.",
+      "Don't add a border-left/right accent stripe on alerts or cards.",
+      "Don't invent imagery, testimonials, ratings or certifiers that are not in data."
+    ]
+  }
+}
