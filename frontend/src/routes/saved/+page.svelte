@@ -29,7 +29,7 @@
 				</p>
 				<a
 					href="/login"
-					class="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-brand-500 px-4 text-body font-medium text-cream-50 shadow-chip hover:bg-brand-600"
+					class="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-brand-500 px-4 text-label text-cream-50 shadow-chip hover:bg-brand-600"
 				>
 					Log in
 				</a>
@@ -65,7 +65,7 @@
 				</p>
 				<a
 					href="/search"
-					class="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
+					class="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-ink-900 px-6 text-label text-cream-50 shadow-chip hover:bg-ink-700"
 				>
 					Browse restaurants
 				</a>

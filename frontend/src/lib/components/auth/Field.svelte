@@ -61,7 +61,7 @@
 		{oninput}
 		aria-invalid={hasError || undefined}
 		aria-describedby={describedBy}
-		class="h-11 w-full rounded-md border bg-ink-0 px-3 text-body text-ink-900 placeholder:text-ink-400 focus:outline-2 focus:outline-offset-0 focus:outline-brand-500 {hasError
+		class="h-11 w-full rounded-md border bg-ink-0 px-3 text-body text-ink-900 placeholder:text-ink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 {hasError
 			? 'border-danger-500'
 			: 'border-kraft-300'}"
 	/>

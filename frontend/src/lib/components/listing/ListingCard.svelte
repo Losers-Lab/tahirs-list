@@ -39,6 +39,7 @@
 	class="group relative overflow-hidden rounded-lg border-[1.5px] border-kraft-200 bg-ink-0 shadow-card transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:shadow-pop motion-reduce:transition-none motion-reduce:hover:translate-y-0"
 >
 	<div class="relative aspect-video bg-kraft-100">
+		<!-- sizes="100vw" is the founder's max-monitor baseline (sc-183) — do not narrow it. -->
 		<RestaurantPhoto
 			src={cardThumbSource(restaurant)}
 			fallbackSrc={cardThumbFallback(restaurant)}
@@ -58,7 +59,7 @@
 
 	<div class="p-5">
 		<div class="flex items-start justify-between gap-2">
-			<h3 class="text-heading text-ink-900">
+			<h3 class="text-heading text-pretty text-ink-900">
 				<a
 					href="/restaurants/{restaurant.id}"
 					class="after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"

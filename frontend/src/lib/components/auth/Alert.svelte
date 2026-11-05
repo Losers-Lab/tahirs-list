@@ -10,7 +10,7 @@
 
 	const styles =
 		variant === 'banner'
-			? 'border-l-4 border-danger-500 bg-danger-50 text-danger-600'
+			? 'border-[1.5px] border-danger-500 bg-danger-50 text-danger-600'
 			: 'border border-danger-100 bg-danger-50 text-danger-600';
 </script>
 

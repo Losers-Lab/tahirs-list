@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import Wordmark from '#lib/components/brand/Wordmark.svelte';
 	import TahirHeadIcon from '#lib/components/brand/TahirHeadIcon.svelte';
 	import AuthHeader from '#lib/components/auth/AuthHeader.svelte';
@@ -9,7 +10,19 @@
 		{ href: '/search', label: 'Search' },
 		{ href: '/add-listing', label: 'Add a restaurant' }
 	];
+
+	// The mobile panel is a navigation surface: it closes after every navigation
+	// (search-browse.md §Header) so it never covers the page it navigated to.
+	afterNavigate(() => {
+		open = false;
+	});
+
+	function onKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') open = false;
+	}
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 <header class="sticky top-0 z-30 border-b-[1.5px] border-kraft-200 bg-cream-50">
 	<div class="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-5">
@@ -55,16 +68,23 @@
 			{#if open}
 				<div
 					id="mobile-nav"
-					class="absolute top-16 right-0 left-0 z-40 border-b-[1.5px] border-kraft-200 bg-cream-50 px-5 shadow-pop"
+					class="absolute top-16 right-0 left-0 z-40 border-b-[1.5px] border-kraft-200 bg-cream-50 px-5 py-3 shadow-pop"
 				>
 					<nav class="flex flex-col">
-						<a
-							href="/search"
-							onclick={() => (open = false)}
-							class="flex min-h-11 items-center border-t border-kraft-100 px-1 py-2 text-body text-ink-700"
-						>
-							Search
-						</a>
+						{#each secondaryLinks as link (link.href)}
+							<a
+								href={link.href}
+								onclick={() => (open = false)}
+								class="flex min-h-11 items-center border-t border-kraft-100 px-1 py-2 text-body text-ink-700"
+							>
+								{link.label}
+							</a>
+						{/each}
+						<!-- Signed-out visitors (and owners) reach auth from here too; the
+						     AuthHeader is otherwise desktop-only. -->
+						<div class="mt-2 border-t border-kraft-100 pt-3">
+							<AuthHeader />
+						</div>
 					</nav>
 				</div>
 			{/if}

@@ -37,12 +37,16 @@
 		</div>
 	</section>
 
-	<section class="mt-12" aria-live="polite">
+	<section class="mt-12 border-t-[1.5px] border-dashed border-kraft-300 pt-8" aria-live="polite">
 		<div class="mb-5 flex items-baseline justify-between">
 			<p class="text-body text-ink-500" data-testid="result-count">
 				{#if listings.status === 'success' && listings.restaurants.length > 0}
-					{listings.verifiedCount} verified · {listings.restaurants.length} spots near you
-				{:else}
+					{#if listings.verifiedCount > 0}
+						{listings.verifiedCount} verified · {listings.restaurants.length} spots near you
+					{:else}
+						{listings.restaurants.length} spots near you
+					{/if}
+				{:else if listings.status === 'loading'}
 					Finding halal spots…
 				{/if}
 			</p>

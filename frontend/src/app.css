@@ -78,6 +78,11 @@
 	--text-title--line-height: 1.875rem;
 	--text-title--font-weight: 700;
 	--text-title--font-family: var(--font-display);
+	/* Detail-page name (docs/design/detail-page.md §1.1: 32/38 Archivo 800). */
+	--text-page-title: 2rem;
+	--text-page-title--line-height: 2.375rem;
+	--text-page-title--font-weight: 800;
+	--text-page-title--font-family: var(--font-display);
 	--text-heading: 1.125rem;
 	--text-heading--line-height: 1.5rem;
 	--text-heading--font-weight: 700;
@@ -117,4 +122,21 @@ body {
 	background: var(--color-cream-50);
 	color: var(--color-ink-700);
 	font-family: var(--font-sans);
+	/* Native controls and text entry inherit the brand, not the OS default. */
+	accent-color: var(--color-brand-500);
+	caret-color: var(--color-brand-500);
+}
+
+::selection {
+	background: var(--color-brand-100);
+	color: var(--color-brand-900);
+}
+
+/*
+ * Focus is never removed (tokens.md). Zero-specificity so any component that
+ * sets its own ring (e.g. the inset ring inside the mobile tab bar) still wins.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: var(--color-focus-ring);
+	outline-offset: 2px;
 }

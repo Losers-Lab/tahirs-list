@@ -20,7 +20,7 @@
 
 <nav
 	aria-label="Primary"
-	class="fixed inset-x-0 bottom-0 z-20 border-t border-kraft-300 bg-ink-0 pb-[env(safe-area-inset-bottom)] lg:hidden"
+	class="fixed inset-x-0 bottom-0 z-20 border-t-[1.5px] border-kraft-200 bg-ink-0 pb-[env(safe-area-inset-bottom)] lg:hidden"
 >
 	<div class="grid h-14 grid-cols-4">
 		{#each tabs as tab (tab.href)}

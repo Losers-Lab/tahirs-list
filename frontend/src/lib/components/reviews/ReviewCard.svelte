@@ -85,7 +85,7 @@
 						.filter(Boolean)
 						.join(' · ')}
 				</p>
-				<p class="mt-0.5 text-small text-ink-400">{listing.address}</p>
+				<p class="mt-0.5 text-small text-ink-500">{listing.address}</p>
 			{:else}
 				<h3 class="text-heading text-ink-900">Listing unavailable</h3>
 				<p class="mt-1 text-small text-ink-500">
@@ -136,7 +136,7 @@
 				aria-describedby={validation ? `deny-reason-error-${review.reviewId}` : undefined}
 				placeholder="Why are you denying this?"
 				disabled={isDeciding}
-				class="h-11 min-w-56 flex-1 rounded-md border bg-ink-0 px-3 text-body text-ink-900 placeholder:text-ink-400 focus:outline-2 focus:outline-offset-0 focus:outline-brand-500 {validation
+				class="h-11 min-w-56 flex-1 rounded-md border bg-ink-0 px-3 text-body text-ink-900 placeholder:text-ink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 {validation
 					? 'border-danger-500'
 					: 'border-kraft-300'}"
 			/>

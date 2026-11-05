@@ -2,7 +2,7 @@
 	UnverifiedTag — `[○ Unverified]`, quiet warm-ink neutral. NEVER error-red.
 -->
 <span
-	class="inline-flex items-center gap-1 rounded-sm border border-ink-300 bg-ink-100 px-2.5 py-1 text-small font-semibold text-ink-500"
+	class="inline-flex items-center gap-1 rounded-sm border-[1.5px] border-ink-300 bg-ink-100 px-2.5 py-1 text-small font-semibold text-ink-500"
 	title="This listing hasn't been verified yet. Owners can claim it and submit their halal certification for review."
 >
 	<svg

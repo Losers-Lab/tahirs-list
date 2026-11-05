@@ -24,7 +24,7 @@
 		bind:value
 		placeholder="Search restaurants, dishes, or area…"
 		autocomplete="off"
-		class="h-14 w-full rounded-md border-[1.5px] border-kraft-300 bg-ink-0 px-4 text-body text-ink-900 shadow-card placeholder:text-ink-400 focus:border-brand-500 focus:outline-2 focus:outline-offset-2 focus:outline-brand-500"
+		class="h-14 w-full rounded-md border-[1.5px] border-kraft-300 bg-ink-0 px-4 text-body text-ink-900 shadow-card placeholder:text-ink-500 focus-visible:border-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
 	/>
 	<button
 		type="submit"

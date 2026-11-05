@@ -55,7 +55,7 @@
 		<div class="mt-6">
 			<a
 				href="/login"
-				class="inline-flex h-11 items-center justify-center rounded-md bg-brand-500 px-4 text-body font-medium text-cream-50 shadow-chip hover:bg-brand-600"
+				class="inline-flex h-11 items-center justify-center rounded-md bg-brand-500 px-4 text-label text-cream-50 shadow-chip hover:bg-brand-600"
 			>
 				Log in to continue
 			</a>
@@ -76,7 +76,7 @@
 			<div class="mt-6 flex flex-wrap items-center gap-3">
 				<a
 					href="/restaurants/{encodeURIComponent(created.id)}/edit"
-					class="inline-flex h-11 items-center justify-center rounded-md bg-brand-500 px-4 text-body font-medium text-cream-50 shadow-chip hover:bg-brand-600"
+					class="inline-flex h-11 items-center justify-center rounded-md bg-brand-500 px-4 text-label text-cream-50 shadow-chip hover:bg-brand-600"
 				>
 					Edit listing
 				</a>
