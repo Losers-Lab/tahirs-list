@@ -102,7 +102,7 @@
 		<button
 			type="button"
 			onclick={goBack}
-			class="text-small text-ink-700 underline-offset-2 hover:text-brand-600 hover:underline"
+			class="inline-flex min-h-11 items-center text-small text-ink-700 underline-offset-2 hover:text-brand-600 hover:underline"
 		>
 			← Back to results
 		</button>
@@ -170,7 +170,7 @@
 			<div class="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<div class="flex flex-wrap items-center gap-2">
-						<h1 class="text-page-title text-ink-900">
+						<h1 class="font-display text-page-title text-ink-900">
 							{restaurant.name}
 						</h1>
 						{#if verified && showVerifiedBadge}

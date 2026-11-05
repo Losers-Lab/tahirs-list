@@ -78,16 +78,87 @@ Surfaces reviewed at 1440×1000 and 390×844 against `search-browse.md`, `detail
 
 ## 5. Verification performed
 
-- `./scripts/frontend-test.sh` (containerized): `svelte-check` **0 errors** (15 pre-existing warnings), `vitest` **231/231 passing**, `vite build` green.
+- `./scripts/frontend-test.sh` (containerized): `svelte-check` **0 errors** (15 pre-existing warnings), `vitest` **236/236 passing** (25 files — 5 tests added during review), `vite build` green.
 - `pnpm format` applied before commit (prettier + tailwind class sorting).
 - Rendered review in Chromium (Playwright container) at 1440×1000 and 390×844 for: home, home (mobile menu open), search + empty search, restaurant detail (desktop/mobile), login (idle + failed login), signup, saved, verification, 404.
 - Keyboard pass: tab from the top of home lands on "Log in" with a 2px brand-500 ring at 2px offset.
 
-## 6. Open items for Adnan / Fatima / Omar
+## 6. Review round — Omar (code/security) + Yusuf (QA)
+
+Both reviews were run as subagents and posted as PR review comments. Round 1: **Omar BLOCK (1
+blocking)** · **Yusuf FAIL (12 findings)**. Blocking and P1 items are fixed and re-verified; the rest
+are accepted with a rationale.
+
+### Blocking (Omar) — fixed
+
+`--text-*--font-family` is not supported by Tailwind v4 (the `--text-*` companions only cover
+line-height / letter-spacing / font-weight). The new `text-page-title` therefore dropped Archivo from
+the detail-page name, and because the diff removed the last `font-display` usage, *every* heading and
+button fell back to Space Grotesk. Proven from the built CSS. Fixed by binding the family in
+`app.css` (`@layer components`: display / page-title / title / heading / label) plus an explicit
+`font-display` on the detail h1. Verified in the built stylesheet:
+`.text-page-title,.text-title,.text-heading,.text-label{font-family:var(--font-display)}`.
+
+### P1 (Yusuf) — fixed
+
+1. **Card favourite was unclickable** — the card's stretched `after:inset-0` link painted above the
+   heart, so clicking it navigated to the restaurant instead of saving. Fixed with `z-10` on the
+   control's wrapper; verified it now routes to `/login` when signed out.
+2. **Bottom tab bar covered the footer nav** (25px at 390px) — "How verification works" hit-tested as
+   the Search tab. Fixed by reserving the bar height + safe area on the shell (link bottom 756px vs
+   bar top 787px).
+3. **`/account`, `/about`, `/how-verification-works` are 404s** — still flagged per the founder's
+   "flag, don't invent" decision, but the 404 page now renders the app chrome so a user is not
+   stranded without navigation.
+
+### P2/P3 — fixed
+
+- **Tab-bar ring was clipped**: the global focus rule was unlayered and beat the utility layer's inset
+  `-2px`. Moved to `@layer base`; measured `-2px` again.
+- **Map iframe had no focus indicator** (Chrome never matches `:focus`/`:focus-within` on a
+  cross-origin frame). The map panel now tracks the window blur/focus pair; verified
+  `rgb(198,56,31) solid 2px` at 2px offset.
+- **Focus ring faded in** because Tailwind v4's `transition-colors` includes `outline-color`.
+  Pre-seeded `outline-color` so the ring is brand-500 immediately.
+- **Loading/disabled label contrast** 4.16:1 → 7.4:1.
+- **Sub-44px targets** (header auth, mobile-menu auth row, "← Back to results", "Forgot password?",
+  footer links) now meet 44px.
+- **`backdrop-blur`** removed from the card save control (glass decoration, against DESIGN.md).
+- **404 page** renders inside `SiteShell`.
+- **Tests added**: `SiteHeader.test.ts` (open, Esc + focus restore, close-on-navigate), an empty-result
+  count assertion, and Open/Closed hours-pill cases.
+- **Docs/token drift**: `--text-page-title` added to `tokens.md` (+ frontmatter); DESIGN.md hierarchy
+  corrected; design sidecar placeholder colour, `refersTo` and `page-title` metadata fixed.
+
+### Accepted, not fixed (recorded, not silently dropped)
+
+- **Card name + badge squeeze** (also Yusuf's unbroken-name case, and the visible mid-word break in
+  "Mediterranean"): pre-existing, caused by the ratified "name and badge share one row" composition in
+  a 4-column grid. Fixing it means stacking or shortening the badge — a Fatima decision. My
+  `min-w-0`/wrap attempt was reverted so this PR does not change the composition.
+- **26 of 30 seed images 404** (`docker logs tahirs-list-backend`: `FETCH_FAILED … HTTP 403` from the
+  Google image URLs). Backend/data; the placeholder fallback works.
+- **`href="#"` affordances** ("Forgot password?", Terms, Privacy) — product copy/pages missing.
+- **Vendored Impeccable bundles** (~1.7 MB, un-checksummed; the engine binary is checksum-verified) —
+  supply-chain follow-up recorded, not patched locally.
+- **Dev-only CSP/HSTS** — untouched; needs its own security-reviewed change.
+- **Open-hours pill uses stamp green**, which `tokens.md` reserves for verification while
+  `detail-page.md` §1.3 prescribes it. Two ratified docs disagree; left per the screen spec, flagged.
+- **`aria-controls`** on the menu trigger references an unmounted element while collapsed —
+  harmless alongside `aria-expanded`.
+
+### Round 2 — re-verification after the fixes
+
+Containerized suite green (0 errors, 236/236, build ok), detector 0 findings, and a targeted Chromium
+re-run of every fixed finding: **8/8 pass**.
+
+
+## 7. Open items for Adnan / Fatima / Omar
 
 1. Story for `/account`, `/about`, `/how-verification-works` (blocker for the mobile tab bar and the trust anchor).
-2. Seed data: verified listings, cuisines, hours with `closed`, photos (Aisha).
+2. Seed data: verified listings, cuisines, hours with `closed`, photos (Aisha). 26 of 30 images currently 404.
 3. Omar: dev-only CSP/HSTS fix (above).
 4. Fatima: the seal mark reads as a checkbox at 40–48px; consider a dashed-edge seal treatment for decorative uses.
-5. Product: "Forgot password?" and Terms/Privacy links currently do nothing — either build or remove.
-6. Unbuilt spec items observed: search suggestion dropdown, List/Map toggle, collapsible mobile hours, certificate lightbox, owner claim flow.
+5. Fatima: card name/badge squeeze in the 4-column grid (long names break mid-word); needs a composition decision.
+6. Product: "Forgot password?" and Terms/Privacy links currently do nothing — either build or remove.
+7. Unbuilt spec items observed: search suggestion dropdown, List/Map toggle, collapsible mobile hours, certificate lightbox, owner claim flow.

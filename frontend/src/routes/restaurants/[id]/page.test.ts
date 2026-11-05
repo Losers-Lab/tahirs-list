@@ -104,6 +104,37 @@ describe('RestaurantDetailPage — certificate trust panel (detail-page.md)', ()
 		expect(screen.getAllByText('Unverified')).toHaveLength(1);
 	});
 
+	it('marks today as Closed (icon + word) when the day is flagged closed', async () => {
+		getRestaurantMock.mockResolvedValueOnce(
+			restaurant({
+				hours: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+					day,
+					value: '—',
+					closed: true
+				}))
+			})
+		);
+		render(Page);
+
+		expect(await screen.findByText('Closed')).toBeInTheDocument();
+		expect(screen.queryByText('Open')).not.toBeInTheDocument();
+	});
+
+	it('marks today as Open when the day is not flagged closed (detail-page.md §1.3)', async () => {
+		getRestaurantMock.mockResolvedValueOnce(
+			restaurant({
+				hours: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
+					day,
+					value: '11:00 – 22:00'
+				}))
+			})
+		);
+		render(Page);
+
+		expect(await screen.findByText('Open')).toBeInTheDocument();
+		expect(screen.queryByText('Closed')).not.toBeInTheDocument();
+	});
+
 	it('renders the not-found panel when the id is unknown (header/footer intact)', async () => {
 		getRestaurantMock.mockResolvedValueOnce(undefined);
 		render(Page);

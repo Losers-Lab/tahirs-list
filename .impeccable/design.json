@@ -32,6 +32,7 @@
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "Homepage hero and page titles only." },
       "title": { "displayName": "Title", "purpose": "Screen titles and empty-state headings." },
+      "page-title": { "displayName": "Page title", "purpose": "Restaurant name on the detail page (32/38)." },
       "heading": { "displayName": "Heading", "purpose": "Card names, panel headings." },
       "body": { "displayName": "Body", "purpose": "Copy, addresses, hours, values; ≤75ch measure." },
       "label": { "displayName": "Label", "purpose": "Buttons, chips, badges, form labels — the control voice." },
@@ -109,12 +110,11 @@
       "refersTo": "input-field",
       "description": "The page's first control: 56px paper field, kraft border, red ring on focus.",
       "html": "<div class=\"ds-search\"><input class=\"ds-search__input\" type=\"search\" placeholder=\"Search restaurants, dishes, or area&#8230;\" aria-label=\"Search restaurants, dishes, or area\" /><button class=\"ds-search__btn\">Search</button></div>",
-      "css": ".ds-search { display: flex; gap: 12px; } .ds-search__input { height: 56px; width: 100%; padding: 0 16px; border: 1.5px solid #c9b98f; border-radius: 6px; background: #fffdf6; color: #2b2118; font-family: 'Space Grotesk Variable', system-ui, sans-serif; font-size: 0.9375rem; box-shadow: 3px 3px 0 rgb(43 33 24 / 0.9); } .ds-search__input::placeholder { color: #8a7d63; } .ds-search__input:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; border-color: #c6381f; } .ds-search__btn { height: 56px; padding: 0 24px; border: none; border-radius: 6px; background: #c6381f; color: #fbf7ee; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; box-shadow: 2px 2px 0 rgb(43 33 24 / 0.9); cursor: pointer; } .ds-search__btn:hover { background: #a82d17; } .ds-search__btn:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; }"
+      "css": ".ds-search { display: flex; gap: 12px; } .ds-search__input { height: 56px; width: 100%; padding: 0 16px; border: 1.5px solid #c9b98f; border-radius: 6px; background: #fffdf6; color: #2b2118; font-family: 'Space Grotesk Variable', system-ui, sans-serif; font-size: 0.9375rem; box-shadow: 3px 3px 0 rgb(43 33 24 / 0.9); } .ds-search__input::placeholder { color: var(--color-ink-500, #6b5f4b); } .ds-search__input:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; border-color: #c6381f; } .ds-search__btn { height: 56px; padding: 0 24px; border: none; border-radius: 6px; background: #c6381f; color: #fbf7ee; font-family: 'Archivo Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; box-shadow: 2px 2px 0 rgb(43 33 24 / 0.9); cursor: pointer; } .ds-search__btn:hover { background: #a82d17; } .ds-search__btn:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; }"
     },
     {
       "name": "Site Header",
       "kind": "nav",
-      "refersTo": "badge-verified",
       "description": "64px cream bar, C2 lockup with red apostrophe, secondary links and auth on the right.",
       "html": "<header class=\"ds-header\"><a class=\"ds-header__brand\" href=\"#\"><span class=\"ds-header__mark\"></span><span class=\"ds-header__word\">Tahir<span class=\"ds-header__apos\">&#39;</span>s List</span></a><nav class=\"ds-header__nav\"><a href=\"#\">Search</a><a href=\"#\">Add a restaurant</a></nav></header>",
       "css": ".ds-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 64px; padding: 0 20px; border-bottom: 1.5px solid #dccfaf; background: #fbf7ee; } .ds-header__brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; } .ds-header__mark { width: 40px; height: 40px; border-radius: 29%; background: #eadfc9; box-shadow: 4px 4px 0 rgb(43 33 24 / 0.9); } .ds-header__word { font-family: 'Archivo Black', system-ui, sans-serif; font-size: 1.5rem; letter-spacing: -0.03em; color: #2b2118; } .ds-header__apos { color: #c6381f; } .ds-header__nav { display: flex; gap: 12px; } .ds-header__nav a { font-family: 'Space Grotesk Variable', system-ui, sans-serif; font-size: 0.8125rem; color: #453a2b; text-decoration: none; } .ds-header__nav a:hover { color: #a82d17; } .ds-header__nav a:focus-visible { outline: 2px solid #c6381f; outline-offset: 2px; }"

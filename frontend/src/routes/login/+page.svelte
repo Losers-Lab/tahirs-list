@@ -71,7 +71,7 @@
 {#snippet forgotPassword()}
 	<a
 		href="#"
-		class="text-small text-brand-500 hover:text-brand-600 hover:underline"
+		class="inline-flex min-h-11 items-center text-small text-brand-500 hover:text-brand-600 hover:underline"
 		onclick={(event) => event.preventDefault()}
 	>
 		Forgot password?

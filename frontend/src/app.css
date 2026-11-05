@@ -118,25 +118,49 @@
 	--color-focus-ring: 2px solid var(--color-focus);
 }
 
-body {
-	background: var(--color-cream-50);
-	color: var(--color-ink-700);
-	font-family: var(--font-sans);
-	/* Native controls and text entry inherit the brand, not the OS default. */
-	accent-color: var(--color-brand-500);
-	caret-color: var(--color-brand-500);
+@layer base {
+	body {
+		background: var(--color-cream-50);
+		color: var(--color-ink-700);
+		font-family: var(--font-sans);
+		/* Native controls and text entry inherit the brand, not the OS default. */
+		accent-color: var(--color-brand-500);
+		caret-color: var(--color-brand-500);
+	}
+
+	::selection {
+		background: var(--color-brand-100);
+		color: var(--color-brand-900);
+	}
+
+	/* Pre-seed the ring colour so `transition-colors` (which includes
+	   outline-color) cannot fade the ring in from currentColor. */
+	:where(a, button, input, select, textarea, summary, [tabindex]) {
+		outline-color: var(--color-focus);
+	}
+
+	/*
+	 * Focus is never removed (tokens.md). Kept in the base layer so component
+	 * utilities still win — e.g. the inset ring inside the mobile tab bar.
+	 */
+	:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+		outline: var(--color-focus-ring);
+		outline-offset: 2px;
+	}
 }
 
-::selection {
-	background: var(--color-brand-100);
-	color: var(--color-brand-900);
-}
-
-/*
- * Focus is never removed (tokens.md). Zero-specificity so any component that
- * sets its own ring (e.g. the inset ring inside the mobile tab bar) still wins.
- */
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-	outline: var(--color-focus-ring);
-	outline-offset: 2px;
+@layer components {
+	/*
+	 * tokens.md §2 pairs these roles with Archivo. Tailwind's `--text-*--*`
+	 * companions only cover line-height / letter-spacing / font-weight — they
+	 * cannot carry a font family — so the family is bound here. Font utilities
+	 * (`font-wordmark`, `font-sans`) still win, being in the utilities layer.
+	 */
+	.text-display,
+	.text-page-title,
+	.text-title,
+	.text-heading,
+	.text-label {
+		font-family: var(--font-display);
+	}
 }

@@ -30,6 +30,11 @@ typography:
     fontSize: "1.5rem"
     fontWeight: 700
     lineHeight: "1.875rem"
+  page-title:
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "2rem"
+    fontWeight: 800
+    lineHeight: "2.375rem"
   heading:
     fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.125rem"
@@ -201,7 +206,8 @@ informational, never green and never red.
 meta legible at 15px without competing.
 
 ### Hierarchy
-- **Display** (800, 40/44): homepage hero and page titles.
+- **Display** (800, 40/44): homepage hero only.
+- **Page title** (800, 32/38): the restaurant name on the detail page.
 - **Title** (700, 24/30): screen titles, empty-state headings.
 - **Heading** (700, 18/24): card names, panel headings, restaurant name on a card.
 - **Body** (400, 15/24): copy, addresses, hours, form values. Keep measures ≤75ch.

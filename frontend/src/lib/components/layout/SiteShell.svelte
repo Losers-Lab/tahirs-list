@@ -13,7 +13,7 @@
 		$props();
 </script>
 
-<div class="min-h-screen bg-cream-50">
+<div class="min-h-screen bg-cream-50 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
 	<SiteHeader />
 	<main class={mainClass}>
 		{@render children()}

@@ -3,8 +3,10 @@
 	import Wordmark from '#lib/components/brand/Wordmark.svelte';
 	import TahirHeadIcon from '#lib/components/brand/TahirHeadIcon.svelte';
 	import AuthHeader from '#lib/components/auth/AuthHeader.svelte';
+	import { sessionState } from '#lib/auth/session.svelte';
 
 	let open = $state(false);
+	let trigger = $state<HTMLButtonElement | null>(null);
 
 	const secondaryLinks = [
 		{ href: '/search', label: 'Search' },
@@ -17,8 +19,19 @@
 		open = false;
 	});
 
+	// Signing in or out from inside the panel must not leave it open on stale
+	// content (AuthHeader swaps between the two states without navigating).
+	$effect(() => {
+		sessionState.current;
+		open = false;
+	});
+
+	// Esc must close the panel *and* keep the keyboard user where they were:
+	// removing the focused link drops focus to <body> otherwise.
 	function onKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') open = false;
+		if (event.key !== 'Escape' || !open) return;
+		open = false;
+		trigger?.focus();
 	}
 </script>
 
@@ -42,6 +55,7 @@
 		<div class="md:hidden">
 			<button
 				type="button"
+				bind:this={trigger}
 				aria-expanded={open}
 				aria-controls="mobile-nav"
 				aria-label={open ? 'Close menu' : 'Open menu'}

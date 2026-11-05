@@ -24,7 +24,7 @@
 		'inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-label transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed';
 	const styles = $derived(
 		variant === 'primary'
-			? 'bg-brand-500 text-cream-50 shadow-chip hover:bg-brand-600 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none motion-reduce:active:translate-x-0 motion-reduce:active:translate-y-0 disabled:bg-ink-200 disabled:text-ink-500 disabled:shadow-none'
+			? 'bg-brand-500 text-cream-50 shadow-chip hover:bg-brand-600 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none motion-reduce:active:translate-x-0 motion-reduce:active:translate-y-0 disabled:bg-ink-200 disabled:text-ink-700 disabled:shadow-none'
 			: 'text-brand-500 hover:text-brand-600 hover:underline disabled:text-ink-500'
 	);
 </script>

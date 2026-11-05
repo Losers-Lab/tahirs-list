@@ -47,7 +47,7 @@
 			alt={restaurant.name}
 			sizes="100vw"
 		/>
-		<div class="absolute top-3 left-3">
+		<div class="absolute top-3 left-3 z-10">
 			<FavoriteButton listingId={restaurant.id} {restaurant} variant="card" />
 		</div>
 		{#if verified}
@@ -59,7 +59,7 @@
 
 	<div class="p-5">
 		<div class="flex items-start justify-between gap-2">
-			<h3 class="text-heading text-pretty text-ink-900">
+			<h3 class="text-heading text-ink-900">
 				<a
 					href="/restaurants/{restaurant.id}"
 					class="after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
