@@ -21,8 +21,11 @@
 
 	// Signing in or out from inside the panel must not leave it open on stale
 	// content (AuthHeader swaps between the two states without navigating).
+	// Track the stable account identity, not the object — a silent token
+	// rotation replaces `sessionState.current` and must not close the panel.
 	$effect(() => {
-		sessionState.current;
+		const accountId = sessionState.current?.accountId ?? null;
+		void accountId;
 		open = false;
 	});
 

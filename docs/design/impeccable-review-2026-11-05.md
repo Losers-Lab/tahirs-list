@@ -129,6 +129,11 @@ button fell back to Space Grotesk. Proven from the built CSS. Fixed by binding t
   count assertion, and Open/Closed hours-pill cases.
 - **Docs/token drift**: `--text-page-title` added to `tokens.md` (+ frontmatter); DESIGN.md hierarchy
   corrected; design sidecar placeholder colour, `refersTo` and `page-title` metadata fixed.
+- **Dead token companions removed** (round-2 P3): the five `--text-*--font-family` declarations are
+  gone from `app.css` and the `tokens.md` snippet, with a note — Tailwind silently discarded them, and
+  leaving them in invites the exact regression that caused the blocking finding.
+- **Auth-close effect tracks stable identity** (round-2 P3): `sessionState.current?.accountId ?? null`,
+  so a silent token rotation cannot close the panel.
 
 ### Accepted, not fixed (recorded, not silently dropped)
 
@@ -146,6 +151,8 @@ button fell back to Space Grotesk. Proven from the built CSS. Fixed by binding t
   `detail-page.md` §1.3 prescribes it. Two ratified docs disagree; left per the screen spec, flagged.
 - **`aria-controls`** on the menu trigger references an unmounted element while collapsed —
   harmless alongside `aria-expanded`.
+- **Test coverage gaps for two new transitions** (round-2 P3): the auth-change close and MapPreview's
+  window blur/focus pair are verified in the browser but not unit-tested.
 
 ### Round 2 — re-verification after the fixes
 
