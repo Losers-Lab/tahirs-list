@@ -62,6 +62,7 @@ Defined in the Shortcut use-case documentation:
 | [README.md](./README.md) | This file — overview and status |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Agreed architecture, domain model, open decisions |
 | [AGENTS.md](./AGENTS.md) | Project-wide engineering rules and context (for agents and humans) |
+| [docs/architecture/scalability-and-reliability-goals.md](./docs/architecture/scalability-and-reliability-goals.md) | Capacity model, reliability targets, and scaling triggers (benchmarked against Zabihah's traffic) |
 
 ## Source of truth
 
