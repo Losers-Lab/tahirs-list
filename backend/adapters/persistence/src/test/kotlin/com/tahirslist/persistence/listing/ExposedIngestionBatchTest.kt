@@ -530,7 +530,15 @@ class ExposedIngestionBatchTest : FunSpec() {
                             candidate(
                                 name = "Venue owner",
                                 venueKey = "4".repeat(64),
-                                claims = listOf(claim(source = "hms", record = "H-2")),
+                                claims = listOf(
+                                    claim(
+                                        source = "manual-zabihah",
+                                        record = "Z-2",
+                                        tier = CertificationTier.TIER_3,
+                                        declaredHandCut = HandCutDeclaration.UNSPECIFIED,
+                                    ),
+                                ),
+                                crossContamination = CrossContamination.UNCERTAIN,
                                 lat = 43.4,
                                 lng = -79.4,
                             ),
@@ -539,6 +547,7 @@ class ExposedIngestionBatchTest : FunSpec() {
                 )
                 val from = listings.findByVenueKey("3".repeat(64)) ?: error("missing")
                 val to = listings.findByVenueKey("4".repeat(64)) ?: error("missing")
+                to.verificationStatus shouldBe VerificationStatus.UNVERIFIED
 
                 listings.applyBatch(
                     writes = emptyList(),
@@ -559,8 +568,14 @@ class ExposedIngestionBatchTest : FunSpec() {
                 emptied.isHandCut shouldBe null
                 emptied.crossContamination shouldBe CrossContamination.UNCERTAIN
                 postgis.count("SELECT count(*) FROM listing_search WHERE id = '${from.id}'") shouldBe 0
-                // The destination now has both claims.
+                // The destination gains the claim and the trust it confers, even
+                // in a batch that contains only the re-attachment.
                 postgis.count("SELECT count(*) FROM external_certification_claims WHERE listing_id = '${to.id}'") shouldBe 2
+                val gained = listings.findById(to.id) ?: error("missing")
+                gained.verificationStatus shouldBe VerificationStatus.VERIFIED
+                gained.isHandCut shouldBe true
+                gained.provenance shouldBe Provenance.CERTIFIER_HMS
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${to.id}'") shouldBe 1
             }
         }
 

@@ -337,10 +337,14 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             ),
         )
 
-        // The claim left this listing: if it was its only Tier-1 evidence, the
-        // source row must lose the trust it conferred and leave the index.
+        // Both sides change: the source may lose its only Tier-1 evidence, and
+        // the destination may gain it. Recompute and mirror both here, in the
+        // port, so the invariant does not depend on the caller also writing the
+        // destination.
         recomputeCertifierTrust(reattachment.fromListingId)
         loadById(reattachment.fromListingId)?.let { mirrorIntoListingSearch(it) }
+        recomputeCertifierTrust(reattachment.toListingId)
+        loadById(reattachment.toListingId)?.let { mirrorIntoListingSearch(it) }
     }
 
     /**
