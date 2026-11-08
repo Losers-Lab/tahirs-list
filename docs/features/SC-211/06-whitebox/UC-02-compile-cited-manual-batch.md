@@ -6,6 +6,7 @@
 sequenceDiagram
   autonumber
   actor DC as Data Curator
+  actor PH as Photon API
   participant CLI as IngestionConsole
   participant CMB as CompileManualBatch
   participant CBS as CuratedBatchFileAdapter
@@ -20,6 +21,8 @@ sequenceDiagram
   CBS-->>CMB: List<SourceListing> (tier 3, URL + access date)
   loop each valid entry
     CMB->>G: 4. geocode("name, address, city, region")
+    G->>PH: GET /api?q=...
+    PH-->>G: place / no match / outage
     G-->>CMB: GeocodedPlace?
     CMB->>MC: confirm(query, place, listing)
     MC-->>CMB: MatchConfirmation | RejectReason

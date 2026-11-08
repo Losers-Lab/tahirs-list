@@ -12,6 +12,7 @@ sequenceDiagram
   participant REV as CatalogUpdateReview
   participant MIG as Migrations
   participant SEARCH as ExposedListingSearchQuery
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
   DC->>CLI: 1. generateCatalogUpdate(candidates)
   CLI->>LOAD: generate(candidates, runId)
   LOAD->>WR: 2. generate(...) [emits verification + hand-cut per declaration + upgrades + claims]
@@ -21,10 +22,13 @@ sequenceDiagram
   CLI-->>DC: 2. diffSummary()
   DC->>CLI: 3. review + merge (PR)
   Note over MIG: 4. Transaction boundary — all batch statements commit or roll back
-  MIG->>MIG: apply V22 (schema) → V23 (data)
+  MIG->>DB: apply V22 (schema) → V23 (data)
+  DB-->>MIG: applied
   MIG-->>REV: appliedCounts()
   CLI-->>DC: 5. inserted / upgraded / skipped
   DC->>SEARCH: 6. search metro + handCut filter + verified display
+  SEARCH->>DB: SELECT listings for the metro + hand-cut
+  DB-->>SEARCH: rows
   SEARCH-->>DC: 7. Tier-1 verified — manual unverified — claims intact
 ```
 

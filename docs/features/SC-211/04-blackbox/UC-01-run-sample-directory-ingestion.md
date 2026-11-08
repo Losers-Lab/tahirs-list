@@ -7,11 +7,11 @@
 sequenceDiagram
   autonumber
   actor DC as Data Curator
+  actor HMS as HMS (external)
+  actor HF as HFSAA (external)
+  actor HM as HMA (external)
+  actor PH as Photon (external)
   participant TL as Tahir's List
-  participant HMS as certifier-hms
-  participant HF as certifier-hfsaa
-  participant HM as certifier-hma
-  participant PH as Photon (external)
   DC->>TL: 1. Run sample (Dallas, NYC, Toronto — caps)
   TL->>HMS: 2. Certified listing — one cached request
   HMS-->>TL: 370 restaurants + snapshot

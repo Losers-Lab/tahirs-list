@@ -43,6 +43,8 @@ flowchart LR
   S1 -. include .-> S2; S1 -. include .-> S3; S1 -. include .-> S4; S1 -. include .-> S5; S1 -. include .-> S6
   S1 --> GM[Google Maps]; S2 --> GM; S6 --> GB[Google Business]; S6 --> YB[Yelp Business]; V1 -. include .-> V2
   N1 --> HMS[HMS]; N1 --> HFSAA[HFSAA]; N1 --> HMA[HMA]; N1 --> PH[Photon]; N2 --> ZAB[Zabihah<br/>manual]; N2 --> PH
+  S1 --> DB[("Catalogue<br/>PostgreSQL + PostGIS")]
+  N3 --> DB
   classDef new fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
   class DC,N1,N2,N3,N4,HMS,HFSAA,HMA,ZAB,PH new
 ```

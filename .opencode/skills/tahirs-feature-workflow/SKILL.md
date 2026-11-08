@@ -36,7 +36,8 @@ a minute.
   flowcharts use `[(...)]`.
 - **Owned data stores right.** PostgreSQL/PostGIS, MinIO/S3 after the internal
   lifelines. White-box shows the actual SQL/object read/write — never stop at the
-  repository interface.
+  repository interface. System/class diagrams show the store as an explicit node
+  (`<<database>>` or `[(...)]`) and every repository/query port points at it.
 - **No magic data.** For each external dependency, show adapter → external system
   → adapter and the failure branch (no match vs outage).
 

@@ -7,9 +7,9 @@
 sequenceDiagram
   autonumber
   actor DC as Data Curator
+  actor ZAB as Zabihah (read by hand)
+  actor PH as Photon (external)
   participant TL as Tahir's List
-  participant ZAB as Zabihah (external)
-  participant PH as Photon (external)
   DC->>ZAB: 1. Consult a small set of public listings
   ZAB-->>DC: Venue details
   DC->>TL: 2. Submit curated file (URL + access date per row)

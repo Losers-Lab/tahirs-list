@@ -10,6 +10,7 @@
 | 2026-11-07 | Format-only retrofit to the ratified diagram-first standard | none (content unchanged) |
 | 2026-11-08 | Access spike closed; three certifier libraries implemented, 62 tests green, live probe passed (D-12, D-13) | 0–8 |
 | 2026-11-08 | Correction: a silent certifier declaration yields FALSE, not NULL; NULL only where there is no certifier claim | 0–2, 6–8 |
+| 2026-11-08 | Diagram retrofit: actors on the left, owned data store shown explicitly (ratified conventions from #74) | 3–6 |
 
 ```mermaid
 flowchart LR

@@ -6,6 +6,10 @@
 sequenceDiagram
   autonumber
   actor DC as Data Curator
+  actor HMSAPI as HMS (external)
+  actor HFSAAAPI as HFSAA (external)
+  actor HMAAPI as HMA (external)
+  actor PHAPI as Photon API
   participant CLI as IngestionConsole
   participant RUN as RunSampleIngestion
   participant X as CertifierHttp
@@ -23,14 +27,20 @@ sequenceDiagram
   CLI->>RUN: execute(sources, metros, caps, cachePolicy)
   RUN->>H: 2. certifiedListing() [cache → robots → 1 req/s]
   H->>X: GET certified-listing
+  X->>HMSAPI: HTTP GET
+  HMSAPI-->>X: page / failure
   X-->>H: snapshot (10.7 MB)
   H-->>RUN: 370 HmsEstablishment
   RUN->>F: 3. entries() [one public RPC]
   F->>X: POST get_public_locator_entries
+  X->>HFSAAAPI: HTTP POST
+  HFSAAAPI-->>X: rows / 401
   X-->>F: snapshot (313 rows)
   F-->>RUN: 313 HfsaaEntry
   RUN->>M: 4. outlets() [one REST request]
   M->>X: GET wp/v2/pages?parent=21800
+  X->>HMAAPI: HTTP GET
+  HMAAPI-->>X: pages / failure
   X-->>M: snapshot (76 pages)
   M-->>RUN: 76 HmaCertifiedOutlet
   RUN->>T: 5. translate(pages)
@@ -40,6 +50,8 @@ sequenceDiagram
   end
   loop each accepted listing
     RUN->>G: 7. geocode("name, address, city, region")
+    G->>PHAPI: GET /api?q=...
+    PHAPI-->>G: place / no match / outage
     G-->>RUN: GeocodedPlace? / GeocodingException
     RUN->>MC: confirm(query, place, listing)
     MC-->>RUN: MatchConfirmation | RejectReason

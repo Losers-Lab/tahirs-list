@@ -8,12 +8,16 @@ sequenceDiagram
   autonumber
   actor DC as Data Curator
   participant TL as Tahir's List
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
   DC->>TL: 1. Generate update from approved candidates
   TL-->>DC: 2. Migration + diff (brands, verification, hand-cut per declaration, upgrades, claims)
   DC->>TL: 3. Review and merge
-  TL->>TL: 4. Apply migrations at startup (one transaction)
+  TL->>DB: 4. Apply V22/V23 in one transaction
+  DB-->>TL: applied counts
   TL-->>DC: 5. Counts: inserted / upgraded / skipped
   DC->>TL: 6. Verify search, Verified display, hand-cut filter
+  TL->>DB: SELECT listings for the metro + hand-cut
+  DB-->>TL: rows
   TL-->>DC: 7. Tier-1 verified — hand-cut per declaration — manual unverified
 ```
 
@@ -38,7 +42,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: `UPDATE` to `VERIFIED` — hand-cut per the claim's declaration — attach claim
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
+  TL->>DB: UPDATE to VERIFIED — hand-cut per the claim's declaration — attach claim
+  DB-->>TL: upgraded, no duplicate
 ```
 
 **E1 — constraint violation** · rollback, no partial load.
@@ -46,7 +52,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: transaction rolls back — startup fails
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
+  TL->>DB: COMMIT
+  DB-->>TL: constraint violation → ROLLBACK
 ```
 
 **E2 — schema missing** · fail fast.
@@ -54,7 +62,9 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: V22 must be applied first
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
+  TL->>DB: check V22
+  DB-->>TL: missing → startup fails
 ```
 
 **E3 — missing/wrong trust state** · blocking.
@@ -62,5 +72,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: wrong verification/hand-cut state for the claim's declaration → investigate
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
+  TL->>DB: verify verification + hand-cut state
+  DB-->>TL: wrong state → investigate
 ```

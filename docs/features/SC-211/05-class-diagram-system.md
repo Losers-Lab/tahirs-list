@@ -23,6 +23,7 @@ flowchart LR
   C1 --> P3[ArtifactWriter]
   C2 --> P4[CuratedBatchSource]
   C3 --> P5[CatalogBatchWriter]
+  P5 --> DB[("PostgreSQL + PostGIS")]
   C4 --> R[IngestReport]
   CORE[CertifierHttp] -.-> L1
   CORE -.-> L2
@@ -137,6 +138,13 @@ classDiagram
     <<interface>>
     +generate(candidates, runId) CatalogBatch
   }
+  class ListingSearchQuery {
+    <<interface>>
+    +search(metro, filters)
+  }
+  class CatalogueDatabase {
+    <<database>>
+  }
 
   IngestionConsole ..> RunSampleIngestion
   IngestionConsole ..> CompileManualBatch
@@ -156,6 +164,9 @@ classDiagram
   CompileManualBatch --> CuratedBatchSource
   CompileManualBatch --> GeocoderPort
   LoadIngestionBatch --> CatalogBatchWriter
+  LoadIngestionBatch --> CatalogueDatabase
+  CatalogBatchWriter --> CatalogueDatabase
+  ListingSearchQuery --> CatalogueDatabase
   AuditIngestionRun ..> IngestReport
 ```
 
@@ -172,6 +183,7 @@ classDiagram
 | `GeocoderPort` (existing) | confirm a venue's coordinates | `PhotonGeocoder` |
 | `ArtifactWriter` | persist snapshots/candidates/report | `FileArtifactWriter` |
 | `CatalogBatchWriter` | emit the reviewed catalogue update | `SqlMigrationBatchWriter` |
+| `CatalogueDatabase` | owned catalogue store | PostgreSQL + PostGIS |
 
 ## Operation coverage
 
@@ -187,9 +199,9 @@ classDiagram
 | UC-02.1–5 | `CompileManualBatch` → `CuratedBatchSource.read` → `GeocoderPort.geocode` → `mergeWith` |
 | UC-02.6–7 | `ArtifactWriter.writeCandidates/writeReport` |
 | UC-03.1–5 | `LoadIngestionBatch.generate` → `CatalogBatchWriter.generate` → `CatalogUpdateReview` |
-| UC-03.6 | existing `ListingSearchQuery` |
+| UC-03.6 | existing `ListingSearchQuery` → `CatalogueDatabase` |
 | UC-04.1–5 | `IngestionReportDocument.*`; `AuditIngestionRun.execute` |
 
 **Existing collaborators:** `Migrations` (UC-03.4) · `ListingSearchQuery`/`ExposedListingSearchQuery` (UC-03.6) · `RestaurantListingRepository` (reference only).
 
-**Revisions:** 2026-11-07 initial · 2026-11-08 verified libraries replace the single `HalalDirectorySource` port; `HandCutDeclaration` replaces the old standard vocabulary (D-12).
+**Revisions:** 2026-11-07 initial · 2026-11-08 verified libraries replace the single `HalalDirectorySource` port; `HandCutDeclaration` replaces the old standard vocabulary (D-12) · 2026-11-08 diagram conventions: external actors left, `CatalogueDatabase` explicit on the right.
