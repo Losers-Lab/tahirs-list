@@ -12,6 +12,12 @@ data class McpConfig(
     /** Exact `Origin` values a browser MCP client may use. Empty means none. */
     val allowedOrigins: Set<String> = emptySet(),
     /**
+     * Extra hostnames accepted by DNS-rebinding protection (in addition to
+     * loopback and the hosts of the public base URLs). Set this when the MCP
+     * endpoint is served from a host that differs from both base URLs.
+     */
+    val allowedHosts: Set<String> = emptySet(),
+    /**
      * DNS-rebinding protection validates the `Host` header. Production keeps it
      * on; in-process Ktor test clients do not send a Host header, so unit HTTP
      * tests disable it and the embedded-server integration tests exercise it.

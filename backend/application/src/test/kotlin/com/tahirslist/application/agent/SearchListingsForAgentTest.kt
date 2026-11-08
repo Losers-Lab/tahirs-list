@@ -103,8 +103,7 @@ class SearchListingsForAgentTest : FunSpec({
         result.count shouldBe 0
     }
 
-    test("filtersArePassedThroughUnchanged") {
-        val recording = RecordingFiltersQuery()
+    test("filtersArePassedThroughUnchanged") {        val recording = RecordingFiltersQuery()
         val filters = ListingSearchFilters(handCutOnly = true, deliveryOnly = true)
         SearchListingsForAgent(recording, RecordingGeocoder(null)).execute(
             AgentSearchRequest(
@@ -114,10 +113,6 @@ class SearchListingsForAgentTest : FunSpec({
             ),
         )
         recording.filters shouldBe filters
-    }
-
-    test("notFoundExceptionIsAnExceptionType") {
-        AgentListingNotFoundException().shouldBeInstanceOf<Exception>()
     }
 })
 

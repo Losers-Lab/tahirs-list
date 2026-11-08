@@ -35,6 +35,7 @@ private val log = KotlinLogging.logger("com.tahirslist.mcp.SearchRestaurantsTool
 class SearchRestaurantsTool(
     private val search: SearchListingsForAgent,
     private val config: McpConfig,
+    private val gate: McpCallGate = McpCallGate { true },
 ) {
     val definition: Tool = Tool(
         name = TOOL_NAME,
@@ -44,12 +45,19 @@ class SearchRestaurantsTool(
     )
 
     suspend fun call(arguments: JsonObject?): CallToolResult {
+        if (!gate.allowCall()) {
+            log.info { "mcp tool=$TOOL_NAME outcome=rate_limited" }
+            return toolError("Rate limit exceeded. Try again shortly.")
+        }
         val timed = measureTimedValue {
             try {
                 val request = parse(arguments)
                 val result = search.execute(request)
                 success(AgentResultMapper.search(result, config))
             } catch (e: InvalidSearchArgumentsException) {
+                toolError(e.message)
+            } catch (e: IllegalArgumentException) {
+                // The shared parser and LatLng throw plain IAE with a caller-safe reason.
                 toolError(e.message)
             } catch (e: com.tahirslist.application.agent.PlaceNotResolvedException) {
                 toolError(e.message)
@@ -58,6 +66,8 @@ class SearchRestaurantsTool(
                     "Location lookup is unavailable right now. " +
                         "Supply center coordinates (lat/lng) and try again.",
                 )
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 log.error(e) { "search_restaurants failed" }
                 toolError("The search could not be completed. Try again shortly.")
@@ -87,14 +97,25 @@ class SearchRestaurantsTool(
         }
 
         val radius = ListingSearchRequestParser.radius(args.optionalDouble("radiusMiles"))
+        if (!radius.isFinite()) {
+            throw InvalidSearchArgumentsException("radiusMiles must be a finite number")
+        }
         val minPrice = ListingSearchRequestParser.price(args.optionalDouble("minPrice"), "minPrice")
         val maxPrice = ListingSearchRequestParser.price(args.optionalDouble("maxPrice"), "maxPrice")
         ListingSearchRequestParser.requirePriceRange(minPrice, maxPrice)
+        val cuisines = ListingSearchRequestParser.cuisines(args.optionalStringArray("cuisines"))
+        if (cuisines.size > MAX_CUISINES) {
+            throw InvalidSearchArgumentsException("cuisines must contain at most $MAX_CUISINES values")
+        }
+        val offset = ListingSearchRequestParser.offset(args.optionalInt("offset"))
+        if (offset > MAX_OFFSET) {
+            throw InvalidSearchArgumentsException("offset must be $MAX_OFFSET or fewer")
+        }
 
         val filters = ListingSearchFilters(
             handCutOnly = ListingSearchRequestParser.flag(args.optionalBoolean("handCutOnly")),
             deliveryOnly = ListingSearchRequestParser.flag(args.optionalBoolean("deliveryOnly")),
-            cuisines = ListingSearchRequestParser.cuisines(args.optionalStringArray("cuisines")),
+            cuisines = cuisines,
             cuisineLogic = ListingSearchRequestParser.cuisineLogic(args.optionalString("cuisineLogic")),
             minPrice = minPrice,
             maxPrice = maxPrice,
@@ -105,7 +126,7 @@ class SearchRestaurantsTool(
             location = location,
             radiusMiles = radius,
             filters = filters,
-            offset = ListingSearchRequestParser.offset(args.optionalInt("offset")),
+            offset = offset,
             limit = ListingSearchRequestParser.limit(args.optionalInt("limit")),
         )
     }
@@ -123,6 +144,8 @@ class SearchRestaurantsTool(
 
     companion object {
         const val TOOL_NAME: String = "search_restaurants"
+        const val MAX_CUISINES: Int = 20
+        const val MAX_OFFSET: Int = 10_000
 
         val DESCRIPTION: String = """
             Search Tahir's List for halal restaurants near a location. Returns restaurants
@@ -181,6 +204,7 @@ class SearchRestaurantsTool(
                 }
                 putJsonObject("cuisines") {
                     put("type", "array")
+                    put("maxItems", MAX_CUISINES)
                     putJsonObject("items") {
                         put("type", "string")
                         put("maxLength", ListingSearchRequestParser.MAX_CUISINE_LENGTH)
@@ -200,7 +224,12 @@ class SearchRestaurantsTool(
                     put("maximum", ListingSearchRequestParser.MAX_LIMIT)
                     put("default", ListingSearchRequestParser.DEFAULT_LIMIT)
                 }
-                putJsonObject("offset") { put("type", "integer"); put("minimum", 0); put("default", 0) }
+                putJsonObject("offset") {
+                    put("type", "integer")
+                    put("minimum", 0)
+                    put("maximum", MAX_OFFSET)
+                    put("default", 0)
+                }
             },
             required = listOf("radiusMiles"),
         )
@@ -248,8 +277,12 @@ internal fun JsonObject.optionalBoolean(name: String): Boolean? {
 internal fun JsonObject.optionalDouble(name: String): Double? {
     val element = this[name] ?: return null
     if (element is JsonNull) return null
-    return (element as? JsonPrimitive)?.doubleOrNull
+    val value = (element as? JsonPrimitive)?.doubleOrNull
         ?: throw InvalidSearchArgumentsException("$name must be a number")
+    if (!value.isFinite()) {
+        throw InvalidSearchArgumentsException("$name must be a finite number")
+    }
+    return value
 }
 
 internal fun JsonObject.optionalInt(name: String): Int? {

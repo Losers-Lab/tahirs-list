@@ -8,6 +8,9 @@ import kotlinx.serialization.json.jsonObject
 internal const val MCP_INITIALIZE: String =
     """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"it","version":"1.0"}}}"""
 
+internal const val MCP_TOOLS_LIST: String =
+    """{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"""
+
 internal fun mcpToolCall(name: String, arguments: String, id: Int = 2): String =
     """{"jsonrpc":"2.0","id":$id,"method":"tools/call","params":{"name":"$name","arguments":$arguments}}"""
 

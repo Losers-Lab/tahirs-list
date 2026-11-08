@@ -46,6 +46,18 @@ Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/
 | `isPublicRequest` admits `GET`/`DELETE /mcp` | The stateless transport answers 405; without admission the deny-by-default guard would return 401 first. |
 | `:mcp` tests use `testFixtures(project(":application"))` | The fakes are shared with the application unit tests instead of duplicated. |
 
+## Review rounds
+
+| Round | Reviewer | Findings | Resolution |
+|---|---|---|---|
+| 1 | Omar (security) | 3 blocking: parser `IllegalArgumentException` not mapped to actionable tool errors; JSON-RPC batch could bypass the per-request budget; SDK parse errors echoed exception text. Nits: serializer used REST `Json` for MCP, XFF key unvalidated, no CORS/OPTIONS, untested Host allow-list, swallowed cancellation, test gaps, log hygiene. | All fixed: typed IAE catch; per-call budget token (batch bounded); sanitized parse errors; `McpAwareJsonConverter` (MCP uses `McpJson`, REST keeps explicit nulls); XFF validated; exact-origin CORS + preflight; `APP_MCP_ALLOWED_HOSTS`; cancellation rethrown; new negative/CORS/batch/no-null tests; hashed/ sanitized refusal logs. |
+| 1 | Yusuf (QA) | _pending_ | _pending_ |
+| 2 | Omar / Yusuf | _pending_ | _pending_ |
+
+`certificateUrl` remains gated by the REST proxy (verified + approved + archived);
+existence in object storage is checked at fetch time, so a since-deleted archive can
+still 404. Accepted as best-effort; no data leak.
+
 ## Commands run (containerized)
 
 ```text

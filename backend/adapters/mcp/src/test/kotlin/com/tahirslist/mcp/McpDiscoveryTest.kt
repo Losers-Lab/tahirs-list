@@ -36,6 +36,9 @@ class McpDiscoveryTest : FunSpec({
 
             response.status shouldBe HttpStatusCode.OK
             body.toolNames() shouldContainExactlyInAnyOrder listOf("search_restaurants", "get_restaurant")
+            // MCP serialization must not emit explicit nulls for optional fields.
+            kotlinx.serialization.json.Json.parseToJsonElement(response.bodyAsText())
+                .toString().contains(":null") shouldBe false
         }
     }
 

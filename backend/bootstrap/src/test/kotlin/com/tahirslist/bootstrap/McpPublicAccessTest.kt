@@ -2,6 +2,7 @@ package com.tahirslist.bootstrap
 
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -19,6 +20,10 @@ class McpPublicAccessTest : KtorPostgresTest() {
             initialize.status shouldBe 200
             initialize.json()["result"]!!.jsonObject["serverInfo"]!!.jsonObject["name"]!!
                 .jsonPrimitive.content shouldBe "tahirs-list"
+
+            val tools = post("/mcp", jsonText = MCP_TOOLS_LIST)
+            tools.status shouldBe 200
+            tools.body shouldNotContain ":null"
 
             val search = mcpCall("search_restaurants", searchArguments())
             search.status shouldBe 200

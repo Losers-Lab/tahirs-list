@@ -11,17 +11,16 @@ import com.tahirslist.application.agent.place
 import com.tahirslist.application.agent.sampleListing
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
+import io.ktor.client.request.options
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import kotlinx.serialization.json.ClassDiscriminatorMode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -36,17 +35,13 @@ internal fun Application.installTestMcp(
     limiter: McpRateLimiter = config.rateLimit.buildLimiter(),
     originGuard: McpOriginGuard = McpOriginGuard(config.allowedOrigins),
 ) {
-    // Mirrors the production composition root: one ContentNegotiation for the
-    // application. The MCP transport serialises through it.
+    // Mirrors the production composition root: one ContentNegotiation, with the
+    // MCP-aware converter selecting McpJson for JSON-RPC payloads and the REST
+    // Json (explicit nulls) for everything else.
     install(ContentNegotiation) {
-        json(
-            Json {
-                ignoreUnknownKeys = true
-                encodeDefaults = true
-                isLenient = true
-                classDiscriminatorMode = ClassDiscriminatorMode.NONE
-                explicitNulls = false
-            },
+        register(
+            ContentType.Application.Json,
+            McpAwareJsonConverter(Json { encodeDefaults = true }),
         )
     }
     installMcp(config = config, useCases = useCases, limiter = limiter, originGuard = originGuard)
@@ -98,6 +93,12 @@ internal suspend fun HttpClient.mcpPost(
     if (origin != null) header(HttpHeaders.Origin, origin)
     if (forwardedFor != null) header(HttpHeaders.XForwardedFor, forwardedFor)
     setBody(body)
+}
+
+internal suspend fun HttpClient.mcpOptions(origin: String?): HttpResponse = options(MCP_PATH) {
+    if (origin != null) header(HttpHeaders.Origin, origin)
+    header(HttpHeaders.AccessControlRequestMethod, "POST")
+    header(HttpHeaders.AccessControlRequestHeaders, "content-type, accept")
 }
 
 internal suspend fun HttpResponse.jsonBody(): JsonObject =

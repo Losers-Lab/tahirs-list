@@ -52,43 +52,84 @@ class SearchRestaurantsToolTest : FunSpec({
     }
 
     test("rejectsNonPositiveRadius") {
-        tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":0}""")).isError shouldBe true
+        val zero = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":0}"""))
+        zero.isError shouldBe true
+        zero.message() shouldBe "radiusMiles must be positive"
+
         tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":-2}""")).isError shouldBe true
         tool().call(args("""{"center":{"lat":1,"lng":2}}""")).isError shouldBe true
     }
 
+    test("rejectsNonFiniteRadius") {
+        val result = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":1e400}"""))
+
+        result.isError shouldBe true
+        result.message() shouldBe "radiusMiles must be a finite number"
+    }
+
     test("rejectsLimitOutsideOneToOneHundred") {
-        tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"limit":0}"""))
-            .isError shouldBe true
+        val zero = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"limit":0}"""))
+        zero.isError shouldBe true
+        zero.message() shouldBe "limit must be between 1 and 100"
+
         tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"limit":101}"""))
             .isError shouldBe true
     }
 
     test("rejectsNegativeOffset") {
-        tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"offset":-1}"""))
-            .isError shouldBe true
+        val result = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"offset":-1}"""))
+
+        result.isError shouldBe true
+        result.message() shouldBe "offset must not be negative"
+    }
+
+    test("rejectsHugeOffset") {
+        val result = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"offset":10001}"""))
+
+        result.isError shouldBe true
+        result.message() shouldBe "offset must be 10000 or fewer"
+    }
+
+    test("rejectsTooManyCuisines") {
+        val many = (1..21).joinToString(",") { "\"c$it\"" }
+        val result = tool().call(
+            args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"cuisines":[$many]}"""),
+        )
+
+        result.isError shouldBe true
+        result.message() shouldBe "cuisines must contain at most 20 values"
     }
 
     test("rejectsMinPriceAboveMaxPrice") {
-        tool().call(
+        val result = tool().call(
             args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"minPrice":20,"maxPrice":10}"""),
-        ).isError shouldBe true
+        )
+
+        result.isError shouldBe true
+        result.message() shouldBe "minPrice must not exceed maxPrice"
     }
 
     test("rejectsRatingOutsideZeroToFive") {
-        tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"minRating":5.1}"""))
-            .isError shouldBe true
-        tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"minRating":-1}"""))
-            .isError shouldBe true
+        val high = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"minRating":5.1}"""))
+        high.isError shouldBe true
+        high.message() shouldBe "minRating must be 5.0 or fewer"
+
+        val low = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"minRating":-1}"""))
+        low.isError shouldBe true
+        low.message() shouldBe "minRating must not be negative"
     }
 
     test("rejectsBlankOrOverlongCuisine") {
-        tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"cuisines":["  "]}"""))
-            .isError shouldBe true
+        val blank = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"cuisines":["  "]}"""))
+        blank.isError shouldBe true
+        blank.message() shouldBe "cuisine must not be blank"
+
         val overlong = "x".repeat(65)
-        tool().call(
+        val long = tool().call(
             args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"cuisines":["$overlong"]}"""),
-        ).isError shouldBe true
+        )
+        long.isError shouldBe true
+        long.message() shouldBe "cuisine must be 64 characters or fewer"
     }
 
     test("emptyResultIsSuccess") {

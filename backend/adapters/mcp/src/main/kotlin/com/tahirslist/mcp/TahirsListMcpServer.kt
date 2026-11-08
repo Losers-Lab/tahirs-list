@@ -13,10 +13,11 @@ import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
 class TahirsListMcpServer(
     private val useCases: McpUseCases,
     private val config: McpConfig,
+    private val gate: McpCallGate = McpCallGate { true },
 ) {
     fun createServer(): Server {
-        val search = SearchRestaurantsTool(useCases.search, config)
-        val detail = GetRestaurantTool(useCases.detail, config)
+        val search = SearchRestaurantsTool(useCases.search, config, gate)
+        val detail = GetRestaurantTool(useCases.detail, config, gate)
 
         return Server(
             serverInfo = Implementation(name = SERVER_NAME, version = SERVER_VERSION),

@@ -5,6 +5,7 @@ import com.tahirslist.bootstrap.config.loadConfig
 import com.tahirslist.bootstrap.config.requireValidProductionConfig
 import com.tahirslist.bootstrap.image.SeedImageIngestRunner
 import com.tahirslist.bootstrap.modules.appModules
+import com.tahirslist.mcp.McpAwareJsonConverter
 import com.tahirslist.mcp.installMcp
 import com.tahirslist.persistence.db.Migrations
 import com.tahirslist.web.AuthUseCases
@@ -89,7 +90,12 @@ fun Application.module(
         password = config.database.password,
     )
 
-    configureWebPlugins(get(), get(), get())
+    configureWebPlugins(
+        json = get(),
+        jwt = get(),
+        rateLimit = get(),
+        contentConverter = McpAwareJsonConverter(get()),
+    )
 
     val auth: AuthUseCases = get()
     val listings: ListingUseCases = get()

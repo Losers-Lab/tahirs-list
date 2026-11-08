@@ -13,9 +13,11 @@ import com.tahirslist.web.ratelimit.AuthRateLimitGateKey
 import com.tahirslist.web.ratelimit.Bucket4jAuthRateLimiter
 import com.tahirslist.web.ratelimit.RateLimitGate
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.ContentConverter
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCallPipeline
@@ -53,6 +55,7 @@ fun Application.configureWebPlugins(
     json: Json,
     jwt: JwtConfig,
     rateLimit: RateLimitConfig,
+    contentConverter: ContentConverter? = null,
 ) {
     val verifier = JwtVerifier(jwt)
 
@@ -77,7 +80,11 @@ fun Application.configureWebPlugins(
     )
 
     install(ContentNegotiation) {
-        json(json)
+        if (contentConverter != null) {
+            register(ContentType.Application.Json, contentConverter)
+        } else {
+            json(json)
+        }
     }
 
     install(Authentication) {
@@ -294,9 +301,11 @@ private val PUBLIC_POST_PATHS = setOf(
 internal fun isPublicRequest(method: HttpMethod, path: String): Boolean = when {
     method == HttpMethod.Post && path in PUBLIC_POST_PATHS -> true
     // The MCP endpoint is POST-only; GET/DELETE are answered with 405 by the
-    // transport, so they must reach routing instead of the auth guard.
+    // transport and OPTIONS is the CORS preflight. They must reach routing
+    // instead of the auth guard.
     method == HttpMethod.Get && path == "/mcp" -> true
     method == HttpMethod.Delete && path == "/mcp" -> true
+    method == HttpMethod.Options && path == "/mcp" -> true
     method == HttpMethod.Get && path == "/v1/health" -> true
     method == HttpMethod.Get && (path == "/v1/listings" || path.startsWith("/v1/listings/")) -> true
     else -> false

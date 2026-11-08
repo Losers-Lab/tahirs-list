@@ -28,6 +28,7 @@ private val log = KotlinLogging.logger("com.tahirslist.mcp.GetRestaurantTool")
 class GetRestaurantTool(
     private val detail: GetListingForAgent,
     private val config: McpConfig,
+    private val gate: McpCallGate = McpCallGate { true },
 ) {
     val definition: Tool = Tool(
         name = TOOL_NAME,
@@ -37,6 +38,10 @@ class GetRestaurantTool(
     )
 
     suspend fun call(arguments: JsonObject?): CallToolResult {
+        if (!gate.allowCall()) {
+            log.info { "mcp tool=$TOOL_NAME outcome=rate_limited" }
+            return toolError("Rate limit exceeded. Try again shortly.")
+        }
         val timed = measureTimedValue {
             try {
                 val raw = arguments?.optionalString("id")
@@ -57,6 +62,8 @@ class GetRestaurantTool(
                 toolError(e.message)
             } catch (e: AgentListingNotFoundException) {
                 toolError(e.message)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 log.error(e) { "get_restaurant failed" }
                 toolError("The restaurant could not be loaded. Try again shortly.")
@@ -104,9 +111,14 @@ class GetRestaurantTool(
             properties = buildJsonObject {
                 putJsonObject("id") { put("type", "string") }
                 putJsonObject("name") { put("type", "string") }
+                putJsonObject("address") { put("type", "string") }
+                putJsonObject("lat") { put("type", "number") }
+                putJsonObject("lng") { put("type", "number") }
                 putJsonObject("halalScope") { put("type", "string") }
                 putJsonObject("crossContamination") { put("type", "string") }
                 putJsonObject("verificationStatus") { put("type", "string") }
+                putJsonObject("imageUrl") { put("type", "string") }
+                putJsonObject("websiteUrl") { put("type", "string") }
                 putJsonObject("halalItems") {
                     put("type", "array")
                     putJsonObject("items") {

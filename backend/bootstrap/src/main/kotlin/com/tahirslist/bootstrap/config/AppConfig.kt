@@ -65,6 +65,7 @@ data class McpSettings(
     val publicWebBaseUrl: String = "http://localhost:5173",
     val publicApiBaseUrl: String = "http://localhost:8080",
     val allowedOrigins: Set<String> = emptySet(),
+    val allowedHosts: Set<String> = emptySet(),
     val geocoderBaseUrl: String = "https://photon.komoot.io/api/",
     val capacity: Long = 60,
     val maxKeys: Int = 100_000,
@@ -127,6 +128,12 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
             publicWebBaseUrl = env("APP_MCP_PUBLIC_WEB_BASE_URL") ?: "http://localhost:5173",
             publicApiBaseUrl = env("APP_MCP_PUBLIC_API_BASE_URL") ?: "http://localhost:8080",
             allowedOrigins = env("APP_MCP_ALLOWED_ORIGINS")
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet()
+                ?: emptySet(),
+            allowedHosts = env("APP_MCP_ALLOWED_HOSTS")
                 ?.split(',')
                 ?.map { it.trim() }
                 ?.filter { it.isNotEmpty() }

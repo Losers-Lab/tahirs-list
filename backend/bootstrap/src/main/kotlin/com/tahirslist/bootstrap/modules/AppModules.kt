@@ -257,6 +257,7 @@ private fun mcpModule(config: AppConfig): Module = module {
             publicWebBaseUrl = config.mcp.publicWebBaseUrl,
             publicApiBaseUrl = config.mcp.publicApiBaseUrl,
             allowedOrigins = config.mcp.allowedOrigins,
+            allowedHosts = config.mcp.allowedHosts,
             rateLimit = McpRateLimitSettings(
                 capacity = config.mcp.capacity,
                 refillTokens = config.mcp.refillTokens,
