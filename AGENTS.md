@@ -199,6 +199,11 @@ rather than proceeding with unverified assumptions.
     Yusuf for QA where applicable) post their findings **as PR review
     comments** on the PR itself — not only in task-manager comments. The PR
     diff + review must be auditable on GitHub.
+  - **Review order is fixed:** the agent runs the Omar/Yusuf rounds itself until
+    they converge, then asks the owner to review. Never put an unconverged PR in
+    front of the owner, and never treat owner approval as a substitute for the
+    specialist rounds. Both verdicts (`[omar]`, `[yusuf]`) must be on the PR
+    before the owner is asked.
   - **No merge without an approving review** recorded on the PR. Security-
     sensitive work (auth, trust, integrations) additionally requires Omar's
     explicit approval.

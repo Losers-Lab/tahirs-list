@@ -368,8 +368,15 @@ flowchart LR
   B -- yes --> F[Fix + reply] --> R1
   B -- no --> C{2 clean rounds?}
   C -- no --> R1
-  C -- yes --> OK([Converged → merge])
+  C -- yes --> OK([Converged → owner review])
 ```
+
+**Who reviews, and when.** The **agent runs this loop itself** before asking the
+owner for anything: Omar reviews the diff statically (security and code), Yusuf
+runs the dynamic QA/adversarial pass, and both post their findings as `[omar]` /
+`[yusuf]` comments on the PR. The owner's review is the **final gate after
+convergence** — do not request an owner review on an unconverged PR, and do not
+treat owner approval as a substitute for the two specialist rounds.
 
 **Blocking:** wrong behavior, unmet AC, security, missing test, diagram
 divergence, red build, undocumented API/DB change.
@@ -381,7 +388,7 @@ Converged when all of these hold:
 2. every AC proven by a test or recorded manual evidence;
 3. traceability complete, named tests pass;
 4. full containerized suites green on the head;
-5. an attributed `Verdict: APPROVE` recorded;
+5. attributed `Verdict: APPROVE` from **both** Omar and Yusuf recorded on the PR;
 6. **two consecutive rounds with zero new blocking findings**;
 7. no behavior change without a diagram update;
 8. deferrals exist as Shortcut stories, not TODOs.
