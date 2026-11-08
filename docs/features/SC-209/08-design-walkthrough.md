@@ -74,7 +74,7 @@ flowchart LR
 Approved by: `<pending>` · Date: · Design commit:
 Decision items: `<pending>`
 
-Re-approval: design corrected — existing use cases reused; implementation content unchanged, 58ed5ac
+Re-approval: design corrected — existing use cases reused; implementation content unchanged, 58ed5ac (syntax fix dea52e2)
 
 > **Re-approval requested.** Reply `approved` to confirm technical content is
 > unchanged (format-only), or name the diagram and the change.
