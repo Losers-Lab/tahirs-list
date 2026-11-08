@@ -14,6 +14,7 @@
 | 2026-11-08 | D-14: one Photon pre-flight query before any directory fetch; failure aborts with no artifacts | 0–2, 4–7 |
 | 2026-11-08 | Security review: HTTPS + per-certifier host allow-list, capped re-checked redirects, size cap, fail-closed robots, cache digest; claims store the three-state declaration | 0–2, 6–7 |
 | 2026-11-08 | D-15: load through the runtime `LoadIngestionBatch` + `RestaurantListingRepository`; generated V23 data migration retired. D-16: Tier-1 certification implies index qualification | 0–8 |
+| 2026-11-08 | D-17: per-run immutable artifacts + pending-run guard; no overwrite, archives get unique names | 0–2, 4–7 |
 
 ```mermaid
 flowchart LR
@@ -38,8 +39,8 @@ flowchart LR
 **Need:** approve; confirm D-1.
 
 ## 4. Black-box sequences
-**Shows:** what the curator sees — a pre-flight check, one request per library, partial runs, key rotation, aborts, idempotent re-load.
-**Locks in:** Photon is proven reachable before any directory fetch; Tier-1 shows Verified; manual rows do not; failures are explicit; no invented locations.
+**Shows:** what the curator sees — a pending-run guard, a pre-flight check, one request per library, partial runs, key rotation, aborts, idempotent re-load.
+**Locks in:** an unreviewed run is never overwritten; Photon is proven reachable before any directory fetch; Tier-1 shows Verified; manual rows do not; failures are explicit; no invented locations.
 **Need:** approve.
 
 ## 5. System class diagram
@@ -48,8 +49,8 @@ flowchart LR
 **Need:** approve; confirm D-12.
 
 ## 6. White-box sequences
-**Shows:** the serving path; pre-flight → cache → robots → 1 req/s; real live counts; one runtime transaction for the load.
-**Locks in:** geocoder availability is checked before any fetch; dedupe/upgrade semantics; hand-cut never derived from tier; the load shares the Add Listing write path; blocking audit checks.
+**Shows:** the serving path; pending-run guard → pre-flight → cache → robots → 1 req/s; real live counts; per-run artifacts.
+**Locks in:** no unreviewed batch is overwritten; geocoder availability is checked before any fetch; dedupe/upgrade semantics; hand-cut never derived from tier; the load shares the Add Listing write path; blocking audit checks.
 **Need:** approve; confirm D-4.
 
 ## 7. Complete class diagram (the design being approved)
@@ -84,6 +85,7 @@ flowchart LR
 | D-14 | One Photon pre-flight query runs before any directory fetch; failure aborts with no artifacts | Yes | pending |
 | D-15 | Load through the runtime `LoadIngestionBatch` + `RestaurantListingRepository` in one transaction; no generated data migration | Yes | decided 2026-11-08 |
 | D-16 | Tier-1 certification implies index qualification (`NO_CROSS_CONTAMINATION`); manual/web rows keep explicit/`UNCERTAIN` | Yes | decided 2026-11-08 |
+| D-17 | Per-run immutable artifacts + pending-run guard; no overwrite, archives use unique names, load verifies the candidate checksum | Yes | decided 2026-11-08 |
 
 ## Approval
 
@@ -91,7 +93,7 @@ flowchart LR
 
 ```
 Approved by: <pending> · Date: · Design commit:
-Decision items: D-1 … D-16 resolved as tabled
+Decision items: D-1 … D-17 resolved as tabled
 ```
 
 Re-approval: libraries implemented and live-verified, 2026-11-08.

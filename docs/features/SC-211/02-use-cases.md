@@ -21,42 +21,44 @@ flowchart LR
 - **Primary actor:** Data Curator · **Supporting:** certifier libraries (HMS, HFSAA, HMA), Photon (external)
 - **Goal:** produce a geocoded, reconciled candidate batch + honest run report for three metros
 - **Trigger:** curator starts the sample-ingestion command with a metro selection
-- **Preconditions:** design approved; network to sources + Photon; metros/caps configured
-- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it; HTTPS only, per-certifier host allow-list, bounded re-checked redirects, response-size cap, fail-closed robots · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut TRUE only if the certifier declares hand-cut, FALSE otherwise (declared not or silent); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model · BR-6c a single Photon pre-flight query must pass before any directory request
+- **Preconditions:** design approved; network to sources + Photon; metros/caps configured; no unreviewed run (or the operator chose to archive it)
+- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it; HTTPS only, per-certifier host allow-list, bounded re-checked redirects, response-size cap, fail-closed robots · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut TRUE only if the certifier declares hand-cut, FALSE otherwise (declared not or silent); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model · BR-6c a single Photon pre-flight query must pass before any directory request · BR-6d run artifacts are immutable and per-run; a pending run blocks a new run unless archived, and archives use unique names
 
 **Main success scenario**
 
-1. Curator selects Dallas, NYC, Toronto and per-metro caps (15–25), then starts.
-2. System runs one Photon pre-flight query against a stable address; only on success does it proceed.
-3. System asks the HMS library for certified restaurants (one cached request; directory coordinates kept as evidence only).
-4. System asks the HFSAA library for New York locator entries (one public RPC).
-5. System asks the HMA library for the GTA list (one REST request; all content inline).
-6. Each library returns its own records; its translator maps them to the app's source listings.
-7. System filters fetched rows to restaurants inside the metro city allowlists.
-8. System geocodes each row via Photon; accepts only confirmed matches; directory coordinates never become the accepted location.
-9. System reconciles same-venue rows, merges claims, records the intended verification and hand-cut outcomes.
-10. System writes raw snapshots, `candidates.json` (outcome/basis), and `report.md`.
-11. System reports per-source/per-metro counts and rejected rows with reasons.
+1. Curator selects Dallas, NYC, Toronto and per-metro caps (15–25), then starts with a pending-run policy.
+2. System checks the artifact root for unreviewed runs: default abort; `archive` moves each to a unique `archive/<runId>-<timestamp>-<token>/`; `ignore` leaves them.
+3. System runs one Photon pre-flight query against a stable address; only on success does it proceed.
+4. System asks the HMS library for certified restaurants (one cached request; directory coordinates kept as evidence only).
+5. System asks the HFSAA library for New York locator entries (one public RPC).
+6. System asks the HMA library for the GTA list (one REST request; all content inline).
+7. Each library returns its own records; its translator maps them to the app's source listings.
+8. System filters fetched rows to restaurants inside the metro city allowlists.
+9. System geocodes each row via Photon; accepts only confirmed matches; directory coordinates never become the accepted location.
+10. System reconciles same-venue rows, merges claims, records the intended verification and hand-cut outcomes.
+11. System writes raw snapshots, `candidates.json` (outcome/basis), `report.md`, and a `run.json` manifest under `runs/<runId>/`.
+12. System reports per-source/per-metro counts and rejected rows with reasons.
 
 **Flows**
 
 | ID | From | Condition → flow | Ends in |
 |---|---|---|---|
-| A1 | 5–6 | Several branches/entries → one source listing each; translator maps the library model | Step 9 reconciliation |
-| A2 | 3 | HMS unavailable → recorded source failure; cached snapshot replayed if fresh | Step 4 |
-| A3 | 8 | Fewer rows than the cap → continue, report the shortfall | Step 10 |
-| A4 | — | Repeat run → cached snapshots, no fetch | Step 10, marked cache-sourced |
-| A5 | 4 | HFSAA publishable key rotated → re-discover from the public bundle, retry once; otherwise NYC draws from HMS only and the gap is reported | Step 5 |
-| P1 | 2 | Photon pre-flight fails → abort before any directory request | `Aborted`, no artifacts |
-| E1 | 3–5 | Source unreachable → `SOURCE_UNAVAILABLE`, run continues | Partial report |
-| E2 | 8 | Photon down mid-run → abort before publishing candidates | `Aborted`, no candidates file |
-| E3 | 3–6 | Parse failure → `SOURCE_PARSE_FAILED` quarantine | Source skipped; follow-up |
-| E4 | 7 | Zero metro matches → reported | No load for that metro |
-| E5 | 8 | Wrong-region/ambiguous match → row rejected with the match | Reject list |
+| A1 | 6–7 | Several branches/entries → one source listing each; translator maps the library model | Step 10 reconciliation |
+| A2 | 4 | HMS unavailable → recorded source failure; cached snapshot replayed if fresh | Step 5 |
+| A3 | 9 | Fewer rows than the cap → continue, report the shortfall | Step 11 |
+| A4 | — | Repeat run → cached snapshots, no fetch | Step 11, marked cache-sourced |
+| A5 | 5 | HFSAA publishable key rotated → re-discover from the public bundle, retry once; otherwise NYC draws from HMS only and the gap is reported | Step 6 |
+| P1 | 2 | Unreviewed run exists → abort with its id, or archive under a unique name | No fetch until resolved |
+| P2 | 3 | Photon pre-flight fails → abort before any directory request | `Aborted`, no complete run |
+| E1 | 4–6 | Source unreachable → `SOURCE_UNAVAILABLE`, run continues | Partial report |
+| E2 | 9 | Photon down mid-run → abort before publishing candidates | `Aborted`, no manifest |
+| E3 | 4–7 | Parse failure → `SOURCE_PARSE_FAILED` quarantine | Source skipped; follow-up |
+| E4 | 8 | Zero metro matches → reported | No load for that metro |
+| E5 | 9 | Wrong-region/ambiguous match → row rejected with the match | Reject list |
 
-- **Postconditions:** success — artifacts exist, every fetched row classified, no DB writes; failure — no candidates artifact published as success; pre-flight failure — nothing fetched, nothing written.
-- **Data:** read — library responses, geocoder results · created — artifact files only
-- **ACs:** AC-1, AC-2, AC-3, AC-5, AC-8, AC-9 · **Open:** Q-6, Q-7
+- **Postconditions:** success — one immutable `runs/<runId>/` artifact set exists, every fetched row classified, no DB writes; failure — no manifest, so the run is incomplete, never pending; pre-flight failure — nothing fetched, nothing written.
+- **Data:** read — library responses, geocoder results · created — run directory (snapshots, `candidates.json`, `report.md`, `run.json`) only
+- **ACs:** AC-1, AC-2, AC-3, AC-5, AC-8, AC-9, AC-10 · **Open:** Q-6, Q-7
 
 ## UC-02 — Compile a cited manual Tier-3 batch
 
@@ -95,8 +97,8 @@ flowchart LR
 - **Primary actor:** Data Curator · **Supporting:** none external; existing search API for verification
 - **Goal:** turn a reviewed batch into searchable listings with the correct trust outcome, provenance, and claims — idempotently
 - **Trigger:** curator asks `LoadIngestionBatch` to preview the approved candidates, reviews the diff, then executes the load
-- **Preconditions:** artifacts reviewed; V22 schema merged; database available; the runtime write path (`RestaurantListingRepository`) is deployed
-- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut TRUE only if that claim declares hand-cut, FALSE otherwise (declared not or silent) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands resolved by name before locations · BR-16 the load uses the same aggregate and repository as Add Listing, never generated SQL · BR-17 Tier-1 certified rows are index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value (default `UNCERTAIN`)
+- **Preconditions:** artifacts reviewed; the run is pending (not already loaded or abandoned); V22 schema merged; database available; the runtime write path (`RestaurantListingRepository`) is deployed
+- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut TRUE only if that claim declares hand-cut, FALSE otherwise (declared not or silent) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands resolved by name before locations · BR-16 the load uses the same aggregate and repository as Add Listing, never generated SQL · BR-17 Tier-1 certified rows are index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value (default `UNCERTAIN`) · BR-18 the load verifies the candidate checksum, marks the run loaded, and refuses an already-loaded run
 
 **Main success scenario**
 
@@ -137,7 +139,7 @@ flowchart LR
 **Main success scenario**
 
 1. Curator opens the run report.
-2. System presents per-source/metro counts, rejects, suspected duplicates, claims/basis coverage, gaps.
+2. System presents per-source/metro counts, rejects, suspected duplicates, claims/basis coverage, gaps, and the run status (pending / loaded / abandoned).
 3. Curator spot-checks a sample of rows against their cited URLs.
 4. Curator records evidence in the traceability matrix.
 5. Curator raises follow-ups as Shortcut stories.

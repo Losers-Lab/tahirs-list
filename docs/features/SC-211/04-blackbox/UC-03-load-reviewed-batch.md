@@ -17,10 +17,11 @@ sequenceDiagram
   TL->>DB: 5. One transaction: brands, listings, children, claims, search mirror
   DB-->>TL: committed counts
   TL-->>DC: 6. Counts: inserted / upgraded / skipped / rejected
-  DC->>TL: 7. Verify search, Verified display, hand-cut filter
+  TL->>TL: 7. Mark the run loaded — no longer pending
+  DC->>TL: 8. Verify search, Verified display, hand-cut filter
   TL->>DB: SELECT listings for the metro + hand-cut
   DB-->>TL: rows
-  TL-->>DC: 8. Tier-1 verified — hand-cut per declaration — manual unverified
+  TL-->>DC: 9. Tier-1 verified — hand-cut per declaration — manual unverified
 ```
 
 **A1 — rejected rows excluded** · survivors only.

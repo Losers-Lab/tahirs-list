@@ -141,7 +141,12 @@ classDiagram
   }
   class ArtifactWriter {
     <<interface>>
-    +writeSnapshots() +writeCandidates() +writeReport()
+    +begin(runId, onPending) RunDirectory
+    +complete(runId, snapshots, candidates, report) PendingRun
+    +findPending() List~PendingRun~
+    +markLoaded(runId, loadRunId)
+    +abandon(runId, reason)
+    +archive(runId, reason) RunDirectory
   }
   class CatalogBatchWriter {
     <<interface>>
@@ -205,7 +210,7 @@ classDiagram
 | `CuratedBatchSource` | read the cited manual file | `CuratedBatchFileAdapter` |
 | `GeocoderPort` (existing) | confirm a venue's coordinates | `PhotonGeocoder` |
 | `CheckGeocoderHealth` | one pre-flight query before any fetch | application control |
-| `ArtifactWriter` | persist snapshots/candidates/report | `FileArtifactWriter` |
+| `ArtifactWriter` | persist per-run snapshots/candidates/report; guard pending runs | `FileRunArtifacts` (`runs/<runId>/`, `archive/`) |
 | `CatalogBatchWriter` | **retired** — no generated data migration (D-15) | n/a |
 | `RestaurantListingRepository` (existing, extended) | single listing write path: match + batch apply | `ExposedRestaurantListingRepository` |
 | `BrandRepository` | resolve/create brands before locations | `ExposedBrandRepository` |
@@ -222,7 +227,7 @@ classDiagram
 | UC-01.7 | `MetroFilter.accepts` |
 | UC-01.8 | `GeocoderPort.geocode` + `MatchConfirmationPolicy.confirm` |
 | UC-01.9 | `IngestionCandidate.mergeWith` + `intendedStatus`/`verificationBasis`/`handCutFor(declaration)` |
-| UC-01.10–11 | `ArtifactWriter.write*`; `IngestReport` |
+| UC-01.10–11 | `ArtifactWriter.begin/complete` (`FileRunArtifacts`); `IngestReport` |
 | UC-02.1–5 | `CompileManualBatch` → `CuratedBatchSource.read` → `GeocoderPort.geocode` → `mergeWith` |
 | UC-02.6–7 | `ArtifactWriter.writeCandidates/writeReport` |
 | UC-03.1–3 | `LoadIngestionBatch.preview` → `RestaurantListingRepository.findByNormalizedLocation` · `BrandRepository.resolve` → `CatalogUpdateReview` |

@@ -56,6 +56,7 @@ flowchart LR
 | 11 | Access is confirmed (2026-11-08 spike): 3 requests cover the whole Tier-1 sample. Zabihah bulk access is licensed-only — manual cited rows, never a scraper. |
 | 12 | Pre-flight: one Photon test query runs before any directory fetch; a failure aborts the run with no artifacts. |
 | 13 | Tier-1 certification implies index qualification: ingested Tier-1 rows are written with `cross_contamination = NO_CROSS_CONTAMINATION`. Manual and web rows keep their explicit value (default `UNCERTAIN`). |
+| 14 | Run artifacts are immutable and per-run: `<out>/runs/<runId>/…`. A new run refuses to start while an unreviewed run exists (default), or archives it under a unique `archive/<runId>-<timestamp>-<token>/` name first. A load marks the run loaded; nothing overwrites a run or an archive. |
 
 ## Acceptance criteria (amended 2026-11-08; Shortcut sync pending re-auth)
 
@@ -104,6 +105,11 @@ flowchart LR
 > stable, well-known address) confirms the geocoder is reachable. A failure
 > aborts the run with no snapshots, candidates, or partial load.
 
+> **AC-10** Run artifacts are written to a unique per-run directory. A new run
+> refuses to overwrite an unreviewed run; the operator may archive it first, and
+> archived runs receive unique names. A loaded run is marked so it no longer
+> blocks the next run.
+
 ## Edge cases
 
 | # | Edge case | Handling |
@@ -125,6 +131,8 @@ flowchart LR
 | E-15 | Load fails partway (constraint, DB outage) | One transaction: every listing/claim/mirror write rolls back; no partial catalogue |
 | E-16 | Ingested row matches a user-added row at the same location | Match by normalized location; upgrade the existing row, attach claims, never duplicate |
 | E-17 | Tier-1 certification but no cross-contamination evidence | Certification implies index qualification (`NO_CROSS_CONTAMINATION`); manual/web rows stay explicit/`UNCERTAIN` |
+| E-18 | A previous `candidates.json` exists and was never loaded | Per-run directories + a pending-run guard: refuse by default, or archive under a unique name; never overwrite |
+| E-19 | Two archives for the same run | Archive names include a timestamp + random token and are created new; a collision retries, never replaces |
 
 ## Open questions
 
