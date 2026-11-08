@@ -14,6 +14,11 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.datetime)
 
+    // The ingestion candidate batch is a versioned JSON artifact read by the
+    // runtime load; the wire DTOs live here so the writer and reader share one
+    // contract without depending on an adapter module.
+    implementation(libs.kotlinx.serialization.json)
+
     // This module's own tests run the contract spec against the in-memory fake.
     testImplementation(testFixtures(project(":application")))
 

@@ -1,5 +1,7 @@
 package com.tahirslist.application.listing
 
+import com.tahirslist.application.ingestion.BatchLoadResult
+import com.tahirslist.application.ingestion.ListingWrite
 import com.tahirslist.domain.restaurant.RestaurantListing
 import com.tahirslist.domain.restaurant.VerificationStatus
 import kotlin.uuid.Uuid
@@ -40,4 +42,30 @@ interface RestaurantListingRepository {
      * docs/design/sc-157-image-variants.md.
      */
     suspend fun findAll(): List<RestaurantListing>
+
+    /**
+     * The listing that already owns the claim `(source, sourceRecordRef)`, if
+     * any. This is the first and strongest identity match for a replayed batch
+     * (D-18): the same source record must never attach to a second listing,
+     * even when its coordinates drifted.
+     */
+    suspend fun findClaim(source: String, sourceRecordRef: String): RestaurantListing?
+
+    /** The listing with this deterministic venue key, if any (D-18, second match). */
+    suspend fun findByVenueKey(venueKey: String): RestaurantListing?
+
+    /**
+     * Listings at the same normalised (6 decimal place) location. This is a
+     * report-only fallback: a hit here is a suspected duplicate that the load
+     * holds for a curator, never an identity match (D-18).
+     */
+    suspend fun findByNormalizedLocation(lat: Double, lng: Double): List<RestaurantListing>
+
+    /**
+     * Apply a reviewed ingestion batch in one transaction: brands, listings,
+     * child rows, claims and the search mirror commit together or not at all
+     * (BR-13). A claim that already points at a different listing aborts the
+     * batch (BR-21) rather than silently re-pointing the audit trail.
+     */
+    suspend fun applyBatch(writes: List<ListingWrite>): BatchLoadResult
 }
