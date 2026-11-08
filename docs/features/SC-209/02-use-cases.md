@@ -1,11 +1,14 @@
-> **Purpose:** define the two actor goals and their flows · **Derived from:** 00, 01 · **Delta:** new UC-01, UC-02; existing UI use cases unchanged
+> **Purpose:** define the two existing use cases as served through the MCP channel · **Derived from:** 00, 01 · **Delta:** existing UC-01/UC-02 extended (new supporting actor + channel); no new goals
 
 # 02 — Use cases: SC-209
 
-| ID | Name | Primary actor | Supporting actors |
-|----|------|---------------|-------------------|
-| UC-01 | Search for halal restaurants (via an AI agent) | U (User) | AI agent client; Geocoding provider |
-| UC-02 | View a restaurant's details (via an AI agent) | U (User) | AI agent client |
+| ID | Name | Basis | Primary actor | Supporting actors |
+|----|------|-------|---------------|-------------------|
+| UC-01 | Search for Halal Restaurants | Existing (Shortcut story 36); MCP channel added | U (User) | AI agent client; Geocoding provider |
+| UC-02 | View Restaurant | Existing (Shortcut story 38); MCP channel added | U (User) | AI agent client |
+
+The MCP channel is a new **interface** to these goals; it does not add a use
+case. The flows below are the channel's realization.
 
 > **Protocol precondition (both):** MCP initialization + tool discovery. Not a
 > user goal, so not a use case; exercised by AC-1.
@@ -62,7 +65,9 @@ flowchart TD
 | BR-17 | The detail surface is read-only. |
 | BR-18 | The detail request is rate-limited per client before any work. |
 
-## UC-01 — Search for halal restaurants (via an AI agent)
+## UC-01 — Search for Halal Restaurants (existing; MCP channel)
+
+*Extends the existing Shortcut use case (story 36); the flows below are the MCP-channel realization.*
 
 - **Primary actor:** U · **Supporting:** AI agent client; Geocoding provider
 - **Goal:** find halal restaurants near a place or coordinate, with optional filters.
@@ -103,7 +108,9 @@ failure: actionable error or protocol refusal, **no state change**.
 - **ACs:** AC-1, AC-2, AC-3, AC-4, AC-6, AC-7, AC-8, AC-9, AC-10
 - **Open:** Q-1, Q-3, Q-6, Q-7
 
-## UC-02 — View a restaurant's details (via an AI agent)
+## UC-02 — View Restaurant (existing; MCP channel)
+
+*Extends the existing Shortcut use case (story 38); the flows below are the MCP-channel realization.*
 
 - **Primary actor:** U · **Supporting:** AI agent client
 - **Goal:** get the full trust-relevant detail of one restaurant.
@@ -167,3 +174,4 @@ error or protocol refusal, **no state change**.
 | Q-5 | SDK mounting/protocol spike outcome (WI-01). | Hamza | Implementation start |
 | Q-6 | Production base URLs for listing and certificate/image links. | Founder / Adnan | Deploy |
 | Q-7 | Agent as supporting actor only, or a new persona? | Founder / Adnan | Design approval |
+| Q-8 | Update the Shortcut system-wide use-case diagram to add the AG actor to Search/View (the authoritative diagram lives there). | Adnan | Before implementation |

@@ -1,4 +1,4 @@
-> **Purpose:** place the new use cases in the system · **Derived from:** 02 · **Delta:** +UC-01, +UC-02; no existing use case changes
+> **Purpose:** place the MCP channel in the system · **Derived from:** 02 · **Delta:** existing Search/View use cases extended by a new actor and channel; no new use-case goals
 
 # 03 — Use case diagram: SC-209
 
@@ -7,11 +7,11 @@
 ```mermaid
 flowchart LR
     U([U — User])
-    AG([AI agent client ★])
+    AG([AG — AI agent client ★])
     GEO([Geocoding provider])
     subgraph System["Tahir's List"]
-        UC01([UC-01 Search ★])
-        UC02([UC-02 Detail ★])
+        UC01([UC-01 Search — existing ★])
+        UC02([UC-02 View — existing ★])
     end
     U --> UC01
     U --> UC02
@@ -24,13 +24,13 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    U([U])
-    RO([RO])
-    VRO([VRO])
-    VC([VC])
-    IC([IC])
-    ET([ET])
-    AG([AI agent ★])
+    U([U — User])
+    RO([RO — Restaurant Owner])
+    VRO([VRO — Verified Restaurant Owner])
+    VC([VC — Verification Committee])
+    IC([IC — Issues Committee])
+    ET([ET — Extension Trigger])
+    AG([AG — AI agent client ★])
     subgraph System["Tahir's List"]
         subgraph Existing["Existing — unchanged"]
             E01([Create Account])
@@ -48,9 +48,9 @@ flowchart LR
             E14([Edit Listing])
             E15([Extension Overlay])
         end
-        subgraph New["New — SC-209"]
-            N01([UC-01 Search via agent ★])
-            N02([UC-02 Detail via agent ★])
+        subgraph Extended["Existing — extended by SC-209 ★"]
+            N01([UC-01 Search — MCP channel])
+            N02([UC-02 View — MCP channel])
         end
     end
     U --> E01 & E02 & E03 & E05 & E06 & N01 & N02
@@ -69,10 +69,12 @@ flowchart LR
 
 | Mark | Meaning |
 |------|---------|
-| ★ | New in SC-209 |
-| Existing | Derived from Shortcut stories; the authoritative catalog lives in Shortcut |
+| ★ | New actor or channel; the use-case goals themselves are existing |
+| Extended | Existing goal with new MCP flows (actor + channel added) |
 | `«include»` | Required sub-flow, not a top-level actor goal |
 
-**Actor → use case** means "may initiate", not "benefits from". The AI agent is a
-supporting external actor, not a README persona (D-9). The agent surface reaches
-the read model directly — it does not include the UI search use case.
+**Actors:** U = User · RO = Restaurant Owner · VRO = Verified Restaurant Owner · VC = Verification Committee · IC = Issues Committee · ET = Extension Trigger · AG = AI agent client (supporting, new).
+
+The agent introduces **no new goal**: it is a supporting actor on the existing
+Search and View use cases; MCP is a new channel. **Actor → use case** means "may
+initiate", not "benefits from".

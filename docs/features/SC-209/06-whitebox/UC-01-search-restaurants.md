@@ -1,7 +1,7 @@
-> **Purpose:** show how UC-01 is served internally · **Derived from:** 02, 05 · **Delta:** new flow
+> **Purpose:** show how the MCP channel serves existing UC-01 internally · **Derived from:** 02, 05 · **Delta:** new channel flows
 > **Transaction:** one read-only `suspendTransaction` in `ExposedListingSearchQuery`; nothing writes.
 
-# 06 — White-box: UC-01 search for halal restaurants
+# 06 — White-box: UC-01 Search for Halal Restaurants (MCP channel)
 
 ```mermaid
 sequenceDiagram

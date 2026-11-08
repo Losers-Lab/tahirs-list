@@ -1,4 +1,4 @@
-> **Purpose:** lock the Shortcut requirement and its verbatim ACs · **Derived from:** Shortcut SC-209 · **Delta:** new feature; no existing story changed
+> **Purpose:** lock the Shortcut requirement and its verbatim ACs · **Derived from:** Shortcut SC-209 · **Delta:** new MCP channel for the existing Search/View use cases
 
 # 00 — Story lock: SC-209
 

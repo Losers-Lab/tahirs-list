@@ -1,6 +1,6 @@
-> **Purpose:** actor-visible behavior of UC-01 · **Derived from:** 02 · **Delta:** new flow · **Security:** public read-only; refusals are 429/403; listing text is untrusted
+> **Purpose:** actor-visible behavior of the MCP channel for existing UC-01 · **Derived from:** 02 · **Delta:** new channel flows · **Security:** public read-only; refusals are 429/403; listing text is untrusted
 
-# 04 — Black-box: UC-01 search for halal restaurants
+# 04 — Black-box: UC-01 Search for Halal Restaurants (MCP channel)
 
 **Main** — validated search returns a distance-ordered page with facts and links.
 ```mermaid

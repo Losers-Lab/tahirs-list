@@ -1,7 +1,7 @@
-> **Purpose:** show how UC-02 is served internally · **Derived from:** 02, 05 · **Delta:** new flow
+> **Purpose:** show how the MCP channel serves existing UC-02 internally · **Derived from:** 02, 05 · **Delta:** new channel flows
 > **Transaction:** two read-only `suspendTransaction` calls (listing, review); no writes.
 
-# 06 — White-box: UC-02 view a restaurant's details
+# 06 — White-box: UC-02 View Restaurant (MCP channel)
 
 ```mermaid
 sequenceDiagram

@@ -1,6 +1,6 @@
-> **Purpose:** actor-visible behavior of UC-02 · **Derived from:** 02 · **Delta:** new flow · **Security:** public read-only; certificate facts only for verified + approved + archived
+> **Purpose:** actor-visible behavior of the MCP channel for existing UC-02 · **Derived from:** 02 · **Delta:** new channel flows · **Security:** public read-only; certificate facts only for verified + approved + archived
 
-# 04 — Black-box: UC-02 view a restaurant's details
+# 04 — Black-box: UC-02 View Restaurant (MCP channel)
 
 **Main** — validated detail request returns trust facts and links.
 

@@ -1,4 +1,4 @@
-> **Purpose:** one review pass over the design · **Derived from:** 00–07 · **Delta:** format-only retrofit; technical content unchanged
+> **Purpose:** one review pass over the design · **Derived from:** 00–07 · **Delta:** existing Search/View use cases reused (new actor + channel); format retrofit otherwise
 > Design branch: `docs/SC-209-mcp-design` · PR [#73](https://github.com/Losers-Lab/tahirs-list/pull/73) · 2026-11-07
 
 # 08 — Design walkthrough: SC-209
@@ -22,13 +22,13 @@ flowchart LR
 **Need:** approve; D-9 (agent actor), D-1 (architecture row).
 
 ## 2. Use cases
-**Shows:** UC-01/UC-02 with main, alternate, exception flows and AC coverage.
-**Locks in:** exactly two read-only tools; actionable errors; no state change.
+**Shows:** the existing Search/View use cases with the MCP channel flows and AC coverage.
+**Locks in:** the goals are unchanged; exactly two read-only tools; actionable errors; no state change.
 **Need:** approve; D-2, D-3, D-9.
 
 ## 3. Use case diagram
-**Shows:** the two new use cases against the existing catalog; agent as supporting actor.
-**Locks in:** no existing use case changes; no HTTP hop to the UI search.
+**Shows:** the existing Search/View use cases extended by the new agent actor and MCP channel.
+**Locks in:** the goals are unchanged; only the supporting actor and channel are added; no HTTP hop to the UI search.
 **Need:** approve; D-9.
 
 ## 4. Black-box sequences
@@ -56,14 +56,14 @@ flowchart LR
 | # | Question | Recommendation | Decision |
 |---|----------|----------------|----------|
 | D-1 | Ratify `ARCHITECTURE.md` §1.0: Kotlin SDK, embedded `:mcp`, stateless Streamable HTTP at `/mcp`, public read-only, rate-limited. | Approve | pending |
-| D-2 | Confirm epic 207 / iteration 208 / first in state; prioritization docs not discoverable. | Keep; Adnan confirms | pending |
+| D-2 | Confirm epic 207 / iteration 208 / first in state; prioritization docs not discoverable; update the Shortcut use-case diagram for the agent actor (Q-8). | Keep; Adnan confirms | pending |
 | D-3 | Rate budget 60 req/min per client IP, bounded keys, existing proxy-trust setting. | Approve; Omar may tune | pending |
 | D-4 | Origin allow-list, empty prod default; dev adds Inspector `http://localhost:6274`. | Allow-list (deny by default) | pending |
 | D-5 | Tool names, schemas and LLM-facing descriptions as drafted. | Approve; Fatima rewords | pending |
 | D-6 | Extract `ListingSearchRequestParser` + `CertificateFacts` into `:application`; behaviour-preserving `web-api` refactor. | Approve | pending |
 | D-7 | Include `halalItems` on MCP detail only (REST unchanged). | Approve | pending |
 | D-8 | New `Bucket4jMcpRateLimiter` in `:mcp` rather than a shared module. | Approve; extract later | pending |
-| D-9 | AI agent = supporting external actor only (no README persona). | Approve | pending |
+| D-9 | AI agent = supporting actor on the existing Search/View use cases; MCP is the new channel (not a new goal); no README persona. | Approve | pending |
 | D-10 | `APP_MCP_PUBLIC_WEB_BASE_URL` / `APP_MCP_PUBLIC_API_BASE_URL`; prod requires https, rejects defaults. | Approve; founder confirms prod values | pending |
 | D-11 | Last-resort dedicated localhost server behind the tunnel if the SDK cannot coexist with `ContentNegotiation`. | Accept only if the spike proves it necessary | pending |
 | G-1 | Public "connect your agent" docs page. | Out of scope — separate story | pending |

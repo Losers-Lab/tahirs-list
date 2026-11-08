@@ -126,6 +126,8 @@ classDiagram
 | `GeocoderPort` | `geocode(address)` | `PhotonGeocoder` |
 | `AgentRateLimiter` | `tryAcquire(key)` | `Bucket4jAgentRateLimiter` |
 
+UC-01 and UC-02 are existing goals; this feature serves them through the MCP channel.
+
 ## Operation inventory
 
 | Use case step | Operation |
