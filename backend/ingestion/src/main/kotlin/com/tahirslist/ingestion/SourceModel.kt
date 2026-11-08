@@ -53,6 +53,14 @@ data class SourceListing(
     val warnings: List<String> = emptyList(),
 ) {
     val hasCoordinates: Boolean get() = latitude != null && longitude != null
+
+    /**
+     * TRUE only when a Tier-1 certifier declares hand-cut; FALSE for every
+     * other Tier-1 declaration (declared not or silent). Rows without a
+     * certifier claim (manual Tier-3) stay NULL.
+     */
+    val isHandCut: Boolean?
+        get() = if (standard.tier == SourceTier.TIER_1) standard.handCut.isHandCut else null
 }
 
 /** One library model -> Tahir's List source listings. */

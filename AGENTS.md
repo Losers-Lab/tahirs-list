@@ -161,14 +161,15 @@ rather than proceeding with unverified assumptions.
 ## Engineering ground rules
 
 - **Hand-cut vocabulary rule (product-wide, all layers).** Tahir's List has
-  exactly one cutting attribute: **hand-cut**, with three states — `TRUE`
-  (declared hand-cut), `FALSE` (declared not hand-cut), `NULL`/unknown. Never
-  introduce a counter-category, antonym, or alternative-method label for
-  hand-cut anywhere: UI copy, data vocabularies, enum values, column names,
-  test names, docs, commit messages, or PR text. Verification and hand-cut are
-  independent: a recognized certifier's tier drives `VERIFIED`; that
-  certifier's own declaration drives hand-cut. This rule binds every future
-  agent and every surface, not only ingestion.
+  exactly one cutting attribute: **hand-cut**. A certifier-backed row is
+  `TRUE` only when the certifier declares hand-cut, and `FALSE` otherwise
+  (including when the certifier is silent); `NULL` is reserved for rows with no
+  certifier claim. Never introduce a counter-category, antonym, or
+  alternative-method label for hand-cut anywhere: UI copy, data vocabularies,
+  enum values, column names, test names, docs, commit messages, or PR text.
+  Verification and hand-cut are independent: a recognized certifier's tier
+  drives `VERIFIED`; that certifier's own declaration drives hand-cut. This
+  rule binds every future agent and every surface, not only ingestion.
 - **Work in small, reviewable increments.** Prefer clear tasks with explicit
   acceptance criteria tied to Shortcut stories.
 - **TDD for the backend** (per the Development Process doc). Keep tests runnable

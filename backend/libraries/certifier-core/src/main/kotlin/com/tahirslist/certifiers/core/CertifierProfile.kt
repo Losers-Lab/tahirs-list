@@ -14,7 +14,14 @@ package com.tahirslist.certifiers.core
 enum class HandCutDeclaration {
     HAND_CUT,
     NOT_HAND_CUT,
-    UNSPECIFIED,
+    UNSPECIFIED;
+
+    /**
+     * The product boolean for a certifier-backed row: TRUE only when hand-cut
+     * is declared; FALSE for every other declaration, including silence.
+     * Callers reserve NULL for rows with no certifier claim at all.
+     */
+    val isHandCut: Boolean get() = this == HAND_CUT
 }
 
 /**

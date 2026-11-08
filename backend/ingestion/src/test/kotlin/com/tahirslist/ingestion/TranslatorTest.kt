@@ -72,6 +72,7 @@ class HmsTranslatorTest : FunSpec({
         listing.region shouldBe "Texas"
         listing.latitude shouldBe 32.7767
         listing.expiresOn shouldBe LocalDate.parse("2026-12-31")
+        listing.isHandCut shouldBe true
     }
 
     test("carries a not-hand-cut declaration through unchanged") {
@@ -82,6 +83,17 @@ class HmsTranslatorTest : FunSpec({
 
         listing.standard.handCut shouldBe HandCutDeclaration.NOT_HAND_CUT
         listing.standard.tier shouldBe SourceTier.TIER_1
+        listing.isHandCut shouldBe false
+    }
+
+    test("a silent declaration is false, not null") {
+        val standard = DirectoryStandard(SourceTier.TIER_1, HmsProfile.name, HandCutDeclaration.UNSPECIFIED)
+        val page = CertifierPage(HmsProfile, listOf(hmsRecord()), listOf(snapshot("hms")))
+
+        val listing = HmsTranslator(standard).translate(page).single()
+
+        listing.standard.handCut shouldBe HandCutDeclaration.UNSPECIFIED
+        listing.isHandCut shouldBe false
     }
 
     test("flags a record that still needs geocoding") {
@@ -177,3 +189,34 @@ class HmaTranslatorTest : FunSpec({
         HmaTranslator().translate(page).single().region shouldBe "Some Province"
     }
 })
+
+class SourceListingHandCutTest : FunSpec({
+
+    test("a manual row with no certifier claim stays null") {
+        val listing = listing(
+            DirectoryStandard(SourceTier.TIER_3, "Zabihah", HandCutDeclaration.UNSPECIFIED),
+        )
+
+        listing.isHandCut shouldBe null
+    }
+})
+
+private fun listing(standard: DirectoryStandard) = SourceListing(
+    source = SourceRef("manual", "1", "https://example.test/1"),
+    standard = standard,
+    name = "Manual entry",
+    addressLines = listOf("1 Main St"),
+    city = "Dallas",
+    region = "Texas",
+    postalCode = null,
+    country = "United States",
+    latitude = null,
+    longitude = null,
+    phone = null,
+    website = null,
+    certificateRef = null,
+    certificationStatus = null,
+    expiresOn = null,
+    providerPlaceId = null,
+    category = "Restaurant",
+)
