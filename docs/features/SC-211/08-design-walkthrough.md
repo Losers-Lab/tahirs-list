@@ -68,4 +68,4 @@ Approved by: <pending> · Date: · Design commit:
 Decision items: D-1 … D-10 resolved as tabled
 ```
 
-Re-approval: format-only retrofit, technical content unchanged, <pending sha>.
+Re-approval: format-only retrofit, technical content unchanged, be3630e.
