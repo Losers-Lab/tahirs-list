@@ -16,6 +16,7 @@ dependencies {
     implementation(project(":storage-s3"))
     implementation(project(":verification-ai"))
     implementation(project(":geocoding"))
+    implementation(project(":ingestion"))
     implementation(project(":mcp"))
 
     implementation(platform(libs.ktor.bom))
@@ -60,4 +61,30 @@ dependencies {
     testImplementation(libs.testcontainers)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.postgresql)
+}
+
+/**
+ * SC-211 ingestion CLIs. Both run in the container image via the scripts, not
+ * on the host (no host toolchain).
+ */
+tasks.register<JavaExec>("ingestSample") {
+    group = "ingestion"
+    description = "Fetch the Tier-1 directories and write a reviewed run directory."
+    mainClass.set("com.tahirslist.bootstrap.ingestion.SampleIngestMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    (project.findProperty("ingestArgs") as String?)
+        ?.split(' ')
+        ?.filter { it.isNotBlank() }
+        ?.let { args(it) }
+}
+
+tasks.register<JavaExec>("loadIngestBatch") {
+    group = "ingestion"
+    description = "Preview (and with --execute apply) a reviewed ingestion run."
+    mainClass.set("com.tahirslist.bootstrap.ingestion.LoadIngestBatchMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    (project.findProperty("ingestArgs") as String?)
+        ?.split(' ')
+        ?.filter { it.isNotBlank() }
+        ?.let { args(it) }
 }
