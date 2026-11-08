@@ -45,7 +45,7 @@ classDiagram
 | INV-1 | A row exists iff a provider call succeeded with a match; no match and provider failure write nothing | `CachingGeocoderTest.noMatchIsNotCached` · `providerFailureLeavesNoCacheRow` |
 | INV-2 | `{'Main St', ' main st', 'MAIN   ST'}` normalize to one key | `NormalizedQueryTest.ignoresWhitespaceAndCase` · `collapsesInternalWhitespace` |
 | INV-3 | The hash is stable across calls and processes for the same normalized text | `NormalizedQueryTest.hashIsStable` · `knownHashVector` |
-| INV-4 | `normalized_query_hash` is unique; a second save is a no-op, never a second row | `ExposedGeocodedAddressStoreTest.duplicateSaveIsNoOp` · `GeocodedAddressesMigrationTest.uniqueQueryHash` |
+| INV-4 | `normalized_query_hash` is unique; a second save refreshes the same row, never a second row | `ExposedGeocodedAddressStoreTest` "saveRefreshesStaleRow" · `GeocodedAddressesMigrationTest` "normalized_query_hash is the primary key" |
 | INV-5 | A hit returns the stored lat/lng, display name and provider reference, and makes **zero** provider calls | `CachingGeocoderTest.hitReturnsStoredPlaceWithoutProviderCall` |
 | INV-6 | A cold miss calls the provider exactly once and stores exactly one row | `CachingGeocoderTest.missThenHitCallsProviderOnce` |
 | INV-7 | The ingestion pre-flight always reaches the provider; it never answers from cache | `GeocodingWiringTest.healthProbeBypassesCache` |

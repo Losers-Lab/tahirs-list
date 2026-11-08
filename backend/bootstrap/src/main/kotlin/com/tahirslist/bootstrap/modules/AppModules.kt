@@ -14,7 +14,6 @@ import com.tahirslist.application.favorite.FavoriteListing
 import com.tahirslist.application.favorite.FavoritesRepository
 import com.tahirslist.application.favorite.ListFavorites
 import com.tahirslist.application.favorite.UnfavoriteListing
-import com.tahirslist.application.geo.GeocoderPort
 import com.tahirslist.application.image.ImageFetcher
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.InMemoryImagePort
@@ -42,7 +41,6 @@ import com.tahirslist.bootstrap.config.AppConfig
 import com.tahirslist.bootstrap.image.HttpImageFetcher
 import com.tahirslist.bootstrap.image.SeedImageIngestRunner
 import com.tahirslist.bootstrap.image.SeedPhotoManifestParser
-import com.tahirslist.geocoding.PhotonGeocoder
 import com.tahirslist.mcp.Bucket4jMcpRateLimiter
 import com.tahirslist.mcp.McpConfig
 import com.tahirslist.mcp.McpOriginGuard
@@ -90,6 +88,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 fun appModules(config: AppConfig): List<Module> = listOf(
     infrastructureModule(config),
+    geocodingModule(config),
     useCaseModule(config),
     webModule(config),
     mcpModule(config),
@@ -160,8 +159,7 @@ private fun infrastructureModule(config: AppConfig): Module = module {
     single<ImageFetcher> { HttpImageFetcher() }
     single { SeedPhotoManifestParser() }
 
-    // --- Geocoding (SC-209 is the first production consumer of the port) ---
-    single<GeocoderPort> { PhotonGeocoder(baseUrl = config.mcp.geocoderBaseUrl) }
+    // --- Geocoding wiring lives in geocodingModule(...) ---
     val verification = config.verification
     if (verification != null) {
         single<VisionModelClient> { RestVisionModelClient(verification) }

@@ -105,7 +105,7 @@ class IngestionSchemaMigrationTest : FunSpec() {
             }
         }
 
-        test("V23 allows two different businesses at one point, as a curator decided") {
+        test("V24 allows two different businesses at one point, as a curator decided") {
             runTest {
                 val shared = pointExpr(43.5, -79.5)
                 postgis.execute(listingSql(UUID.randomUUID(), "Counter one", point = shared))
@@ -127,7 +127,7 @@ class IngestionSchemaMigrationTest : FunSpec() {
             }
         }
 
-        test("V23 keeps the seed corpus unique per point so re-seeding stays a no-op") {
+        test("V24 keeps the seed corpus unique per point so re-seeding stays a no-op") {
             runTest {
                 val shared = pointExpr(43.6, -79.6)
                 val seed = {
@@ -142,7 +142,7 @@ class IngestionSchemaMigrationTest : FunSpec() {
             }
         }
 
-        test("V23 records where certifier-derived trust came from") {
+        test("V24 records where certifier-derived trust came from") {
             runTest {
                 postgis.count(
                     "SELECT count(*) FROM information_schema.columns " +
@@ -269,7 +269,7 @@ class IngestionSchemaMigrationTest : FunSpec() {
             }
         }
 
-        test("V23 restores the seed-only unique index and makes the research one a plain lookup") {
+        test("V24 restores the seed-only unique index and makes the research one a plain lookup") {
             runTest {
                 postgis.count(
                     "SELECT count(*) FROM pg_indexes WHERE indexname = 'uq_restaurant_listings_seed_location' " +

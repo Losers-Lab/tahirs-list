@@ -39,7 +39,7 @@ flowchart LR
 
 - **Primary actor:** U · **Supporting:** ET (AI agent client), Photon · **Trigger:** the user asks their agent for halal restaurants near a place
 - **Goal:** find halal restaurants around a searched place, at provider cost only for places never seen before
-- **Preconditions:** MCP endpoint healthy; agent initialized; schema migrated (V22); the user stated a place or coordinates
+- **Preconditions:** MCP endpoint healthy; agent initialized; schema migrated (V23); the user stated a place or coordinates
 
 **Main success scenario**
 

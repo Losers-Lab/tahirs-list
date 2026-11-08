@@ -215,6 +215,26 @@ object HalalCertificationReviews : Table("halal_certification_reviews") {
 }
 
 /**
+ * `V23__sc_198_geocoded_addresses.sql` (SC-198): the geocode cache.
+ *
+ * One row per normalized query; the SHA-256 hash is the primary key, so a write
+ * is an idempotent upsert and a read is a primary-key lookup. `created_at` is
+ * both first-sighting and freshness: rows older than the TTL are not served and
+ * are refreshed in place (docs/features/SC-198, D-6).
+ */
+object GeocodedAddresses : Table("geocoded_addresses") {
+    val normalizedQueryHash = varchar("normalized_query_hash", 64)
+    val lat = double("lat")
+    val lng = double("lng")
+    val displayName = text("display_name")
+    val providerRef = text("provider_ref").nullable()
+    val provider = varchar("provider", 32)
+    val createdAt = timestampWithTimeZone("created_at")
+
+    override val primaryKey = PrimaryKey(normalizedQueryHash)
+}
+
+/**
  * `V22__sc_211_ingestion_schema.sql` — cited certifier observations.
  *
  * Unique by `(source, source_record_ref)` globally; the listing FK is the audit

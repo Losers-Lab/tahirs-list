@@ -13,6 +13,8 @@ dependencies {
     // Use cases and out-ports are suspend-based; consumers see those types.
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.datetime)
+    implementation(libs.kotlin.logging.jvm)
+    testRuntimeOnly(libs.logback.classic)
 
     // The ingestion candidate batch is a versioned JSON artifact read by the
     // runtime load; the wire DTOs live here so the writer and reader share one

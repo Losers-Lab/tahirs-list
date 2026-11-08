@@ -8,6 +8,7 @@
 | 2026-11-08 | Initial walkthrough | — |
 | 2026-11-08 | D-6 decided: lazy 90-day TTL, refreshed in place (no scheduler) | 01, 02, 04, 06, 07 |
 | 2026-11-08 | **Approved** by founder; D-1…D-9 resolved as tabled | 08 |
+| 2026-11-08 | Merge with main: SC-211 landed `V22` first; SC-198 renumbered to `V23` (D-9 contingency) | 07, 09, 10 |
 
 ```mermaid
 flowchart LR
@@ -47,7 +48,7 @@ flowchart LR
 **Need:** approve; confirm D-6, D-7, D-8.
 
 ## 7. Complete class diagram (the design being approved)
-**Shows:** module map, final names, V22 schema, wiring delta, and the tests that prove each AC.
+**Shows:** module map, final names, V23 schema, wiring delta, and the tests that prove each AC.
 **Locks in:** one migration and one table, no API/frontend change, no column touched elsewhere; `created_at` doubles as the 90-day freshness stamp.
 **Need:** approve, including D-5, D-9.
 
@@ -63,7 +64,7 @@ flowchart LR
 | D-6 | Cache lifetime: lazy 90-day TTL — a row older than 90 days is ignored and refreshed in place on the next successful lookup; no scheduler | Decided 2026-11-08 | decided — lazy TTL, 90 days |
 | D-7 | Fail open on cache store errors: read failure → treat as a miss; write failure → warn and return the provider result | Yes — the cache must never cause an outage | decided 2026-11-08 |
 | D-8 | Accept that two concurrent first-time lookups may both call Photon; the unique key keeps one row | Yes — a lock costs more than a duplicate call | decided 2026-11-08 |
-| D-9 | No REST/MCP/OpenAPI/frontend change; migration V22 reserved for this story; SC-209 BR-10 (“no cache in v1”) amended | Yes | decided 2026-11-08 |
+| D-9 | No REST/MCP/OpenAPI/frontend change; the next migration version is reserved for this story (renumbered to V23 when SC-211 landed V22); SC-209 BR-10 ("no cache in v1") amended | Yes | decided 2026-11-08 |
 
 ## Approval
 

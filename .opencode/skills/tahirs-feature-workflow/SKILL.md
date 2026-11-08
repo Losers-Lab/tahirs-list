@@ -115,6 +115,10 @@ controller/OpenAPI → security), frontend after the contract lands. Two-way
 coverage: every UC step has a WI, every Phase 7 class belongs to one. Commit
 `09`–`10` to the same design branch/PR once the design is approved.
 
+**All WIs for a story ship in one PR**, reviewed WI by WI — the PR column names
+the same PR on every row. Split only when the founder asks; a per-WI PR is the
+exception, not the default.
+
 ## Step 10 — TDD
 
 Branch `feat/<STORY>-<slug>`. Failing test → prove red → implement → green →
