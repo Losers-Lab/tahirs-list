@@ -125,15 +125,16 @@ fun Application.installMcp(
         }
     }
 
-    // The SDK answers malformed bodies with "Parse error: <exception text>".
-    // Never echo parser/decoder detail from an anonymous endpoint.
+    // The SDK answers malformed bodies with a JSON-RPC error whose message is
+    // "Parse error: <parser exception text>". Its envelope starts with "error",
+    // not "jsonrpc", so match on the code and replace the whole body. Never echo
+    // parser/decoder detail from an anonymous endpoint.
     sendPipeline.intercept(ApplicationSendPipeline.Transform) {
         val outgoing = subject
         if (call.request.path() == path &&
             outgoing is TextContent &&
             outgoing.contentType.match(ContentType.Application.Json) &&
-            outgoing.text.startsWith("{\"jsonrpc\"") &&
-            outgoing.text.contains("\"Parse error:")
+            outgoing.text.contains("\"code\":-32700")
         ) {
             proceedWith(TextContent(FIXED_PARSE_ERROR, ContentType.Application.Json, HttpStatusCode.BadRequest))
         } else {
@@ -178,6 +179,7 @@ private fun io.ktor.server.application.ApplicationCall.mcpClientKey(config: McpC
     mcpClientKey(
         remoteHost = request.local.remoteHost,
         forwardedFor = request.headers[HttpHeaders.XForwardedFor],
+        cfConnectingIp = request.headers["CF-Connecting-IP"],
         trustProxy = config.rateLimit.trustProxy,
     )
 
@@ -187,13 +189,20 @@ private fun io.ktor.server.application.ApplicationCall.mcpClientKey(config: McpC
  * keys the bucket. Only the first XFF hop is considered, and a value that is not
  * a plausible IP is discarded (it is only a bucket key, never resolved).
  */
-internal fun mcpClientKey(remoteHost: String, forwardedFor: String?, trustProxy: Boolean): String {
+internal fun mcpClientKey(
+    remoteHost: String,
+    forwardedFor: String?,
+    cfConnectingIp: String? = null,
+    trustProxy: Boolean,
+): String {
     val forwarded = forwardedFor?.substringBefore(",")?.trim()
-    val ip = if (trustProxy && forwarded != null && forwarded.isPlausibleIp()) {
-        forwarded
-    } else {
-        remoteHost.takeIf { it.isNotBlank() } ?: "unknown"
+    val trustedIp = when {
+        !trustProxy -> null
+        cfConnectingIp?.trim()?.isPlausibleIp() == true -> cfConnectingIp.trim()
+        forwarded?.isPlausibleIp() == true -> forwarded
+        else -> null
     }
+    val ip = trustedIp ?: remoteHost.takeIf { it.isNotBlank() } ?: "unknown"
     return "mcp|$ip"
 }
 

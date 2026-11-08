@@ -77,9 +77,12 @@ class McpEndpointTest : FunSpec({
 
             response.status shouldBe HttpStatusCode.BadRequest
             body shouldContain "Parse error"
+            body shouldNotContain "JSON input"
+            body shouldNotContain "Unexpected JSON token"
+            body shouldNotContain "offset"
+            body shouldNotContain "maxNestingDepth"
             body shouldNotContain "Exception"
             body shouldNotContain "kotlin."
-            body shouldNotContain "at io.modelcontextprotocol"
         }
     }
 

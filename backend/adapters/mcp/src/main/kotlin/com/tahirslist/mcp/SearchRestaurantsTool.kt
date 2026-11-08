@@ -238,7 +238,24 @@ class SearchRestaurantsTool(
             properties = buildJsonObject {
                 putJsonObject("results") {
                     put("type", "array")
-                    putJsonObject("items") { put("type", "object") }
+                    putJsonObject("items") {
+                        put("type", "object")
+                        putJsonObject("properties") {
+                            putJsonObject("id") { put("type", "string") }
+                            putJsonObject("name") { put("type", "string") }
+                            putJsonObject("address") { put("type", "string") }
+                            putJsonObject("lat") { put("type", "number") }
+                            putJsonObject("lng") { put("type", "number") }
+                            putJsonObject("distanceMiles") { put("type", "number") }
+                            putJsonObject("cuisine") { put("type", "string") }
+                            putJsonObject("isHandCut") { put("type", "boolean") }
+                            putJsonObject("halalScope") { put("type", "string") }
+                            putJsonObject("isDelivery") { put("type", "boolean") }
+                            putJsonObject("verificationStatus") { put("type", "string") }
+                            putJsonObject("rating") { put("type", "number") }
+                            putJsonObject("websiteUrl") { put("type", "string") }
+                        }
+                    }
                 }
                 putJsonObject("count") { put("type", "integer"); put("minimum", 0) }
                 putJsonObject("nextOffset") {
@@ -270,14 +287,20 @@ internal fun JsonObject.optionalString(name: String): String? {
 internal fun JsonObject.optionalBoolean(name: String): Boolean? {
     val element = this[name] ?: return null
     if (element is JsonNull) return null
-    return (element as? JsonPrimitive)?.booleanOrNull
+    val primitive = element as? JsonPrimitive
+        ?: throw InvalidSearchArgumentsException("$name must be a boolean")
+    if (primitive.isString) throw InvalidSearchArgumentsException("$name must be a boolean")
+    return primitive.booleanOrNull
         ?: throw InvalidSearchArgumentsException("$name must be a boolean")
 }
 
 internal fun JsonObject.optionalDouble(name: String): Double? {
     val element = this[name] ?: return null
     if (element is JsonNull) return null
-    val value = (element as? JsonPrimitive)?.doubleOrNull
+    val primitive = element as? JsonPrimitive
+        ?: throw InvalidSearchArgumentsException("$name must be a number")
+    if (primitive.isString) throw InvalidSearchArgumentsException("$name must be a number")
+    val value = primitive.doubleOrNull
         ?: throw InvalidSearchArgumentsException("$name must be a number")
     if (!value.isFinite()) {
         throw InvalidSearchArgumentsException("$name must be a finite number")
@@ -288,7 +311,10 @@ internal fun JsonObject.optionalDouble(name: String): Double? {
 internal fun JsonObject.optionalInt(name: String): Int? {
     val element = this[name] ?: return null
     if (element is JsonNull) return null
-    return (element as? JsonPrimitive)?.intOrNull
+    val primitive = element as? JsonPrimitive
+        ?: throw InvalidSearchArgumentsException("$name must be an integer")
+    if (primitive.isString) throw InvalidSearchArgumentsException("$name must be an integer")
+    return primitive.intOrNull
         ?: throw InvalidSearchArgumentsException("$name must be an integer")
 }
 

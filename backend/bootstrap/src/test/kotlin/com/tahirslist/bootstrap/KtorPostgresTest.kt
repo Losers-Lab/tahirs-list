@@ -178,7 +178,8 @@ val DEFAULT_MCP = McpSettings(
     publicWebBaseUrl = "http://localhost:5173",
     publicApiBaseUrl = "http://localhost:8080",
     allowedOrigins = emptySet(),
-    geocoderBaseUrl = "https://photon.komoot.io/api/",
+    // Unroutable on purpose: no bootstrap spec may reach the public geocoder.
+    geocoderBaseUrl = "http://127.0.0.1:9/",
     capacity = 10_000,
     maxKeys = 100_000,
     refillTokens = 10_000,

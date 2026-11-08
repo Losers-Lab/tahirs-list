@@ -3,6 +3,7 @@ package com.tahirslist.bootstrap
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -21,6 +22,7 @@ class McpSearchPostgisTest : KtorPostgresTest() {
         // baseline dataset exactly as other count-based search specs expect it.
         afterSpec {
             dbUpdate("DELETE FROM restaurant_listings WHERE name LIKE 'Mcp%'")
+            dbUpdate("DELETE FROM users WHERE email LIKE 'mcp-%'")
         }
     }
     private suspend fun createSearchListing(
@@ -30,6 +32,7 @@ class McpSearchPostgisTest : KtorPostgresTest() {
         lng: Double,
         cuisine: String = "mediterranean",
         handCut: Boolean? = true,
+        delivery: Boolean? = true,
         cross: String = "NO_CROSS_CONTAMINATION",
     ): String = createListing(
         bearer = session.accessToken,
@@ -40,6 +43,7 @@ class McpSearchPostgisTest : KtorPostgresTest() {
             lng = lng,
             cuisine = cuisine,
             isHandCut = handCut,
+            isDelivery = delivery,
             overrides = mapOf("crossContamination" to cross),
         ),
     )
@@ -135,6 +139,43 @@ class McpSearchPostgisTest : KtorPostgresTest() {
 
             names shouldContain "McpPriced"
             names shouldNotContain "McpUnpriced"
+        }
+
+        test("deliveryOnlyExcludesUnknownAndFalse") {
+            val session = signupAndLogin("mcp-delivery@example.com")
+            createSearchListing(session, "McpDeliveryYes", 43.6533, -79.3832, cuisine = "mcp-delivery", delivery = true)
+            createSearchListing(session, "McpDeliveryNo", 43.6540, -79.3832, cuisine = "mcp-delivery", delivery = false)
+            createSearchListing(session, "McpDeliveryUnknown", 43.6547, -79.3832, cuisine = "mcp-delivery", delivery = null)
+
+            val names = mcpCall(
+                "search_restaurants",
+                searchArguments(extra = """"deliveryOnly":true,"cuisines":["mcp-delivery"]"""),
+            ).mcpNames()
+
+            names shouldContain "McpDeliveryYes"
+            names shouldNotContain "McpDeliveryNo"
+            names shouldNotContain "McpDeliveryUnknown"
+        }
+
+        test("pagingReturnsNextOffsetAndResumes") {
+            val session = signupAndLogin("mcp-paging@example.com")
+            createSearchListing(session, "McpPage1", 43.6533, -79.3832, cuisine = "mcp-paging")
+            createSearchListing(session, "McpPage2", 43.6640, -79.3832, cuisine = "mcp-paging")
+            createSearchListing(session, "McpPage3", 43.6750, -79.3832, cuisine = "mcp-paging")
+
+            val first = mcpCall(
+                "search_restaurants",
+                searchArguments(extra = """"cuisines":["mcp-paging"],"limit":2"""),
+            )
+            first.mcpNames() shouldBe listOf("McpPage1", "McpPage2")
+            first.mcpStructured()["nextOffset"]!!.jsonPrimitive.int shouldBe 2
+
+            val second = mcpCall(
+                "search_restaurants",
+                searchArguments(extra = """"cuisines":["mcp-paging"],"limit":2,"offset":2"""),
+            )
+            second.mcpNames() shouldBe listOf("McpPage3")
+            second.mcpStructured()["nextOffset"] shouldBe kotlinx.serialization.json.JsonNull
         }
 
         test("indexGateExcludesCrossContamination") {

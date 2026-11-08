@@ -13,13 +13,13 @@ Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/
 | WI-03 | `SearchListingsForAgent` (geocode / coordinates, next offset) | `SearchListingsForAgentTest` (7 tests) |
 | WI-04 | `GetListingForAgent` (review lookup only when verified) | `GetListingForAgentTest` (5 tests) |
 | WI-05 | `GetRestaurantTool` + detail mapper (halal items, certificate) | `GetRestaurantToolTest` (6 tests) |
-| WI-06 | `SearchRestaurantsTool` + card mapper (strict args) | `SearchRestaurantsToolTest` (14 tests) |
-| WI-07 | `Bucket4jMcpRateLimiter` + pipeline refusal | `McpRateLimitTest` (3 tests) |
-| WI-08 | `McpOriginGuard` (exact match) | `McpOriginTest` (4 tests) |
+| WI-06 | `SearchRestaurantsTool` + card mapper (strict args) | `SearchRestaurantsToolTest` (18 tests) |
+| WI-07 | `Bucket4jMcpRateLimiter` + pipeline refusal + per-call batch budget | `McpRateLimitTest` (4 tests) |
+| WI-08 | `McpOriginGuard` (exact match) + CORS/preflight | `McpOriginTest` (7 tests) |
 | WI-09 | Public `POST /mcp`; REST uses shared parser/facts (behaviour preserved) | `McpRegressionTest`, `McpPublicAccessTest`; existing REST suites |
 | WI-10 | `McpSettings`/config guard, Koin graph, `PhotonGeocoder` wiring | `ConfigValidationTest`, `McpEnabledWiringTest`, `McpDisabledWiringTest` |
-| WI-11 | PostGIS search semantics through MCP | `McpSearchPostgisTest` (5 tests) |
-| WI-12 | Server identity, call logging, stateless concurrency | `McpDiscoveryTest`, `McpEndpointTest` (3 tests) |
+| WI-11 | PostGIS search semantics through MCP | `McpSearchPostgisTest` (7 tests) |
+| WI-12 | Server identity, stateless concurrency; call logging and body cap verified in QA | `McpDiscoveryTest`, `McpEndpointTest`; QA run (logs, 413) |
 
 ## AC coverage
 
@@ -33,8 +33,8 @@ Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/
 | AC-6 | `McpPublicAccessTest`, `McpRateLimitTest`, `McpEnabledWiringTest` |
 | AC-7 | `McpOriginTest` (no origin, listed, disallowed, empty list) |
 | AC-8 | `McpRegressionTest` (byte-identical repeat, shape, no `halalItems` on REST) |
-| AC-9 | Tool error tests; `McpEndpointTest.statelessConcurrentCallsSucceed` |
-| AC-10 | `McpDiscoveryTest` identity; call logging in both tools; stateless concurrency |
+| AC-9 | Malformed JSON (sanitized), unknown tool, missing args, batch cap, body cap (413, QA); `statelessConcurrentCallsSucceed` is AC-10 |
+| AC-10 | `McpDiscoveryTest` identity; stateless concurrency; call logging verified in QA (name/outcome/duration, hashed client key) |
 
 ## Implementation deltas (recorded, no design change to the contract)
 
@@ -50,13 +50,21 @@ Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/
 
 | Round | Reviewer | Findings | Resolution |
 |---|---|---|---|
-| 1 | Omar (security) | 3 blocking: parser `IllegalArgumentException` not mapped to actionable tool errors; JSON-RPC batch could bypass the per-request budget; SDK parse errors echoed exception text. Nits: serializer used REST `Json` for MCP, XFF key unvalidated, no CORS/OPTIONS, untested Host allow-list, swallowed cancellation, test gaps, log hygiene. | All fixed: typed IAE catch; per-call budget token (batch bounded); sanitized parse errors; `McpAwareJsonConverter` (MCP uses `McpJson`, REST keeps explicit nulls); XFF validated; exact-origin CORS + preflight; `APP_MCP_ALLOWED_HOSTS`; cancellation rethrown; new negative/CORS/batch/no-null tests; hashed/ sanitized refusal logs. |
-| 1 | Yusuf (QA) | _pending_ | _pending_ |
+| 1 | Omar (security) | 3 blocking: parser `IllegalArgumentException` not mapped to actionable tool errors; JSON-RPC batch could bypass the per-request budget; SDK parse errors echoed exception text. Nits: serializer used REST `Json` for MCP, XFF key unvalidated, no CORS/OPTIONS, untested Host allow-list, swallowed cancellation, test gaps, log hygiene. | All fixed: typed IAE catch; per-call budget token (batch bounded); sanitized parse errors (matched on `-32700` envelope, not the wrong prefix); `McpAwareJsonConverter` (MCP uses `McpJson`, REST keeps explicit nulls); CF-Connecting-IP preferred + XFF validated; exact-origin CORS + preflight; `APP_MCP_ALLOWED_HOSTS`; cancellation rethrown; new negative/CORS/batch/no-null tests; hashed/sanitized refusal logs. |
+| 1 | Yusuf (QA) | 1 blocking: the parse-error sanitizer matched the wrong envelope shape, so parser text still leaked; its test passed for the wrong reason. Nits: string→number/boolean coercion, non-representable numbers yield `-32602`, thin output schemas, traceability counts overstated, no log assertion, no `deliveryOnly`/paging ITs, Q-3 sign-off unrecorded, test isolation leftovers. | Fixed: sanitizer matches `"code":-32700` and replaces the whole envelope; test asserts absence of parser internals; string primitives rejected for number/integer/boolean; schemas enriched; counts corrected; `deliveryOnly` + paging ITs added; fixture users cleaned up; test geocoder points at an unroutable port. Remaining accepted/documented: `-32602` for non-representable numbers, no automated log capture, Q-3 copy sign-off still open, ties ordered by distance only (pre-existing). |
 | 2 | Omar / Yusuf | _pending_ | _pending_ |
 
 `certificateUrl` remains gated by the REST proxy (verified + approved + archived);
 existence in object storage is checked at fetch time, so a since-deleted archive can
 still 404. Accepted as best-effort; no data leak.
+
+Open items carried to the owner:
+- **Q-3** (LLM-facing wording, Fatima) has no recorded sign-off; the shipped text
+  matches the approved `07` literals.
+- Non-representable JSON numbers (`1e400`) are refused by the SDK as `-32602`
+  before the tool runs; AC-4's "tool error" applies to representable values.
+- `ExposedListingSearchQuery` orders by distance only (pre-existing); exact ties
+  are not order-stable. Not introduced here.
 
 ## Commands run (containerized)
 

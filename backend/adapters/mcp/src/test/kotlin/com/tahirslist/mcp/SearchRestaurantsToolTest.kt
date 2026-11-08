@@ -132,6 +132,22 @@ class SearchRestaurantsToolTest : FunSpec({
         long.message() shouldBe "cuisine must be 64 characters or fewer"
     }
 
+    test("rejectsWrongJsonTypes") {
+        val radius = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":"5"}"""))
+        radius.isError shouldBe true
+        radius.message() shouldBe "radiusMiles must be a number"
+
+        val limit = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"limit":"2"}"""))
+        limit.isError shouldBe true
+        limit.message() shouldBe "limit must be an integer"
+
+        val handCut = tool().call(
+            args("""{"center":{"lat":1,"lng":2},"radiusMiles":5,"handCutOnly":"true"}"""),
+        )
+        handCut.isError shouldBe true
+        handCut.message() shouldBe "handCutOnly must be a boolean"
+    }
+
     test("emptyResultIsSuccess") {
         val result = tool(RecordingSearchQuery(emptyList())).call(
             args("""{"center":{"lat":1,"lng":2},"radiusMiles":5}"""),

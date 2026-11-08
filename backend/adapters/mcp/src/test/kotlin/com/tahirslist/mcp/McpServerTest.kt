@@ -38,6 +38,11 @@ class McpServerTest : FunSpec({
         mcpClientKey("10.0.0.5", "203.0.113.9", trustProxy = true) shouldBe "mcp|203.0.113.9"
     }
 
+    test("clientKeyPrefersCloudflareConnectingIp") {
+        mcpClientKey("10.0.0.5", "203.0.113.9", cfConnectingIp = "198.51.100.7", trustProxy = true) shouldBe
+            "mcp|198.51.100.7"
+    }
+
     test("clientKeyDiscardsImplausibleForwardedFor") {
         mcpClientKey("10.0.0.5", "<script>", trustProxy = true) shouldBe "mcp|10.0.0.5"
         mcpClientKey("10.0.0.5", "1.2.3.4, 9.9.9.9", trustProxy = true) shouldBe "mcp|1.2.3.4"
