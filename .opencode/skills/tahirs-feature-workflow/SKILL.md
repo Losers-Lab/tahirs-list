@@ -127,8 +127,9 @@ asks the owner for a decision, not a code review; merge still needs both
 
 Only a converged PR goes to the owner. The owner reviews the diff plus the
 recorded Omar/Yusuf verdicts and approves or requests changes. Merge only after
-that approval, then push to `main` triggers the webhook → dev stack (there is no
-CI; record test output as evidence). Verify on
+that approval — that merge is the push to `main` and triggers the webhook; any
+owner-requested changes go back through Step 11. (There is no CI; record test
+output as evidence.) Verify on
 `https://dev.tahirslist.com`: 200 + health UP, every in-scope UC main flow, one
 exception path, no new log errors, migration applied, uploads/auth if touched.
 Record evidence in `10-traceability.md`. Roll back with a revert PR, never a
