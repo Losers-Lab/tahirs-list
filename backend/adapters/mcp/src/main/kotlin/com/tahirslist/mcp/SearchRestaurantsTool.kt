@@ -269,10 +269,10 @@ class SearchRestaurantsTool(
                             putJsonObject("id") { put("type", "string") }
                             putJsonObject("name") { put("type", "string") }
                             putJsonObject("address") { put("type", "string") }
-                            putJsonObject("city") { put("type", "string") }
-                            putJsonObject("province") { put("type", "string") }
-                            putJsonObject("postal") { put("type", "string") }
-                            putJsonObject("country") { put("type", "string") }
+                            nullable("city", "string")
+                            nullable("province", "string")
+                            nullable("postal", "string")
+                            nullable("country", "string")
                             putJsonObject("lat") { put("type", "number") }
                             putJsonObject("lng") { put("type", "number") }
                             putJsonObject("distanceMiles") { put("type", "number") }

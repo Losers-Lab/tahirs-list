@@ -67,5 +67,9 @@ class McpServerTest : FunSpec({
             .isParseErrorEnvelope() shouldBe false
         """{"jsonrpc":"2.0","id":1,"result":{"name":"x\"code\":-32700"}}"""
             .isParseErrorEnvelope() shouldBe false
+        // The anchor is load-bearing: an unanchored matcher would find the error
+        // block after a valid result and rewrite a successful response.
+        """{"jsonrpc":"2.0","id":1,"result":{"a":1},"error":{"code":-32700}}"""
+            .isParseErrorEnvelope() shouldBe false
     }
 })

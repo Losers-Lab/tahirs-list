@@ -69,6 +69,16 @@ class McpDiscoveryTest : FunSpec({
             )
             items["isHandCut"]!!.jsonObject["type"]!!.jsonArray.map { it.jsonPrimitive.content } shouldContain "null"
             items["rating"]!!.jsonObject["type"]!!.jsonArray.map { it.jsonPrimitive.content } shouldContain "null"
+            // Address parts are frequently absent; the schema must not promise them.
+            listOf("city", "province", "postal", "country", "cuisine", "isDelivery").forEach { name ->
+                items[name]!!.jsonObject["type"]!!.jsonArray.map { it.jsonPrimitive.content } shouldContain "null"
+            }
+
+            val detail = tools.first { it["name"]!!.jsonPrimitive.content == "get_restaurant" }
+            val detailProperties = detail["outputSchema"]!!.jsonObject["properties"]!!.jsonObject
+            listOf("city", "province", "postal", "country", "cuisine", "isHandCut", "isDelivery").forEach { name ->
+                detailProperties[name]!!.jsonObject["type"]!!.jsonArray.map { it.jsonPrimitive.content } shouldContain "null"
+            }
         }
     }
 })
