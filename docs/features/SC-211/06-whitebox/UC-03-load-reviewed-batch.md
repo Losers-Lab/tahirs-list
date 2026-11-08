@@ -22,10 +22,24 @@ sequenceDiagram
   LOAD->>VAL: 4. validateTrustAndLocation(selection) [claim citation, tier, hand-cut, metro, location]
   VAL-->>LOAD: valid candidates | rejects
   loop each valid candidate
-    LOAD->>LIST: 5. findByNormalizedLocation(lat, lng)
-    LIST->>DB: SELECT listings at the normalized location
-    DB-->>LIST: rows
-    LIST-->>LOAD: existing row | none
+    LOAD->>LIST: 5a. findClaim(source, sourceRecordRef)
+    LIST->>DB: SELECT claim WHERE (source, source_record_ref)
+    DB-->>LIST: claim | none
+    alt claim exists
+      LIST-->>LOAD: target listing (same source record)
+    else no claim
+      LOAD->>LIST: 5b. findByVenueKey(venueKey)
+      LIST->>DB: SELECT listing WHERE venue_key = ?
+      DB-->>LIST: listing | none
+      alt venue key exists
+        LIST-->>LOAD: target listing (same normalized venue)
+      else no venue key
+        LOAD->>LIST: 5c. findByNormalizedLocation(lat, lng) [fallback only]
+        LIST->>DB: SELECT listings at the normalized location
+        DB-->>LIST: rows
+        LIST-->>LOAD: suspected duplicate | none
+      end
+    end
   end
   LOAD->>BR: 6. resolve(name) [read only — missing brands are planned]
   BR->>DB: SELECT brands by name
@@ -52,7 +66,7 @@ sequenceDiagram
   SEARCH-->>DC: 16. Tier-1 verified — manual unverified — claims intact
 ```
 
-**Idempotency:** the run's `candidatesSha256` is verified before preview and load; brands are matched by name; listings are matched by normalized location (`location_lat_6`, `location_lng_6`); matched rows are updated, never duplicated; claims are unique per (listing, source, record); the search mirror upserts by `id`. The whole batch is one transaction: a failure leaves no partial load and no `loaded.json`.
+**Idempotency:** the run's `candidatesSha256` is verified before preview and load. For each candidate the matcher checks, in order: the existing claim `(source, source_record_ref)` → `venue_key` → normalized-location fallback. Only the first two update/attach silently; a location-only match is reported as a suspected duplicate. Claims are globally unique per `(source, source_record_ref)`, so the same source record cannot attach to two listings even if its coordinates drift. Brands are matched by name; the search mirror upserts by `id`. The whole batch is one transaction: a failure leaves no partial load and no `loaded.json`. Replaying an older/archived batch follows the same order, so it updates the newer listings instead of duplicating them.
 
 **Index gate:** Tier-1 certified rows are written with `cross_contamination = NO_CROSS_CONTAMINATION` (D-16), so they reach `listing_search`. Manual/web rows keep their explicit value (default `UNCERTAIN`).
 
@@ -62,9 +76,12 @@ sequenceDiagram
 | A2 | Re-run matches existing rows/claims → counts zero; an already-loaded run is refused |
 | A3 | `UPDATE` matched row to `VERIFIED`; hand-cut per the claim's declaration; attach claim |
 | A4 | Validator rejects an unbacked `VERIFIED`/TRUE hand-cut before execute |
+| A5 | Older/archived batch replayed → claim-first match, then `venue_key`; existing listing updated, no duplicate |
+| A6 | Location matches but name/address does not → reported as a suspected duplicate, not merged |
 | E1 | Any persistence failure → the single transaction rolls back; `loaded.json` is not written |
 | E2 | Missing V22 → the load refuses before writing |
 | E3 | Wrong verification/hand-cut state for the claim's declaration → blocking (AC-7/INV-1/INV-3) |
 | E9 | `candidates.json` changed after the run completed → checksum mismatch, load refuses |
+| E10 | A claim `(source, record)` already points at a different listing → conflict; the batch aborts rather than duplicating |
 
 **Authorization:** the load runs with the app's configured DB credentials; the batch file and preview are reviewed by the curator (and PR-reviewed when committed); no new endpoint.

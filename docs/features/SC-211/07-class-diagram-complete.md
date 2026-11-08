@@ -34,7 +34,7 @@ flowchart TB
 | `:certifier-hms` | **new** | `HmsDirectory`, `HmsParser`, `HmsEstablishment`, `HmsCategory`, `HmsCertificationStatus`, `HmsAddress`, `HmsLocation`, `HmsProfile` |
 | `:certifier-hfsaa` | **new** | `HfsaaLocator`, `HfsaaParser`, `HfsaaEntry`, `HfsaaEntryType`, `HfsaaProject`, `HfsaaProfile` |
 | `:certifier-hma` | **new** | `HmaCertifiedOutlets`, `HmaParser`, `HmaCertifiedOutlet`, `HmaAddress`, `HmaProfile` |
-| `:ingestion` | **new** | `SourceListing`, `SourceRef`, `SourceTier`, `DirectoryStandard`, `SourceTranslator`, `HmsTranslator`, `HfsaaTranslator`, `HmaTranslator`, `LiveProbe`, `FileRunArtifacts` (per-run dirs, pending guard, checksums) |
+| `:ingestion` | **new** | `SourceListing`, `SourceRef`, `SourceTier`, `DirectoryStandard`, `SourceTranslator`, `HmsTranslator`, `HfsaaTranslator`, `HmaTranslator`, `LiveProbe`, `FileRunArtifacts` (per-run dirs, pending guard, checksums), `VenueIdentity` (deterministic venue key) |
 | `:persistence` | modified | V22 only; `ExternalCertificationClaims`; `ExposedBrandRepository`; `RestaurantListingRepository.applyBatch` (one transaction, shared with Add Listing) |
 | `:bootstrap` | modified | `SampleIngestMain` + `ingestSample`; `LoadIngestBatchMain` + `loadIngestBatch` |
 | `:web-api` · `:geocoding` · frontend | unchanged | No API/frontend change; `PhotonGeocoder` reused |
@@ -68,8 +68,9 @@ flowchart TB
 
 | Element | Status | Detail |
 |---|---|---|
-| `V22__sc_211_ingestion_schema.sql` | new | provenance CHECK (+4 values); `external_certification_claims` table (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, `hand_cut_declaration TEXT NOT NULL` with CHECK `(HAND_CUT, NOT_HAND_CUT, UNSPECIFIED)`, first/last_seen, created_at; unique (listing_id, source, source_record_ref)); index on listing_id; drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` |
-| `RestaurantListingRepository.applyBatch` | new | One transaction for a batch: brands, listings (insert/update), cuisines, halal items, claims, search mirror. Shared by Add Listing and ingestion |
+| `V22__sc_211_ingestion_schema.sql` | new | provenance CHECK (+4 values); `external_certification_claims` table (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, `hand_cut_declaration TEXT NOT NULL` with CHECK `(HAND_CUT, NOT_HAND_CUT, UNSPECIFIED)`, first/last_seen, created_at; **unique `(source, source_record_ref)` globally**); index on listing_id; `restaurant_listings.venue_key CHAR(64) NULL` with partial unique index on `venue_key` where provenance is a certifier value; drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` |
+| `RestaurantListingRepository.applyBatch` | new | One transaction for a batch: brands, listings (insert/update), cuisines, halal items, claims, search mirror. Matching order: claim `(source, record)` → `venue_key` → location fallback (reported). Shared by Add Listing and ingestion |
+| `VenueIdentity` | new | SHA-256 over normalized name + address + city + region + country; coordinates excluded; conservative (no fuzzy `Rd`/`Road` merge) |
 | `BrandRepository` | new | `resolve` (preview) + `resolveOrCreate` (execute) by name |
 | `V23__sc_211_ingest_sample.sql` | **retired** | No generated data migration: `LoadIngestionBatch` writes through `RestaurantListingRepository.applyBatch` in one transaction (D-15) |
 | `Tables.kt` | modified | add `ExternalCertificationClaims` catalogue object |
@@ -96,7 +97,7 @@ flowchart TB
 | `scripts/backend-test.sh` | unchanged | Picks up the new modules automatically |
 | Pre-flight (D-14) | new | `CheckGeocoderHealth` runs one Photon query before any directory request; `Unavailable` aborts the run with no artifacts |
 | Run artifacts (D-17) | new | `<out>/runs/<runId>/` with `snapshots/`, `candidates.json`, `report.md`, `run.json` (commit marker); `archive/<runId>-<timestamp>-<token>/` for pending runs; `loaded.json` / `abandoned.json` markers |
-| Tests (99 new, all green) | new | Core: `CertifierHttpTest` (28), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3), `FileSnapshotStoreTest` (4) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (6) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests + `FileRunArtifactsTest` (14) · application: `CheckGeocoderHealthTest` (4). The runtime-load PR adds `LoadIngestionBatchTest`, `CertificationClaimTest`, `RestaurantListingImportedTest`, and repository batch cases |
+| Tests (107 new, all green) | new | Core: `CertifierHttpTest` (28), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3), `FileSnapshotStoreTest` (4) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (6) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests + `FileRunArtifactsTest` (14) + `VenueIdentityTest` (8) · application: `CheckGeocoderHealthTest` (4). The runtime-load PR adds `LoadIngestionBatchTest`, `CertificationClaimTest`, `RestaurantListingImportedTest`, and repository batch cases |
 | Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `usesSharedWritePath`, `certifiedRowsAreIndexQualified`, `refuses to reuse a run id, so it cannot overwrite a run`, `archives pending runs under unique names before starting a new one`, `detects candidates.json changed after the run completed`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `does not re-discover a key after a 403`, `follows X-WP-TotalPages`, `refuses a host outside the certifier allow-list`, `refuses a redirect to a host outside the allow-list`, `counts each redirect hop against the request budget`, `rejects a response over the size cap`, `fails closed when robots.txt denies access`, `treats a tampered body as a cache miss`, `passes when the probe resolves`, `fails when the provider throws` |
 
 ## Architecture and risks
@@ -115,6 +116,8 @@ flowchart TB
 | Ingested rows excluded from search | Tier-1 certification implies `NO_CROSS_CONTAMINATION` (D-16); manual/web rows stay explicit/`UNCERTAIN` |
 | Batch fails partway | One transaction covers brands, listings, children, claims and mirror; any failure rolls back |
 | A run overwrites an unreviewed batch | Per-run directories + pending guard; default abort, optional archive with unique names; checksum verified at load |
+| Older/archived batch replayed after a newer load | Claim-first match `(source, record)`, then `venue_key`; location is only a fallback/report signal, never the sole identity |
+| Coordinates drift for the same venue | `venue_key` excludes coordinates; the same normalized name/address maps to the existing listing |
 | Badge copy says "committee" for registry rows | D-8 follow-up story |
 | Certifier expiry/revocation | Expiry stored; no auto-demotion (D-10) |
 | Future Tier-1 certifier does not require hand-cut | Hand-cut derives from its own declaration (FALSE for declared not or silent), never from tier (D-11) |

@@ -1,7 +1,7 @@
 # Certifier libraries — verified API surface and field coverage
 
 **Author:** Hamza (backend/DB) · **Date:** 2026-11-08 · **Consumer:** SC-211
-**Status:** implemented, 99 new tests green, final live probe passed on the hardened client (2026-11-08)
+**Status:** implemented, 107 new tests green, final live probe passed on the hardened client (2026-11-08)
 **Scope:** the three Tier-1 libraries (`certifier-hms`, `certifier-hfsaa`, `certifier-hma`), the shared `certifier-core`, and the `:ingestion` translators
 
 ## What was built
@@ -116,7 +116,7 @@ Snapshots record the URL that actually served the bytes (`url`) and the URL requ
 
 A full probe is **six requests** (three robots.txt + three data), and a repeat run is **zero**. An ingestion run adds exactly one Photon pre-flight query before any directory request (D-14); if it fails, the directories are never contacted.
 
-## Tests (99 new, all green)
+## Tests (107 new, all green)
 
 | Module | Tests | What they pin |
 |---|---:|---|
@@ -124,7 +124,7 @@ A full probe is **six requests** (three robots.txt + three data), and a repeat r
 | `certifier-hms` | 11 | 20-record fixture, entity decoding, blank-city recovery, coordinate-less row, no-records failure |
 | `certifier-hfsaa` | 12 | 13-row fixture, certificate ids, chapter filter, headers, rotated-key re-discovery, 403 hard stop, hostile bundle URL, honest failure |
 | `certifier-hma` | 8 | 8-outlet fixture, Elementor anchors, address splitting, pagination, malformed JSON |
-| `:ingestion` | 22 | 8 translator/derivation tests; 14 artifact-lifecycle tests: per-run dirs, pending-run abort/archive with unique names, checksum at load, loaded/abandoned markers |
+| `:ingestion` | 30 | 8 translator/derivation tests; 14 artifact-lifecycle tests: per-run dirs, pending-run abort/archive with unique names, checksum at load, loaded/abandoned markers; 8 venue-identity tests: normalization, coordinate-drift stability, conservative exact matching |
 | `:application` | 4 (new) | `CheckGeocoderHealth`: probe resolves, no match, provider failure, cancellation not swallowed |
 
 Run them all in the container:

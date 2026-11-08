@@ -38,12 +38,12 @@ sequenceDiagram
 sequenceDiagram
   participant TL as Tahir's List
   participant DB@{ "type": "database" } as PostgreSQL + PostGIS
-  TL->>DB: match by normalized location + claim key
+  TL->>DB: match by claim (source, record), then venue_key
   DB-->>TL: existing rows and claims
-  TL->>TL: zero new rows — idempotency proven
+  TL->>TL: zero new rows - idempotency proven
 ```
 
-**A3 — matched existing row** · upgrade, never duplicate.
+**A3 - matched existing row** · upgrade, never duplicate.
 
 ```mermaid
 sequenceDiagram
@@ -51,6 +51,26 @@ sequenceDiagram
   participant DB@{ "type": "database" } as PostgreSQL + PostGIS
   TL->>DB: UPDATE to VERIFIED — hand-cut per the claim's declaration — attach claim
   DB-->>TL: upgraded, no duplicate
+```
+
+**A5 - older/archived batch replayed** · claim-first, then venue key.
+
+```mermaid
+sequenceDiagram
+  participant TL as Tahir's List
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
+  TL->>DB: claim (source, record) -> listing
+  DB-->>TL: existing listing
+  TL->>DB: UPDATE listing + upsert claim
+  DB-->>TL: no duplicate
+```
+
+**A6 - location matches, name/address does not** · report, never merge.
+
+```mermaid
+sequenceDiagram
+  participant TL as Tahir's List
+  TL->>TL: suspected duplicate in report — no write
 ```
 
 **A4 — blocking preview error** · no execute offered.

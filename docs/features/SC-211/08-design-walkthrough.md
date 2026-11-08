@@ -15,6 +15,7 @@
 | 2026-11-08 | Security review: HTTPS + per-certifier host allow-list, capped re-checked redirects, size cap, fail-closed robots, cache digest; claims store the three-state declaration | 0–2, 6–7 |
 | 2026-11-08 | D-15: load through the runtime `LoadIngestionBatch` + `RestaurantListingRepository`; generated V23 data migration retired. D-16: Tier-1 certification implies index qualification | 0–8 |
 | 2026-11-08 | D-17: per-run immutable artifacts + pending-run guard; no overwrite, archives get unique names | 0–2, 4–7 |
+| 2026-11-08 | D-18: replay/idempotency — claim-first matching by `(source, source_record_ref)`, then `venue_key`; coordinates are not identity; location-only matches are reported | 0–2, 6–7 |
 
 ```mermaid
 flowchart LR
@@ -86,6 +87,7 @@ flowchart LR
 | D-15 | Load through the runtime `LoadIngestionBatch` + `RestaurantListingRepository` in one transaction; no generated data migration | Yes | decided 2026-11-08 |
 | D-16 | Tier-1 certification implies index qualification (`NO_CROSS_CONTAMINATION`); manual/web rows keep explicit/`UNCERTAIN` | Yes | decided 2026-11-08 |
 | D-17 | Per-run immutable artifacts + pending-run guard; no overwrite, archives use unique names, load verifies the candidate checksum | Yes | decided 2026-11-08 |
+| D-18 | Replay idempotency: claim-first match by `(source, source_record_ref)`, then `venue_key`; coordinates are not identity; location-only matches are reported | Yes | decided 2026-11-08 |
 
 ## Approval
 
@@ -93,7 +95,7 @@ flowchart LR
 
 ```
 Approved by: <pending> · Date: · Design commit:
-Decision items: D-1 … D-17 resolved as tabled
+Decision items: D-1 … D-18 resolved as tabled
 ```
 
 Re-approval: libraries implemented and live-verified, 2026-11-08.

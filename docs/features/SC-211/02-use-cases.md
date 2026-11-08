@@ -98,12 +98,12 @@ flowchart LR
 - **Goal:** turn a reviewed batch into searchable listings with the correct trust outcome, provenance, and claims — idempotently
 - **Trigger:** curator asks `LoadIngestionBatch` to preview the approved candidates, reviews the diff, then executes the load
 - **Preconditions:** artifacts reviewed; the run is pending (not already loaded or abandoned); V22 schema merged; database available; the runtime write path (`RestaurantListingRepository`) is deployed
-- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut TRUE only if that claim declares hand-cut, FALSE otherwise (declared not or silent) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands resolved by name before locations · BR-16 the load uses the same aggregate and repository as Add Listing, never generated SQL · BR-17 Tier-1 certified rows are index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value (default `UNCERTAIN`) · BR-18 the load verifies the candidate checksum, marks the run loaded, and refuses an already-loaded run
+- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut TRUE only if that claim declares hand-cut, FALSE otherwise (declared not or silent) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands resolved by name before locations · BR-16 the load uses the same aggregate and repository as Add Listing, never generated SQL · BR-17 Tier-1 certified rows are index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value (default `UNCERTAIN`) · BR-18 the load verifies the candidate checksum, marks the run loaded, and refuses an already-loaded run · BR-19 match order: existing claim `(source, source_record_ref)` → `venue_key` (normalized name + address + city/region/country) → normalized-location fallback · BR-20 a location-only match is reported as a suspected duplicate; it is never silently inserted or merged · BR-21 claims are globally unique per `(source, source_record_ref)`; a claim conflict that points at a different listing aborts the batch
 
 **Main success scenario**
 
 1. Curator asks `LoadIngestionBatch` for a preview of the approved `candidates.json`.
-2. System validates every candidate (claim citation, tier, hand-cut declaration, metro, location), resolves brands, and matches existing rows by normalized location.
+2. System validates every candidate (claim citation, tier, hand-cut declaration, metro, location); for each candidate it checks the existing claim by `(source, source_record_ref)`, then `venue_key`, then the normalized-location fallback; it resolves brands read-only.
 3. System returns a diff summary: inserts, upgrades, skipped, rejected (with reasons) — no writes.
 4. Curator reviews the diff and executes the load.
 5. System opens one transaction: brands resolved, listings inserted/updated with verification + hand-cut outcomes, children written, claims attached, search mirror updated under the index gate.
@@ -119,6 +119,8 @@ flowchart LR
 | A2 | 5 | Already loaded → no-op | Counts zero |
 | A3 | 5 | Matched existing row → upgrade to `VERIFIED`; hand-cut per its claim's declaration | Claim attached, no duplicate |
 | A4 | 3 | Preview finds a blocking trust error → no execute offered | Rejected with reason |
+| A5 | 2 | Older/archived batch replayed after a newer one → claim-first match, then `venue_key` | Existing listing updated, no duplicate |
+| A6 | 2 | Location matches but name/address does not | Reported as a suspected duplicate, not merged |
 | E1 | 5 | Constraint/DB failure → transaction rolls back | No partial load |
 | E2 | 2 | V22 schema missing → fail fast | Nothing written |
 | E3 | 7 | Missing/wrong trust state → blocking | Not accepted until fixed |

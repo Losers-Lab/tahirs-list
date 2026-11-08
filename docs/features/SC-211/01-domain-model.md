@@ -68,9 +68,11 @@ classDiagram
 | CertificationClaim (new) | Cited certifier observation; verification + hand-cut evidence | Observed → ReObserved |
 | IngestionRun (new) · IngestionCandidate (new) · SourceListing (new) | Audit unit · proposed listing · raw library record | Planned → … → Loaded; record immutable |
 | IngestReject (new) · IngestReport (new) | Excluded row (closed reason) · run accounting + gaps | Immutable; produced once |
-| DirectoryStandard · Provenance · SourceTier · SourceRef · VerificationBasis · MetroFilter · MatchConfirmation · GeocoderHealth | Value objects | Immutable |
+| DirectoryStandard · Provenance · SourceTier · SourceRef · VerificationBasis · MetroFilter · MatchConfirmation · GeocoderHealth · VenueIdentity | Value objects | Immutable |
 
 **Shared write path (D-15):** `RestaurantListing.imported(...)` is the only new aggregate factory. It allows a null owner/cuisine, a brand, provenance, and a `VERIFIED` status only when a `VerificationBasis` is supplied. `LoadIngestionBatch` builds aggregates from reviewed candidates and calls the same `RestaurantListingRepository` used by Add Listing; it never emits SQL. The persistence adapter owns one transactional write routine for insert/update + child rows + claims + search mirror.
+
+**Identity (D-18):** `VenueIdentity` is a SHA-256 over normalized name + street address + city + region + country (diacritics/punctuation/case removed; coordinates deliberately excluded). `CertificationClaim` is unique by `(source, source_record_ref)` globally. The load matches in this order: existing claim → `venue_key` → normalized-location fallback. Only the first two may update/attach silently; the location fallback is reported as a suspected duplicate.
 
 ## Invariants
 
@@ -90,6 +92,9 @@ classDiagram
 | INV-12 | The committee path is untouched; registry-verified is distinguishable | `VerificationCommitteeTest` (existing) |
 | INV-13 | Ingestion writes through the same aggregate and repository as Add Listing; it does not emit SQL or bypass the index gate | `LoadIngestionBatchTest.usesSharedWritePath` · `ExposedRestaurantListingRepositoryTest` |
 | INV-14 | A Tier-1 ingested row is index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value, default `UNCERTAIN` | `LoadIngestionBatchTest.certifiedRowsAreIndexQualified` |
+| INV-15 | A source record maps to exactly one listing across runs: claims are globally unique by `(source, source_record_ref)` | `CertificationClaimTest.sourceRecordIsGloballyUnique` · `LoadIngestionBatchTest.replaysArchivedBatchWithoutDuplicates` |
+| INV-16 | An ingested listing has a deterministic `venue_key`; the same normalized name/address/city/region maps to one listing even when coordinates drift | `VenueIdentityTest` · `LoadIngestionBatchTest.coordinateDriftDoesNotDuplicate` |
+| INV-17 | A location-only near-match is reported as a suspected duplicate, never silently inserted or merged | `LoadIngestionBatchTest.locationOnlyMatchIsReported` |
 
 ## States
 

@@ -58,6 +58,9 @@ classDiagram
   class MetroFilter {
     +accepts(listing)
   }
+  class VenueIdentity {
+    +key
+  }
 
   IngestionRun "1" o-- "0..*" SourceListing
   IngestionRun "1" o-- "0..*" IngestionCandidate
@@ -68,6 +71,7 @@ classDiagram
   IngestionCandidate --> MetroFilter
   RestaurantListing "1" --> "0..*" CertificationClaim
   RestaurantListing "*" --> "1" Brand
+  RestaurantListing --> VenueIdentity
   IngestReport "1" o-- "0..*" IngestReject
   IngestReject --> RejectReason
 ```
@@ -215,6 +219,7 @@ classDiagram
 | `CuratedBatchSource` | read the cited manual file | `CuratedBatchFileAdapter` |
 | `GeocoderPort` (existing) | confirm a venue's coordinates | `PhotonGeocoder` |
 | `CheckGeocoderHealth` | one pre-flight query before any fetch | application control |
+| `VenueIdentity` | deterministic key over normalized name + address + city/region/country | ingestion value object (SHA-256) |
 | `CandidateValidator` | validate claim citation, tier, hand-cut, metro and location before preview | application control |
 | `ArtifactWriter` | persist per-run snapshots/candidates/report; guard pending runs | `FileRunArtifacts` (`runs/<runId>/`, `archive/`) |
 | `CatalogBatchWriter` | **retired** — no generated data migration (D-15) | n/a |
