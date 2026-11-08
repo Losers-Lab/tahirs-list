@@ -1,126 +1,45 @@
-# 05 — System class diagram (conceptual): SC-209
+> **Purpose:** show the system shape before technology · **Derived from:** 01, 02 · **Delta:** +2 controls, +5 boundaries, +2 policy helpers, +1 port
 
-Analysis-level shape only: entities, one control class per use case, boundary
-classes, ports as interfaces, and adapter stubs. No tables, columns, JSON shapes
-or framework annotations (those are Phase 7).
+# 05 — System class diagram: SC-209
 
-## 5.1 Overview
+## Overview
 
 ```mermaid
 classDiagram
-    direction LR
-
-    class McpHttpEndpoint
-    class AgentRequestGate
-    class SearchRestaurantsTool
-    class GetRestaurantTool
-    class AgentResultMapper
-
-    class SearchListingsForAgent
-    class GetListingForAgent
-    class SearchRequestParser
-    class CertificateFactsPolicy
-
-    class ListingSearchQuery
-    class RestaurantListingRepository
-    class HalalCertificationReviewRepository
-    class GeocoderPort
-    class AgentRateLimiter
-
-    McpHttpEndpoint --> AgentRequestGate : admits
-    McpHttpEndpoint --> SearchRestaurantsTool : dispatches
-    McpHttpEndpoint --> GetRestaurantTool : dispatches
-    SearchRestaurantsTool --> SearchRequestParser : validates
-    SearchRestaurantsTool --> SearchListingsForAgent : executes
-    SearchRestaurantsTool --> AgentResultMapper : presents
-    GetRestaurantTool --> GetListingForAgent : executes
-    GetRestaurantTool --> AgentResultMapper : presents
-    SearchListingsForAgent --> GeocoderPort : resolves place
-    SearchListingsForAgent --> ListingSearchQuery : searches
-    GetListingForAgent --> RestaurantListingRepository : loads
-    GetListingForAgent --> HalalCertificationReviewRepository : reads review
-    GetListingForAgent --> CertificateFactsPolicy : derives facts
-    AgentRequestGate --> AgentRateLimiter : budget
+    McpHttpEndpoint --> AgentRequestGate
+    McpHttpEndpoint --> SearchRestaurantsTool
+    McpHttpEndpoint --> GetRestaurantTool
+    SearchRestaurantsTool --> SearchRequestParser
+    SearchRestaurantsTool --> SearchListingsForAgent
+    SearchRestaurantsTool --> AgentResultMapper
+    GetRestaurantTool --> GetListingForAgent
+    GetRestaurantTool --> AgentResultMapper
+    SearchListingsForAgent --> GeocoderPort
+    SearchListingsForAgent --> ListingSearchQuery
+    GetListingForAgent --> RestaurantListingRepository
+    GetListingForAgent --> HalalCertificationReviewRepository
+    GetListingForAgent --> CertificateFactsPolicy
+    AgentRequestGate --> AgentRateLimiter
 ```
 
-## 5.2 Domain / read model
+## Domain
 
 ```mermaid
 classDiagram
-    class RestaurantListing {
-        +ListingId id
-        +String name
-        +Address address
-        +LatLng location
-        +Cuisine[] cuisines
-        +Price? price
-        +Rating? rating
-        +Boolean? isHandCut
-        +Boolean? isDelivery
-        +HalalScope halalScope
-        +CrossContamination crossContamination
-        +VerificationStatus verificationStatus
-    }
-
-    class ListingSearchResult {
-        +ListingId id
-        +String name
-        +Address address
-        +LatLng location
-        +Cuisine? cuisine
-        +Boolean? isHandCut
-        +HalalScope halalScope
-        +Boolean? isDelivery
-        +VerificationStatus verificationStatus
-        +Rating? rating
-        +Double distanceMiles
-    }
-
-    class HalalCertificationReview {
-        +ReviewId id
-        +VerificationState state
-        +String? certifier
-        +Instant? decidedAt
-        +LocalDate? expiresOn
-        +CertificateReference? certificate
-    }
-
-    class SearchLocation {
-        <<choice>>
-    }
-    class PlaceText {
-        +String value
-    }
-    class Coordinates {
-        +LatLng value
-    }
-
-    class AgentSearchRequest {
-        +SearchLocation location
-        +double radiusMiles
-        +ListingSearchFilters filters
-        +int offset
-        +int limit
-    }
-
-    class AgentSearchResult {
-        +ListingSearchResult[] results
-        +int count
-        +int? nextOffset
-    }
-
-    class AgentListingDetail {
-        +RestaurantListing listing
-        +CertificateFacts? certificate
-    }
-
-    class CertificateFacts {
-        +String? certifier
-        +Instant reviewedOn
-        +LocalDate? expiresOn
-        +CertificateReference certificate
-    }
-
+    class RestaurantListing
+    class ListingSearchResult
+    class HalalCertificationReview
+    class LatLng
+    class Cuisine
+    class Price
+    class Rating
+    class AgentSearchRequest
+    class AgentSearchResult
+    class AgentListingDetail
+    class CertificateFacts
+    class SearchLocation
+    class PlaceText
+    class Coordinates
     SearchLocation <|-- PlaceText
     SearchLocation <|-- Coordinates
     AgentSearchRequest --> SearchLocation
@@ -128,60 +47,59 @@ classDiagram
     AgentListingDetail --> RestaurantListing
     AgentListingDetail --> CertificateFacts
     CertificateFacts ..> HalalCertificationReview : derived from
+    RestaurantListing --> LatLng
+    RestaurantListing --> Cuisine
+    RestaurantListing --> Price
+    RestaurantListing --> Rating
 ```
 
-## 5.3 Application (controls and policy)
+## Application
 
 ```mermaid
 classDiagram
     class SearchListingsForAgent {
-        +execute(request: AgentSearchRequest) AgentSearchResult
+        +execute(request) AgentSearchResult
     }
     class GetListingForAgent {
-        +execute(id: ListingId) AgentListingDetail
+        +execute(id) AgentListingDetail
     }
     class SearchRequestParser {
-        +parse(raw: RawArguments) AgentSearchRequest
-        +parseListingId(raw: String) ListingId
+        +parse(raw) AgentSearchRequest
+        +parseListingId(raw) ListingId
     }
     class CertificateFactsPolicy {
-        +derive(listing: RestaurantListing, latestApproved: HalalCertificationReview?) CertificateFacts?
+        +derive(listing, latestApproved) CertificateFacts?
     }
-
-    class InvalidSearchArgumentsException {
-        +String reason
-    }
+    class InvalidSearchArgumentsException
     class PlaceNotResolvedException
     class AgentListingNotFoundException
-
-    SearchRequestParser ..> InvalidSearchArgumentsException : throws
-    SearchListingsForAgent ..> PlaceNotResolvedException : throws
-    GetListingForAgent ..> AgentListingNotFoundException : throws
-    GetListingForAgent ..> CertificateFactsPolicy : uses
+    SearchRequestParser ..> InvalidSearchArgumentsException
+    SearchListingsForAgent ..> PlaceNotResolvedException
+    GetListingForAgent ..> AgentListingNotFoundException
+    GetListingForAgent ..> CertificateFactsPolicy
 ```
 
-## 5.4 Boundary
+## Boundary
 
 ```mermaid
 classDiagram
     class McpHttpEndpoint {
-        +handle(jsonRpcRequest) jsonRpcResponse
+        +handle(request) response
     }
     class AgentRequestGate {
         +allow(clientKey) boolean
     }
     class SearchRestaurantsTool {
-        +call(arguments: RawArguments) ToolResult
+        +call(arguments) ToolResult
     }
     class GetRestaurantTool {
-        +call(arguments: RawArguments) ToolResult
+        +call(arguments) ToolResult
     }
     class AgentResultMapper {
-        +toCards(result: AgentSearchResult) StructuredSearchResult
-        +toDetail(detail: AgentListingDetail) StructuredDetail
-        +toError(message: String) ToolResult
+        +toCards(result) StructuredSearchResult
+        +toDetail(detail) StructuredDetail
+        +toError(message) ToolResult
     }
-
     McpHttpEndpoint --> AgentRequestGate
     McpHttpEndpoint --> SearchRestaurantsTool
     McpHttpEndpoint --> GetRestaurantTool
@@ -189,83 +107,41 @@ classDiagram
     GetRestaurantTool --> AgentResultMapper
 ```
 
-## 5.5 Ports and adapter stubs
+## Ports
 
 ```mermaid
 classDiagram
-    class ListingSearchQuery {
-        <<interface>>
-        +searchNearby(centre, radiusMiles, filters, offset, limit) ListingSearchResult[]
-    }
-    class RestaurantListingRepository {
-        <<interface>>
-        +findById(id) RestaurantListing?
-    }
-    class HalalCertificationReviewRepository {
-        <<interface>>
-        +findLatestApprovedByListing(id) HalalCertificationReview?
-    }
-    class GeocoderPort {
-        <<interface>>
-        +geocode(address) GeocodedPlace?
-    }
-    class AgentRateLimiter {
-        <<interface>>
-        +tryAcquire(key) boolean
-    }
-
-    class ExposedListingSearchQuery
-    class ExposedRestaurantListingRepository
-    class ExposedHalalCertificationReviewRepository
-    class PhotonGeocoder
-    class Bucket4jAgentRateLimiter
-
-    ListingSearchQuery <|.. ExposedListingSearchQuery
-    RestaurantListingRepository <|.. ExposedRestaurantListingRepository
-    HalalCertificationReviewRepository <|.. ExposedHalalCertificationReviewRepository
-    GeocoderPort <|.. PhotonGeocoder
-    AgentRateLimiter <|.. Bucket4jAgentRateLimiter
+    class ListingSearchQuery { <<interface>> }
+    class RestaurantListingRepository { <<interface>> }
+    class HalalCertificationReviewRepository { <<interface>> }
+    class GeocoderPort { <<interface>> }
+    class AgentRateLimiter { <<interface>> }
 ```
 
-## 5.6 Operation inventory (every use-case step resolves to an operation)
+| Port | Operation | Adapter stub |
+|---|---|---|
+| `ListingSearchQuery` | `searchNearby(centre, radius, filters, offset, limit)` | `ExposedListingSearchQuery` |
+| `RestaurantListingRepository` | `findById(id)` | `ExposedRestaurantListingRepository` |
+| `HalalCertificationReviewRepository` | `findLatestApprovedByListing(id)` | `ExposedHalalCertificationReviewRepository` |
+| `GeocoderPort` | `geocode(address)` | `PhotonGeocoder` |
+| `AgentRateLimiter` | `tryAcquire(key)` | `Bucket4jAgentRateLimiter` |
+
+## Operation inventory
 
 | Use case step | Operation |
 |---|---|
-| UC-01.2 | `McpHttpEndpoint.handle` → `AgentRequestGate.allow` → `SearchRestaurantsTool.call` |
-| UC-01.3 | `SearchRequestParser.parse` (throws `InvalidSearchArgumentsException`) |
-| UC-01.4 | `SearchListingsForAgent.execute` → `GeocoderPort.geocode` (place branch) |
-| UC-01.5 | `ListingSearchQuery.searchNearby` |
-| UC-01.6 | `AgentResultMapper.toCards`; `SearchRestaurantsTool.call` returns the tool result |
-| UC-01.A1 | Same as main, with the place branch skipped |
-| UC-01.A2 | `SearchRestaurantsTool.call` maps an empty `AgentSearchResult` |
-| UC-01.A3 | `AgentSearchResult.nextOffset` |
-| UC-01.A4 | Hand-off to UC-02 (`GetRestaurantTool.call`) |
-| UC-01.E1 | `SearchRequestParser.parse` → `InvalidSearchArgumentsException` → `AgentResultMapper.toError` |
-| UC-01.E2 | `GeocoderPort.geocode` returns null → `PlaceNotResolvedException` → `AgentResultMapper.toError` |
-| UC-01.E3 | `GeocoderPort.geocode` throws provider failure → `AgentResultMapper.toError` |
-| UC-01.E4 | `AgentRequestGate.allow` false → HTTP 429 |
-| UC-01.E5 | `McpHttpEndpoint` protocol error |
-| UC-01.E6 | `AgentRequestGate` origin refusal → HTTP 403 |
-| UC-01.E7 | `ListingSearchQuery.searchNearby` failure → `AgentResultMapper.toError` (generic) |
-| UC-02.2 | `McpHttpEndpoint.handle` → `AgentRequestGate.allow` → `GetRestaurantTool.call` |
-| UC-02.3 | `SearchRequestParser.parseListingId` |
-| UC-02.4 | `GetListingForAgent.execute` → `RestaurantListingRepository.findById` |
-| UC-02.5 | `HalalCertificationReviewRepository.findLatestApprovedByListing` → `CertificateFactsPolicy.derive` |
-| UC-02.6 | `AgentResultMapper.toDetail` |
-| UC-02.A1 | `CertificateFactsPolicy.derive` returns null |
-| UC-02.A2 | `AgentResultMapper.toDetail` reports scope and items independently |
-| UC-02.E1 | `RestaurantListingRepository.findById` null → `AgentListingNotFoundException` |
-| UC-02.E2 | `SearchRequestParser.parseListingId` throws `InvalidSearchArgumentsException` |
-| UC-02.E3–E6 | Gate refusal / protocol error / generic error mapping |
+| UC-01.2–3 | `McpHttpEndpoint.handle` → `AgentRequestGate.allow` → `SearchRestaurantsTool.call` → `SearchRequestParser.parse` |
+| UC-01.4 | `SearchListingsForAgent.execute` → `GeocoderPort.geocode` |
+| UC-01.5–6 | `ListingSearchQuery.searchNearby` → `AgentResultMapper.toCards` |
+| UC-01.A1–A3 | Coordinates skip the place branch; empty/nextOffset are mapped |
+| UC-01.A4 | Hand-off to `GetRestaurantTool.call` |
+| UC-01.E1 | `SearchRequestParser.parse` throws → `AgentResultMapper.toError` |
+| UC-01.E2–E3 | `GeocoderPort.geocode` null/throws → `PlaceNotResolvedException` / provider error → `toError` |
+| UC-01.E4–E7 | Gate false / protocol / origin / store failure at the boundary |
+| UC-02.2–3 | `McpHttpEndpoint.handle` → gate → `GetRestaurantTool.call` → `parseListingId` |
+| UC-02.4–6 | `GetListingForAgent.execute` → `findById` → `findLatestApprovedByListing` → `CertificateFactsPolicy.derive` → `toDetail` |
+| UC-02.A1–A2 | Policy returns null; scope/items reported independently |
+| UC-02.E1–E6 | `findById` null → `AgentListingNotFoundException`; parse/transport/store failures |
 
-## 5.7 Consistency checks
-
-- Every entity/value object from Phase 1 appears (listing, review, location,
-  cuisine, price, rating, hand-cut, delivery, halal scope, cross-contamination,
-  verification, halal item set are carried through the existing types).
-- Every use case has exactly one control class: UC-01 → `SearchListingsForAgent`,
-  UC-02 → `GetListingForAgent`.
-- Every external dependency is behind an interface: search query, listing
-  repository, review repository, geocoder, rate limiter.
-- No orphan classes; every class is used by a Phase 6 sequence or a work item.
-- No framework or persistence detail leaks into this phase.
+**Check:** every UC step resolves to an operation; every external dependency sits
+behind an interface; one control class per use case; no orphan classes.

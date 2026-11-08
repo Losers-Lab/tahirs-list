@@ -1,90 +1,69 @@
-# 04 — Black-box sequence: UC-02 View a restaurant's details (via an AI agent)
+> **Purpose:** actor-visible behavior of UC-02 · **Derived from:** 02 · **Delta:** new flow · **Security:** public read-only; certificate facts only for verified + approved + archived
 
-**Security-relevant:** public anonymous read surface; certificate facts are only
-advertised for verified listings with an approved, archived certificate (never a
-broken or private URL).
+# 04 — Black-box: UC-02 view a restaurant's details
 
-Participants are only the actors and **one** lifeline for Tahir's List.
-
-## Main success scenario
+**Main** — validated detail request returns trust facts and links.
 
 ```mermaid
 sequenceDiagram
     actor U as User
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
-    U->>AG: 1. Ask for details about a restaurant found earlier
+    U->>AG: 1. Ask for details about a restaurant
     AG->>TL: 2. Detail request with the listing id
-    TL->>TL: 3. Validate the id format
-    TL->>TL: 4. Load the listing
-    TL->>TL: 5. Derive certificate facts when verified and approved
-    TL-->>AG: 6. Full detail with trust facts, image, certificate + listing links
+    TL->>TL: 3. Validate id; 4. Load listing
+    TL->>TL: 5. Derive certificate facts if eligible
+    TL-->>AG: 6. Full detail + image + certificate/link
     AG-->>U: 7. Present the detail
 ```
 
-## Alternate flows
-
-### A1 — Unverified, or approved without an archived certificate (from step 5)
+**A1** — ineligible certificate: detail without a certificate block.
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
     AG->>TL: 2. Detail request
-    TL->>TL: 4. Listing found
-    TL->>TL: 5. No eligible certificate facts
-    TL-->>AG: 6. Full detail without a certificate block or certificate link
-    Note over AG: No broken link is ever advertised
+    TL->>TL: 4. Found; 5. No eligible certificate
+    TL-->>AG: 6. Detail without certificate or link
 ```
 
-### A2 — Partially halal listing (from step 5)
+**A2** — partial halal: scope and items reported independently of verification.
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
     AG->>TL: 2. Detail request
-    TL->>TL: 4. Listing found (partially halal)
-    TL-->>AG: 6. Detail states partial scope and halal items
-    Note over AG,TL: Verification status is reported independently of scope
+    TL-->>AG: 6. Partial scope + halal items + status
 ```
 
-## Exception flows
-
-### E1 — No listing with that id (from step 4)
+**E1** — unknown id returns "not found".
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
-    AG->>TL: 2. Detail request with an unknown id
-    TL->>TL: 4. Nothing found
+    AG->>TL: 2. Unknown id
     TL-->>AG: Tool error: restaurant not found
-    Note over TL: No state changed
 ```
 
-### E2 — Id is not a valid identifier (from step 3)
+**E2** — malformed id returns an actionable error.
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
-    AG->>TL: 2. Detail request with a malformed id
-    TL->>TL: 3. Format validation fails
-    TL-->>AG: Tool error: the id must be a valid identifier
-    Note over TL: No lookup performed
+    AG->>TL: 2. Malformed id
+    TL->>TL: 3. Format check fails
+    TL-->>AG: Tool error: id must be valid
 ```
 
-### E3–E6 — Refusals and failures (from steps 2 and 4)
+**E3–E6** — refusals and failures before or during work.
 
-| Flow | Condition | What the agent observes | State |
-|------|-----------|-------------------------|-------|
-| E3 | Per-client budget exhausted | HTTP 429 refusal before any tool work | Unchanged |
-| E4 | Malformed protocol request | Protocol-level error; no tool executes | Unchanged |
-| E5 | Browser origin not allowed | HTTP 403 refusal; no tool executes | Unchanged |
-| E6 | Data store unavailable | Generic, non-internal error result | Unchanged |
+| Flow | Condition | Agent observes | State |
+|------|-----------|----------------|-------|
+| E3 | Budget exhausted | 429 before tool work | Unchanged |
+| E4 | Malformed protocol | JSON-RPC error; no tool | Unchanged |
+| E5 | Origin disallowed | 403; no tool | Unchanged |
+| E6 | Store unavailable | Generic non-internal error | Unchanged |

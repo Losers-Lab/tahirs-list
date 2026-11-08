@@ -1,141 +1,90 @@
-# 04 — Black-box sequence: UC-01 Search for halal restaurants (via an AI agent)
+> **Purpose:** actor-visible behavior of UC-01 · **Derived from:** 02 · **Delta:** new flow · **Security:** public read-only; refusals are 429/403; listing text is untrusted
 
-**Security-relevant:** public anonymous read surface; rate limiting and Origin
-validation are refusal paths; listing text is untrusted community content shown
-to a model.
+# 04 — Black-box: UC-01 search for halal restaurants
 
-Participants are only the actors, **one** lifeline for Tahir's List, and the
-external geocoding provider. No internal names appear.
-
-## Main success scenario
-
+**Main** — validated search returns a distance-ordered page with facts and links.
 ```mermaid
 sequenceDiagram
     actor U as User
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-    participant GEO as Geocoding provider (external)
-
-    U->>AG: 1. Ask for halal restaurants near a place, with optional filters
-    AG->>TL: 2. Search (place or coordinates, radius in miles, filters)
-    TL->>TL: 3. Validate radius, page and filters
-    opt place text was supplied
-        TL->>GEO: 4. Resolve place text to coordinates
-        GEO-->>TL: 4a. Coordinates, or no match, or unavailable
-    end
-    TL->>TL: 5. Find index-qualified listings in the radius matching the filters
-    TL-->>AG: 6. Ordered page with halal/verification facts and listing links
-    AG-->>U: 7. Present the results
-```
-
-## Alternate flows
-
-### A1 — Coordinates supplied instead of place text (from step 2)
-
-```mermaid
-sequenceDiagram
-    actor U as User
-    participant AG as AI agent client
-    participant TL as Tahir's List
-
-    U->>AG: 1. Ask near a known location
-    AG->>TL: 2. Search with coordinates, radius and filters
+    participant GEO as Geocoding provider
+    U->>AG: 1. Ask for restaurants near a place, with filters
+    AG->>TL: 2. Search (place or coordinates, radius, filters)
     TL->>TL: 3. Validate
-    Note over TL: Step 4 is skipped — no external lookup
+    opt place text
+        TL->>GEO: 4. Resolve place
+        GEO-->>TL: 4a. Coordinates
+    end
     TL->>TL: 5. Find matching listings
-    TL-->>AG: 6. Ordered page with facts and links
-    AG-->>U: 7. Present the results
+    TL-->>AG: 6. Ordered page + facts + links
+    AG-->>U: 7. Present results
 ```
-
-### A2 — No listing matches (from step 5)
-
+**A1** — coordinates skip the external lookup.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
-    AG->>TL: 2–4. Valid search request
-    TL->>TL: 5. No listing qualifies
+    AG->>TL: 2. Search with coordinates
+    TL->>TL: 3. Validate; 5. Find listings
+    TL-->>AG: 6. Ordered page + facts + links
+```
+**A2** — no match is a successful empty page.
+```mermaid
+sequenceDiagram
+    participant AG as AI agent
+    participant TL as Tahir's List
+    AG->>TL: 2–4. Valid request
+    TL->>TL: 5. Nothing matches
     TL-->>AG: 6. Empty page (count 0)
-    Note over AG: Success — the agent tells the user nothing matched
 ```
-
-### A3 — More matches than the page size (from step 6)
-
+**A3** — a full page carries a next-offset hint.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
-    AG->>TL: 2. Search request (page size N)
-    TL-->>AG: 6. Page of N results
-    Note over AG,TL: The page carries a next-offset hint
-    AG->>TL: 2'. Same search with the next offset
-    TL-->>AG: 6'. The next page
+    AG->>TL: 2. Search (page size N)
+    TL-->>AG: 6. N results + nextOffset
+    AG->>TL: 2'. Same search, next offset
+    TL-->>AG: 6'. Next page
 ```
+**A4** — detail continues in UC-02 with the listing id.
 
-### A4 — The agent needs more detail on one result (from step 6)
-
+**E1** — invalid input returns an actionable tool error.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
-    TL-->>AG: 6. Search result with a listing id
-    AG->>TL: Continue in UC-02 with that id
-    Note over AG,TL: See 04-blackbox/UC-02-view-restaurant.md
+    AG->>TL: 2. Invalid value
+    TL-->>AG: Tool error with the specific reason
 ```
-
-## Exception flows
-
-### E1 — Invalid argument (from step 3)
-
+**E2** — an unresolvable place returns guidance.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-
-    AG->>TL: 2. Search request with an invalid value
-    TL->>TL: 3. Validation fails
-    TL-->>AG: Tool error: the specific reason and how to correct it
-    Note over TL: No search performed; no state changed
-```
-
-### E2 — Place has no match (from step 4)
-
-```mermaid
-sequenceDiagram
-    participant AG as AI agent client
-    participant TL as Tahir's List
-    participant GEO as Geocoding provider (external)
-
-    AG->>TL: 2. Search by place text
+    participant GEO as Geocoding provider
+    AG->>TL: 2. Search by place
     TL->>GEO: 4. Resolve
     GEO-->>TL: 4a. No match
-    TL-->>AG: Tool error: try a nearby city or supply coordinates
-    Note over TL: No search performed
+    TL-->>AG: Error: try a nearby city or coordinates
 ```
-
-### E3 — Geocoding provider unavailable (from step 4)
-
+**E3** — a provider outage recommends coordinates.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent client
+    participant AG as AI agent
     participant TL as Tahir's List
-    participant GEO as Geocoding provider (external)
-
-    AG->>TL: 2. Search by place text
+    participant GEO as Geocoding provider
+    AG->>TL: 2. Search by place
     TL->>GEO: 4. Resolve
     GEO-->>TL: 4a. Provider failure
-    TL-->>AG: Distinct tool error: supply coordinates instead
-    Note over TL: No search performed
+    TL-->>AG: Distinct error: supply coordinates
 ```
+**E4–E7** — refusals and failures before or during work.
 
-### E4–E7 — Refusals and failures (from steps 2 and 5)
-
-| Flow | Condition | What the agent observes | State |
-|------|-----------|-------------------------|-------|
-| E4 | Per-client budget exhausted | HTTP 429 refusal before any tool work; may retry after the window | Unchanged |
-| E5 | Malformed protocol request | Protocol-level error response; no tool executes | Unchanged |
-| E6 | Browser origin not allowed | HTTP 403 refusal; no tool executes | Unchanged |
-| E7 | Data store unavailable | Generic, non-internal error result | Unchanged |
+| Flow | Condition | Agent observes | State |
+|------|-----------|----------------|-------|
+| E4 | Budget exhausted | 429 before tool work; retry later | Unchanged |
+| E5 | Malformed protocol | JSON-RPC error; no tool | Unchanged |
+| E6 | Origin disallowed | 403; no tool | Unchanged |
+| E7 | Store unavailable | Generic non-internal error | Unchanged |
