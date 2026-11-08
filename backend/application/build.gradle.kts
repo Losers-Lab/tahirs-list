@@ -13,6 +13,8 @@ dependencies {
     // Use cases and out-ports are suspend-based; consumers see those types.
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.datetime)
+    implementation(libs.kotlin.logging.jvm)
+    testRuntimeOnly(libs.logback.classic)
 
     // This module's own tests run the contract spec against the in-memory fake.
     testImplementation(testFixtures(project(":application")))

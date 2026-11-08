@@ -13,7 +13,7 @@ import org.flywaydb.core.api.output.MigrateResult
  */
 object Migrations {
 
-    /** Classpath location of the versioned SQL migrations (V1–V21). */
+    /** Classpath location of the versioned SQL migrations (V1–V23). */
     const val LOCATIONS: String = "classpath:db/migration"
 
     /**

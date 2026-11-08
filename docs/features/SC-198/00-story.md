@@ -83,7 +83,7 @@ flowchart LR
 | E-7 | Pre-flight probe answers from cache while Photon is down | Pre-flight is wired to the **uncached** port (D-2) |
 | E-8 | Non-ASCII / diacritics / full-width text | NFKC → lowercase; equivalent forms share a key (D-3) |
 | E-9 | Very long or hostile query text | Bounded by existing request validation; only the 64-char hash is stored |
-| E-10 | Another story claims migration V22 first | Rebase the number at merge time; content unchanged (D-9) |
+| E-10 | Another story claims the next migration number first | Happened: SC-211 landed V22; SC-198 renumbered to V23 at merge time; content unchanged (D-9) |
 | E-11 | A row is older than 90 days | Ignored on read; the next successful lookup refreshes it in place (D-6) |
 
 ## Open questions

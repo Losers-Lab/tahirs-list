@@ -19,6 +19,7 @@ data class AppConfig(
     val verification: HostedVisionConfig?,
     val seedIngest: SeedIngestSettings,
     val mcp: McpSettings = McpSettings(),
+    val geocodeCache: GeocodeCacheSettings = GeocodeCacheSettings(),
 ) {
     val isProduction: Boolean get() = profile.split(",").map { it.trim() }.contains("prod")
 }
@@ -72,6 +73,9 @@ data class McpSettings(
     val refillTokens: Long = 60,
     val refillWindowSeconds: Long = 60,
 )
+
+/** Geocode cache lifetime (SC-198). `0` means a row never goes stale. */
+data class GeocodeCacheSettings(val ttlDays: Int = 90)
 
 /** Reads all settings once at startup; no dynamic re-read. */
 fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
@@ -144,6 +148,9 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
             maxKeys = env("APP_MCP_RATELIMIT_MAX_KEYS")?.toIntOrNull() ?: 100_000,
             refillTokens = env("APP_MCP_RATELIMIT_REFILL_TOKENS")?.toLongOrNull() ?: 60,
             refillWindowSeconds = env("APP_MCP_RATELIMIT_WINDOW_SECONDS")?.toLongOrNull() ?: 60,
+        ),
+        geocodeCache = GeocodeCacheSettings(
+            ttlDays = env("APP_GEOCODE_CACHE_TTL_DAYS")?.toIntOrNull() ?: 90,
         ),
     )
 }
