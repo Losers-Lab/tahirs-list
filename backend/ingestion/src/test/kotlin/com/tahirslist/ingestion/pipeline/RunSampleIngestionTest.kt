@@ -233,6 +233,44 @@ class RunSampleIngestionTest : FunSpec({
         result.report.gaps.any { it.contains("outside every configured metro") } shouldBe true
     }
 
+    test("an unlocated row is rejected once, not also counted as outside") {
+        val geocoder = FakeGeocoder { null }
+        val row = sourceListing(record = "M-1", name = "Nowhere", lat = null, lng = null)
+        val run = RunSampleIngestion(
+            feeds = listOf(FakeFeed("hma", listOf(row))),
+            health = CheckGeocoderHealth(FakeGeocoder { place("Toronto") }),
+            artifacts = FakeArtifacts(),
+            factory = CandidateFactory(geocoder),
+        )
+
+        val result = run.execute(IngestSelection(runId = "run-1", metros = setOf("Toronto")))
+
+        result.report.rejects.single().reason shouldBe RejectReason.NO_GEOCODER_MATCH
+        result.report.gaps.none { it.contains("outside every configured metro") } shouldBe true
+    }
+
+    test("a row in a configured metro that was not selected is reported as a gap") {
+        val run = RunSampleIngestion(
+            feeds = listOf(
+                FakeFeed(
+                    "hms",
+                    listOf(
+                        sourceListing(record = "H-1", name = "Toronto Place"),
+                        sourceListing(record = "H-2", name = "Dallas Place", lat = 32.7767, lng = -96.7970),
+                    ),
+                ),
+            ),
+            health = CheckGeocoderHealth(namedGeocoder()),
+            artifacts = FakeArtifacts(),
+            factory = CandidateFactory(namedGeocoder()),
+        )
+
+        val result = run.execute(IngestSelection(runId = "run-1", metros = setOf("Toronto")))
+
+        result.report.candidates.single().name shouldBe "Toronto Place"
+        result.report.gaps.any { it.contains("configured metro that was not selected") } shouldBe true
+    }
+
     test("a geocoder outage mid-run aborts before the manifest") {
         val artifacts = FakeArtifacts()
         val run = RunSampleIngestion(

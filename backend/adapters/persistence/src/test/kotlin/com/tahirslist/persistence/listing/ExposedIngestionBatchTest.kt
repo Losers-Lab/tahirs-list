@@ -511,7 +511,7 @@ class ExposedIngestionBatchTest : FunSpec() {
             }
         }
 
-        test("attach-to re-points exactly one claim, and a stale re-point fails the batch") {
+        test("attach-to re-points exactly one claim, and the source row loses the trust it conferred") {
             runTest {
                 listings.applyBatch(
                     listOf(
@@ -553,19 +553,104 @@ class ExposedIngestionBatchTest : FunSpec() {
                 )
 
                 listings.findClaim("hms", "H-1")?.id shouldBe to.id
+                // The source had no other claim: it may not stay VERIFIED with zero evidence.
+                val emptied = listings.findById(from.id) ?: error("missing")
+                emptied.verificationStatus shouldBe VerificationStatus.UNVERIFIED
+                emptied.isHandCut shouldBe null
+                emptied.crossContamination shouldBe CrossContamination.UNCERTAIN
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${from.id}'") shouldBe 0
+                // The destination now has both claims.
+                postgis.count("SELECT count(*) FROM external_certification_claims WHERE listing_id = '${to.id}'") shouldBe 2
+            }
+        }
 
-                shouldThrow<BatchPlanException> {
-                    listings.applyBatch(
-                        writes = emptyList(),
-                        reattachments = listOf(
-                            ClaimReattachment(
-                                source = "hms",
-                                sourceRecordRef = "H-1",
-                                fromListingId = from.id,
-                                toListingId = to.id,
+        test("a curated cross-contamination correction persists and moves the index row") {
+            runTest {
+                val manual = candidate(
+                    name = "Manual Venue",
+                    venueKey = "b1".repeat(32),
+                    claims = listOf(
+                        claim(
+                            source = "manual-zabihah",
+                            record = "Z-11",
+                            tier = CertificationTier.TIER_3,
+                            declaredHandCut = HandCutDeclaration.UNSPECIFIED,
+                        ),
+                    ),
+                    crossContamination = CrossContamination.UNCERTAIN,
+                    lat = 43.65,
+                    lng = -79.65,
+                )
+                listings.applyBatch(listOf(ListingWrite(WriteTarget.Insert, manual)))
+                val listing = listings.findByVenueKey("b1".repeat(32)) ?: error("missing")
+                listing.crossContamination shouldBe CrossContamination.UNCERTAIN
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${listing.id}'") shouldBe 0
+
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Update(listing.id),
+                            manual.copy(manualCrossContamination = CrossContamination.NO_CROSS_CONTAMINATION),
+                        ),
+                    ),
+                )
+                listings.findById(listing.id)?.crossContamination shouldBe
+                    CrossContamination.NO_CROSS_CONTAMINATION
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${listing.id}'") shouldBe 1
+
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Update(listing.id),
+                            manual.copy(manualCrossContamination = CrossContamination.PRESENT),
+                        ),
+                    ),
+                )
+                listings.findById(listing.id)?.crossContamination shouldBe CrossContamination.PRESENT
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${listing.id}'") shouldBe 0
+            }
+        }
+
+        test("a stale re-point fails the batch") {
+            runTest {
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Insert,
+                            candidate(
+                                name = "Claim owner",
+                                venueKey = "3".repeat(64),
+                                claims = listOf(claim(source = "hms", record = "H-1")),
+                                lat = 43.3,
+                                lng = -79.3,
                             ),
                         ),
-                    )
+                        ListingWrite(
+                            WriteTarget.Insert,
+                            candidate(
+                                name = "Venue owner",
+                                venueKey = "4".repeat(64),
+                                claims = listOf(claim(source = "hms", record = "H-2")),
+                                lat = 43.4,
+                                lng = -79.4,
+                            ),
+                        ),
+                    ),
+                )
+                val from = listings.findByVenueKey("3".repeat(64)) ?: error("missing")
+                val to = listings.findByVenueKey("4".repeat(64)) ?: error("missing")
+                val reattachment = ClaimReattachment(
+                    source = "hms",
+                    sourceRecordRef = "H-1",
+                    fromListingId = from.id,
+                    toListingId = to.id,
+                )
+
+                listings.applyBatch(writes = emptyList(), reattachments = listOf(reattachment))
+                // The claim is no longer on `from`: replaying the same decision
+                // must fail the batch rather than re-point someone else's claim.
+                shouldThrow<BatchPlanException> {
+                    listings.applyBatch(writes = emptyList(), reattachments = listOf(reattachment))
                 }
             }
         }

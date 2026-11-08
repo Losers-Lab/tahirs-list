@@ -79,6 +79,7 @@ class RunSampleIngestion(
         val fetched = linkedMapOf<Pair<String, String>, Int>()
         val rowsByMetro = linkedMapOf<String, LinkedHashMap<String, MutableList<SourceListing>>>()
         val outsideBySource = linkedMapOf<String, Int>()
+        val unselectedBySource = linkedMapOf<String, Int>()
 
         for (feed in enabled) {
             val page = try {
@@ -99,9 +100,11 @@ class RunSampleIngestion(
                 // Membership is the circle. A row that carries coordinates is
                 // filtered without a geocoder call; a row that does not is
                 // geocoded once here, and the factory reuses that result.
+                var locatable = listing.hasCoordinates
                 val metro = when (val point = listing.point()) {
                     null -> {
                         val place = factory.locate(listing)
+                        locatable = place != null
                         if (place == null) {
                             rejects += IngestReject(
                                 reason = RejectReason.NO_GEOCODER_MATCH,
@@ -116,10 +119,17 @@ class RunSampleIngestion(
                     else -> metroFilter.forPoint(point)
                 }
                 if (metro == null) {
-                    outsideBySource[feed.sourceId] = (outsideBySource[feed.sourceId] ?: 0) + 1
+                    // A row that could not be located is already a reject; only
+                    // rows with a real point outside every circle are a gap.
+                    if (locatable) {
+                        outsideBySource[feed.sourceId] = (outsideBySource[feed.sourceId] ?: 0) + 1
+                    }
                     continue
                 }
-                if (metros.none { it.name == metro.name }) continue
+                if (metros.none { it.name == metro.name }) {
+                    unselectedBySource[feed.sourceId] = (unselectedBySource[feed.sourceId] ?: 0) + 1
+                    continue
+                }
                 fetched[feed.sourceId to metro.name] = (fetched[feed.sourceId to metro.name] ?: 0) + 1
                 rowsByMetro.getOrPut(metro.name) { linkedMapOf() }
                     .getOrPut(feed.sourceId) { mutableListOf() }
@@ -131,6 +141,9 @@ class RunSampleIngestion(
         // account of the run.
         outsideBySource.forEach { (source, count) ->
             gaps += "$source: $count row(s) outside every configured metro"
+        }
+        unselectedBySource.forEach { (source, count) ->
+            gaps += "$source: $count row(s) in a configured metro that was not selected"
         }
 
         val accepted = mutableListOf<IngestionCandidate>()

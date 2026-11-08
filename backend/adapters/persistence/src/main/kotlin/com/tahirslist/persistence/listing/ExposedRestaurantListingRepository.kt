@@ -10,6 +10,7 @@ import com.tahirslist.application.ingestion.ListingWrite
 import com.tahirslist.application.ingestion.WriteTarget
 import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.domain.restaurant.CertificationClaim
+import com.tahirslist.domain.restaurant.CertificationTier
 import com.tahirslist.domain.restaurant.CrossContamination
 import com.tahirslist.domain.restaurant.Cuisine
 import com.tahirslist.domain.restaurant.HalalItem
@@ -286,7 +287,13 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 writeClaim(listingId, claim)
                 claimsWritten++
             }
-            recomputeCertifierTrust(listingId)
+            recomputeCertifierTrust(
+                listingId,
+                // A curated Tier-3 row's cross-contamination is explicit and
+                // must persist; a Tier-1 row derives it from its claim.
+                manualCrossContamination = candidate.crossContamination
+                    .takeIf { candidate.tier != CertificationTier.TIER_1 },
+            )
             loadById(listingId)?.let { mirrorIntoListingSearch(it) }
         }
 
@@ -329,6 +336,11 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 ExternalCertificationClaims.sourceRecordRef bind reattachment.sourceRecordRef,
             ),
         )
+
+        // The claim left this listing: if it was its only Tier-1 evidence, the
+        // source row must lose the trust it conferred and leave the index.
+        recomputeCertifierTrust(reattachment.fromListingId)
+        loadById(reattachment.fromListingId)?.let { mirrorIntoListingSearch(it) }
     }
 
     /**
@@ -497,7 +509,11 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
      * - A merge moved the retired row's claims here, so the keeper is recomputed
      *   from the union and cannot lose a verified outcome (review round 2).
      */
-    private fun JdbcTransaction.recomputeCertifierTrust(listingId: Uuid) {
+    private fun JdbcTransaction.recomputeCertifierTrust(
+        listingId: Uuid,
+        /** The explicit curated value of a Tier-3 candidate in this batch, if any. */
+        manualCrossContamination: CrossContamination? = null,
+    ) {
         val current = queryRows(
             """
             SELECT verification_basis, provenance, cross_contamination
@@ -534,8 +550,10 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
 
         if (winner != null && winner.tier == 1) {
             val handCut = winner.declaration == "HAND_CUT"
+            // An unknown future certifier is not mislabelled as HMS: keep the
+            // row's existing provenance when the source has no stamp.
             val provenance = runCatching { IngestionCandidate.provenanceFor(winner.source) }
-                .getOrElse { current.second ?: Provenance.CERTIFIER_HMS }
+                .getOrNull() ?: current.second
             executeUpdate(
                 """
                 UPDATE restaurant_listings SET
@@ -548,14 +566,15 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 """.trimIndent(),
                 listOf(
                     RestaurantListings.isHandCut bind handCut,
-                    RestaurantListings.provenance bind provenance.value,
+                    RestaurantListings.provenance bind provenance?.value,
                     RestaurantListings.id bind listingId,
                 ),
             )
             return
         }
 
-        if (current.first == "CERTIFIER_REGISTRY") {
+        val withdrawing = current.first == "CERTIFIER_REGISTRY"
+        if (withdrawing) {
             // The certifier evidence was withdrawn or moved away: withdraw only
             // what the certifier conferred. Committee trust has basis NULL.
             executeUpdate(
@@ -563,16 +582,27 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 UPDATE restaurant_listings SET
                     verification_status = 'UNVERIFIED',
                     verification_basis = NULL,
-                    is_hand_cut = NULL,
-                    cross_contamination = ?
+                    is_hand_cut = NULL
                 WHERE id = ?
                 """.trimIndent(),
-                listOf(
-                    RestaurantListings.crossContamination bind CrossContamination.DEFAULT.name,
-                    RestaurantListings.id bind listingId,
-                ),
+                listOf(RestaurantListings.id bind listingId),
             )
         }
+
+        // Cross-contamination is evidence about the venue. With no Tier-1 claim
+        // the curated row's explicit value is authoritative; a withdrawal with
+        // no new statement falls back to UNCERTAIN (and leaves the index).
+        val cross = when {
+            !withdrawing && manualCrossContamination == null -> return
+            else -> manualCrossContamination ?: CrossContamination.DEFAULT
+        }
+        executeUpdate(
+            "UPDATE restaurant_listings SET cross_contamination = ? WHERE id = ?",
+            listOf(
+                RestaurantListings.crossContamination bind cross.name,
+                RestaurantListings.id bind listingId,
+            ),
+        )
     }
 
     private data class ClaimEvidence(
