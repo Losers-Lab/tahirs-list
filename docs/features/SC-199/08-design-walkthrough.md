@@ -59,19 +59,24 @@ flowchart LR
 
 | # | Question | Recommendation | Decision |
 |---|---|---|---|
-| D-1 | Precision: 4 dp (≈8–11 m cells; a distance error ≤ 0.005 mi) or 3 dp (≈80–111 m; ≤ 0.049 mi)? The story asks for 3 or 4 | **4 dp.** Radius-boundary changes stay negligible; 3 dp reduces distinct keys more but moves listings at the boundary by up to ~0.05 mi | **open — founder** |
-| D-2 | Freshness window: `max-age=60`, `s-maxage=300`, `stale-while-revalidate=60`, with `s-maxage + swr ≤ 600` as the delisting bound | Ratify the values. The bound is the honest answer to "how long can a delisted restaurant still show" | **open — founder** |
-| D-3 | **What snapping buys.** The edge keys on the raw URL. Options: **A** as filed (server snap + header): edge helps identical URLs only; every distinct GPS URL still runs PostGIS. **B** A plus an origin cache keyed on the snapped request (bounded, TTL = `s-maxage`): removes PostGIS work for near-duplicate fixes, a new component not yet designed. **C** clients round before sending: makes edge keys collide, but is a frontend and extension change outside this story | **Choose one.** Recommend **B**, because the story's stated cost is PostGIS load, and A alone does not reduce it. A is designed here. B needs its own delta before implementation | **open — founder** |
-| D-4 | Snap on both REST and MCP through one parser function | Yes — the surfaces cannot drift | **open — recommended** |
-| D-5 | Cloudflare Cache Rule for `/v1/listings/search*` (query string in the key). Without it the header only helps browsers | Yes, after D-3 is decided. The rule lives in the Cloudflare zone, not the repo; it needs an operator and a runbook note | **open — operator** |
+| D-1 | Precision: 4 dp (≈8–11 m cells; a distance error ≤ 0.005 mi) or 3 dp (≈80–111 m; ≤ 0.049 mi)? | **4 dp** (default; `APP_SEARCH_CENTRE_DECIMALS`, 3 allowed) | decided 2026-11-08 — **4 dp** (founder) |
+| D-2 | Freshness window: `max-age=60`, `s-maxage=300`, `stale-while-revalidate=60`; `s-maxage + swr ≤ 600` | As proposed | decided 2026-11-08 — **as proposed** (founder) |
+| D-3 | What snapping buys: **A** as filed (server snap + header; edge helps identical URLs only); **B** origin cache keyed on the snapped request; **C** client-side rounding | **A** | decided 2026-11-08 — **option A** (founder). B is **not** in this story; it is the follow-up that would cut PostGIS load for near-duplicate fixes and needs its own story and design |
+| D-4 | Snap on both REST and MCP through one parser function | Yes | decided 2026-11-08 — **yes** (founder) |
+| D-5 | Cloudflare Cache Rule for `/v1/listings/search*` (query string in the key) | Under option A the edge is the only thing the header buys beyond browsers, so the rule is in scope | decided 2026-11-08 — **yes, per D-3 / A** (founder). Operator applies it; the runbook note ships with the PR |
 
 ## Approval
 
 ```
-Approved by: ______ · Date: ______ · Design commit: ______ · Design PR: #____
-Decision items: D-1 ____  D-2 ____  D-3 ____  D-4 ____  D-5 ____
+Decision items resolved by founder: 2026-11-08
+D-1 4 dp · D-2 as proposed · D-3 option A · D-4 yes · D-5 yes (per A)
+Approved by: founder (decision items answered; formal "approved" reply pending)
+Design commit: 7934b73 · Design PR: #83
 ```
 
-**Not approved.** Implementation does not start. The story itself is blocked on the
-founder's ratification of precision and TTL (D-1, D-2); D-3 is a new finding that
-changes what the story delivers and must be decided before those values matter.
+**Known limit, accepted under D-3 A:** distinct GPS fixes in the same cell still run PostGIS
+on every request. Only identical repeat URLs are served from the edge or browser. Filing option B as a
+follow-up story is recommended but not done here.
+
+Implementation starts only after the founder's `approved` reply. The work items (09) and
+traceability (10) are written on the design branch after that.
