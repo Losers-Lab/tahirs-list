@@ -67,6 +67,17 @@ flowchart LR
 | UC-01.E5, UC-02.E4 (protocol) | WI-01 + SDK |
 | All ACs on the wire | WI-11, WI-12 |
 
+## WI-01 spike result — 2026-11-08
+
+Checked against `io.modelcontextprotocol:kotlin-sdk-server:0.16.0` sources (not from memory).
+
+| Finding | Consequence |
+|---|---|
+| `Application.mcpStatelessStreamableHttp(path, enableDnsRebindingProtection, allowedHosts, allowedOrigins, block)` exists; POST-only, GET/DELETE return 405, no session id, one session per request | Use it directly. **D-11 fallback is not needed**; no dedicated localhost server. |
+| The helper installs `ContentNegotiation` with the SDK's `McpJson` itself | No competing `Json` instance; the coexistence risk in 07 is retired. |
+| The helper's `allowedOrigins` compares **hostname only** (scheme/port ignored) and `null` skips validation when custom `allowedHosts` are set | Keep our `McpOriginGuard` for exact-origin matching + 403; pass `allowedOrigins = null` so the weaker SDK check does not pre-empt ours. No design change. |
+| No `maxRequestBodySize` parameter on the stateless helper | Oversized-body handling (AC-9) comes from Ktor's server request limit in `:bootstrap`, verified in WI-12. |
+
 ## Sequencing notes
 
 - **WI-01 decides D-11.** If the SDK's install conflicts with `ContentNegotiation`, record the chosen fallback in 06/07 and ask for a one-line re-approval before WI-09.
