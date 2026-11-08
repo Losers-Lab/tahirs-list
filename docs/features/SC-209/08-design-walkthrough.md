@@ -74,7 +74,7 @@ flowchart LR
 Approved by: `<pending>` · Date: · Design commit:
 Decision items: `<pending>`
 
-Re-approval: format-only retrofit, technical content unchanged, 0ef91f7
+Re-approval: design corrected — existing use cases reused; implementation content unchanged, 58ed5ac
 
 > **Re-approval requested.** Reply `approved` to confirm technical content is
 > unchanged (format-only), or name the diagram and the change.
