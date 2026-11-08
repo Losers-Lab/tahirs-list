@@ -145,8 +145,12 @@ class FakeListingRepository(private val listing: RestaurantListing?) : Restauran
     override suspend fun findClaim(source: String, sourceRecordRef: String): RestaurantListing? = null
     override suspend fun findByVenueKey(venueKey: String): RestaurantListing? = null
     override suspend fun findByNormalizedLocation(lat: Double, lng: Double): List<RestaurantListing> = emptyList()
-    override suspend fun applyBatch(writes: List<ListingWrite>): BatchLoadResult =
-        BatchLoadResult(inserted = writes.count { it.target == WriteTarget.Insert })
+    override suspend fun applyBatch(
+        writes: List<ListingWrite>,
+        merges: List<com.tahirslist.application.ingestion.ListingMerge>,
+        reattachments: List<com.tahirslist.application.ingestion.ClaimReattachment>,
+    ): BatchLoadResult =
+        BatchLoadResult(inserted = writes.count { it.target == WriteTarget.Insert }, merged = merges.size)
 }
 
 class FakeReviewRepository(private val review: HalalCertificationReview?) :

@@ -1,5 +1,8 @@
 package com.tahirslist.ingestion.artifacts
 
+import com.tahirslist.application.ingestion.InvalidResolutionException
+import com.tahirslist.application.ingestion.Resolutions
+import com.tahirslist.application.ingestion.ResolutionsJson
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -177,12 +180,51 @@ class FileRunArtifacts(
     fun readCandidates(runId: String): String {
         val directory = runDirectory(runId)
         val manifest = readManifest(directory) ?: error("run $runId has no manifest")
+        refuseIfLoaded(runId)
         val bytes = Files.readAllBytes(directory.resolve(CANDIDATES))
         val actual = sha256(bytes)
         if (actual != manifest.candidatesSha256) {
             throw ArtifactChecksumMismatchException(runId, manifest.candidatesSha256, actual)
         }
         return String(bytes, StandardCharsets.UTF_8)
+    }
+
+    /**
+     * A loaded run must never be read for a second load: the check happens
+     * before any write, so a replay cannot commit and then fail (BR-18/A2).
+     */
+    fun refuseIfLoaded(runId: String) {
+        if (Files.exists(runDirectory(runId).resolve(LOADED))) {
+            throw RunAlreadyLoadedException(runId)
+        }
+    }
+
+    /**
+     * The curator's decision record for the run. The run's evidence files stay
+     * immutable; this file is the mutable, reviewed input the load reads, and
+     * it is written only by the load tool.
+     */
+    fun resolutionsPath(runId: String): Path = runDirectory(runId).resolve(RESOLUTIONS)
+
+    fun readResolutions(runId: String): Resolutions? {
+        val path = resolutionsPath(runId)
+        if (!Files.isRegularFile(path)) return null
+        return runCatching { ResolutionsJson.decode(Files.readString(path, StandardCharsets.UTF_8)) }
+            .getOrElse {
+                throw InvalidResolutionException(
+                    "$RESOLUTIONS for run $runId is not readable (${it.message}); fix or delete it and re-run",
+                )
+            }
+    }
+
+    fun writeResolutions(runId: String, resolutions: Resolutions) {
+        val directory = runDirectory(runId)
+        require(Files.isRegularFile(directory.resolve(MANIFEST))) { "run $runId has no manifest" }
+        require(resolutions.runId == runId) {
+            "refusing to write decisions for run ${resolutions.runId} into run $runId"
+        }
+        refuseIfLoaded(runId)
+        writeAtomically(directory.resolve(RESOLUTIONS), ResolutionsJson.encode(resolutions).toByteArray(StandardCharsets.UTF_8))
     }
 
     /** Marks a run loaded after the catalogue transaction committed. */
@@ -203,12 +245,15 @@ class FileRunArtifacts(
         if (actual != manifest.candidatesSha256) {
             throw ArtifactChecksumMismatchException(runId, manifest.candidatesSha256, actual)
         }
+        val decisions = resolutionsPath(runId).takeIf { Files.isRegularFile(it) }
+            ?.let { sha256(Files.readAllBytes(it)) }
         val body = json.encodeToString(
             LoadMarker(
                 runId = runId,
                 loadRunId = loadRunId,
                 loadedAt = clock.instant().toString(),
                 candidatesSha256 = manifest.candidatesSha256,
+                resolutionsSha256 = decisions,
             ),
         )
         createNew(marker, body.toByteArray(StandardCharsets.UTF_8))
@@ -339,6 +384,7 @@ class FileRunArtifacts(
         const val MANIFEST = "run.json"
         const val CANDIDATES = "candidates.json"
         const val REPORT = "report.md"
+        const val RESOLUTIONS = "resolutions.json"
         const val LOADED = "loaded.json"
         const val ABANDONED = "abandoned.json"
         const val ARCHIVE_RECORD = "archive.json"
@@ -361,6 +407,8 @@ private data class LoadMarker(
     val loadRunId: String,
     val loadedAt: String,
     val candidatesSha256: String,
+    /** Checksum of the decisions the load applied, when the run had any. */
+    val resolutionsSha256: String? = null,
 )
 
 @Serializable

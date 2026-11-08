@@ -1,9 +1,13 @@
 package com.tahirslist.persistence.listing
 
 import com.tahirslist.application.ingestion.BatchLoadResult
+import com.tahirslist.application.ingestion.BatchPlanException
 import com.tahirslist.application.ingestion.ClaimConflictException
+import com.tahirslist.application.ingestion.ClaimReattachment
 import com.tahirslist.application.ingestion.IngestionCandidate
+import com.tahirslist.application.ingestion.ListingMerge
 import com.tahirslist.application.ingestion.ListingWrite
+import com.tahirslist.application.ingestion.TrustMerge
 import com.tahirslist.application.ingestion.WriteTarget
 import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.domain.restaurant.CertificationClaim
@@ -19,6 +23,8 @@ import com.tahirslist.domain.restaurant.RestaurantListing
 import com.tahirslist.domain.restaurant.VerificationStatus
 import com.tahirslist.persistence.db.Brands
 import com.tahirslist.persistence.db.ExternalCertificationClaims
+import com.tahirslist.persistence.db.Favorites
+import com.tahirslist.persistence.db.HalalCertificationReviews
 import com.tahirslist.persistence.db.ListingSearch
 import com.tahirslist.persistence.db.RestaurantHalalItems
 import com.tahirslist.persistence.db.RestaurantListingCuisines
@@ -231,6 +237,9 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 FROM restaurant_listings
                 WHERE location_lat_6 = round(?::numeric, 6)
                   AND location_lng_6 = round(?::numeric, 6)
+                  -- Matches uq_restaurant_listings_research_location's predicate so
+                  -- the lookup uses the partial index instead of a seq scan.
+                  AND provenance IS NOT NULL
                 ORDER BY created_at, name
                 """.trimIndent(),
                 listOf(doubleParam(lat), doubleParam(lng)),
@@ -242,10 +251,20 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
      * claims and the search mirror. A claim conflict or any SQL failure rolls
      * the entire batch back, so a load never leaves a partial catalogue.
      */
-    override suspend fun applyBatch(writes: List<ListingWrite>): BatchLoadResult = suspendTransaction(db) {
+    override suspend fun applyBatch(
+        writes: List<ListingWrite>,
+        merges: List<ListingMerge>,
+        reattachments: List<ClaimReattachment>,
+    ): BatchLoadResult = suspendTransaction(db) {
         var inserted = 0
         var upgraded = 0
         var claimsWritten = 0
+
+        // Curator decisions first: a re-pointed claim and a merged duplicate
+        // change which listing a write lands on, so they precede the writes and
+        // are re-validated against the current rows.
+        reattachments.forEach { reattachClaim(it) }
+        merges.forEach { mergeListings(it) }
 
         for (write in writes) {
             val candidate = write.candidate
@@ -271,7 +290,144 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             loadById(listingId)?.let { mirrorIntoListingSearch(it) }
         }
 
-        BatchLoadResult(inserted = inserted, upgraded = upgraded, claimsWritten = claimsWritten)
+        BatchLoadResult(
+            inserted = inserted,
+            upgraded = upgraded,
+            merged = merges.size,
+            claimsWritten = claimsWritten,
+        )
+    }
+
+    /**
+     * `attach-to`: move one claim to the listing the curator named. The owner is
+     * re-read so a claim that moved since the preview fails the batch instead of
+     * re-pointing someone else's evidence.
+     */
+    private fun JdbcTransaction.reattachClaim(reattachment: ClaimReattachment) {
+        val owner = claimOwner(reattachment.source, reattachment.sourceRecordRef)
+            ?: throw BatchPlanException(
+            "claim ${reattachment.source}::${reattachment.sourceRecordRef} no longer exists; " +
+                "re-run the preview and decide again",
+        )
+        if (owner != reattachment.fromListingId) {
+            throw BatchPlanException(
+                "claim ${reattachment.source}::${reattachment.sourceRecordRef} now belongs to $owner, " +
+                    "not ${reattachment.fromListingId}; re-run the preview and decide again",
+            )
+        }
+        if (loadById(reattachment.toListingId) == null) {
+            throw BatchPlanException("listing ${reattachment.toListingId} does not exist; cannot attach the claim")
+        }
+        executeUpdate(
+            """
+            UPDATE external_certification_claims SET listing_id = ?
+            WHERE source = ? AND source_record_ref = ?
+            """.trimIndent(),
+            listOf(
+                ExternalCertificationClaims.listingId bind reattachment.toListingId,
+                ExternalCertificationClaims.claimSource bind reattachment.source,
+                ExternalCertificationClaims.sourceRecordRef bind reattachment.sourceRecordRef,
+            ),
+        )
+    }
+
+    /**
+     * `same-venue`: fold [ListingMerge.retireId] into [ListingMerge.keepId] in
+     * the same transaction as the load.
+     *
+     * Claims, cuisines, halal items, favourites and verification reviews move to
+     * the keeper (duplicates are dropped by the child primary keys), an owner is
+     * carried over only when the keeper has none, the retired row leaves the
+     * search mirror, and the row itself is deleted. Nothing here is automatic:
+     * it only runs for a decision a curator recorded.
+     */
+    private fun JdbcTransaction.mergeListings(merge: ListingMerge) {
+        val keep = loadById(merge.keepId)
+            ?: throw BatchPlanException("merge keeper ${merge.keepId} does not exist")
+        val retire = loadById(merge.retireId)
+            ?: throw BatchPlanException("merge duplicate ${merge.retireId} does not exist")
+
+        if (keep.ownerId == null && retire.ownerId != null) {
+            executeUpdate(
+                "UPDATE restaurant_listings SET owner_id = ? WHERE id = ?",
+                listOf(RestaurantListings.ownerId bind retire.ownerId, RestaurantListings.id bind keep.id),
+            )
+        }
+
+        executeUpdate(
+            """
+            INSERT INTO restaurant_listing_cuisines (listing_id, cuisine)
+            SELECT ?, cuisine FROM restaurant_listing_cuisines WHERE listing_id = ?
+            ON CONFLICT (listing_id, cuisine) DO NOTHING
+            """.trimIndent(),
+            listOf(
+                RestaurantListingCuisines.listingId bind keep.id,
+                RestaurantListingCuisines.listingId bind retire.id,
+            ),
+        )
+        executeUpdate(
+            "DELETE FROM restaurant_listing_cuisines WHERE listing_id = ?",
+            listOf(RestaurantListingCuisines.listingId bind retire.id),
+            StatementType.DELETE,
+        )
+
+        executeUpdate(
+            """
+            INSERT INTO restaurant_halal_items (listing_id, name, is_halal)
+            SELECT ?, name, is_halal FROM restaurant_halal_items WHERE listing_id = ?
+            ON CONFLICT (listing_id, name) DO NOTHING
+            """.trimIndent(),
+            listOf(
+                RestaurantHalalItems.listingId bind keep.id,
+                RestaurantHalalItems.listingId bind retire.id,
+            ),
+        )
+        executeUpdate(
+            "DELETE FROM restaurant_halal_items WHERE listing_id = ?",
+            listOf(RestaurantHalalItems.listingId bind retire.id),
+            StatementType.DELETE,
+        )
+
+        // A favourite of the duplicate is a favourite of the keeper; the pair
+        // primary key drops the ones the user already had.
+        executeUpdate(
+            """
+            INSERT INTO favorites (user_id, listing_id, created_at)
+            SELECT user_id, ?, created_at FROM favorites WHERE listing_id = ?
+            ON CONFLICT DO NOTHING
+            """.trimIndent(),
+            listOf(Favorites.listingId bind keep.id, Favorites.listingId bind retire.id),
+        )
+        executeUpdate(
+            "DELETE FROM favorites WHERE listing_id = ?",
+            listOf(Favorites.listingId bind retire.id),
+            StatementType.DELETE,
+        )
+
+        // Reviews are evidence about the venue, not about the row.
+        executeUpdate(
+            "UPDATE halal_certification_reviews SET listing_id = ? WHERE listing_id = ?",
+            listOf(HalalCertificationReviews.listingId bind keep.id, HalalCertificationReviews.listingId bind retire.id),
+        )
+
+        executeUpdate(
+            "UPDATE external_certification_claims SET listing_id = ? WHERE listing_id = ?",
+            listOf(
+                ExternalCertificationClaims.listingId bind keep.id,
+                ExternalCertificationClaims.listingId bind retire.id,
+            ),
+        )
+
+        executeUpdate(
+            "DELETE FROM listing_search WHERE id = ?",
+            listOf(ListingSearch.id bind retire.id),
+            StatementType.DELETE,
+        )
+        executeUpdate(
+            "DELETE FROM restaurant_listings WHERE id = ?",
+            listOf(RestaurantListings.id bind retire.id),
+            StatementType.DELETE,
+        )
     }
 
     private fun JdbcTransaction.loadById(id: Uuid): RestaurantListing? =
@@ -284,36 +440,29 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             listOf(RestaurantListings.id bind id),
         ) { rs -> toListing(rs) }.firstOrNull()?.let { withHalalItems(it) }
 
-    private fun JdbcTransaction.insertImported(
-        candidate: IngestionCandidate,
-        brandId: Uuid,
-    ): Uuid {
-        val listing = importedAggregate(candidate, brandId, id = Uuid.random())
-        return queryRows(
-            """
-            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, venue_key, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination)
-            VALUES (
-                ?, ?, ?, ?, ?, ?,
-                ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )
-            RETURNING id
-            """.trimIndent(),
-            saveArgs(listing),
-        ) { it.getObject("id", UUID::class.java).toKotlinUuid() }.firstOrNull()
-            ?: error("INSERT RETURNING id returned no row")
-    }
-
-    /**
-     * Upgrades only the fields ingestion owns: identity, location, brand,
-     * provenance, venue key and the trust outcome. Owner-set content (cuisine,
-     * price, rating, delivery, halal items, owning account) is preserved.
-     */
     private fun JdbcTransaction.updateImported(
         id: Uuid,
         candidate: IngestionCandidate,
         brandId: Uuid,
     ): Uuid {
+        val existing = loadById(id) ?: error("listing $id vanished between preview and apply")
+        val status = TrustMerge.verificationStatus(
+            existing.verificationStatus,
+            candidate.verificationStatus,
+        )
+        val handCut = TrustMerge.handCut(
+            existing.isHandCut,
+            candidate.isHandCut,
+        )
+        val crossContamination = TrustMerge.crossContamination(
+            existing.crossContamination,
+            candidate.crossContamination,
+        )
+        val provenance = TrustMerge.provenance(
+            existing.provenance,
+            candidate.provenance,
+        )
+
         val rows = executeUpdate(
             """
             UPDATE restaurant_listings SET
@@ -333,11 +482,11 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 doubleParam(candidate.location.lng),
                 doubleParam(candidate.location.lat),
                 RestaurantListings.brandId bind brandId,
-                RestaurantListings.provenance bind candidate.provenance.value,
+                RestaurantListings.provenance bind provenance.value,
                 RestaurantListings.venueKey bind candidate.venueKey,
-                RestaurantListings.verificationStatus bind candidate.verificationStatus.name,
-                RestaurantListings.isHandCut bind candidate.isHandCut,
-                RestaurantListings.crossContamination bind candidate.crossContamination.name,
+                RestaurantListings.verificationStatus bind status.name,
+                RestaurantListings.isHandCut bind handCut,
+                RestaurantListings.crossContamination bind crossContamination.name,
                 RestaurantListings.id bind id,
             ),
         )
@@ -345,46 +494,67 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         return id
     }
 
-    private fun importedAggregate(
+    /** D-15: inserts go through the domain factory, so its trust guard is on the write path. */
+    private fun JdbcTransaction.insertImported(
         candidate: IngestionCandidate,
         brandId: Uuid,
-        id: Uuid,
-    ): RestaurantListing = RestaurantListing.fromStorage(
-        id = id,
-        name = candidate.name,
-        address = candidate.address,
-        city = candidate.city,
-        province = candidate.region,
-        postal = candidate.postal,
-        country = candidate.country,
-        location = candidate.location,
-        cuisine = null,
-        isHandCut = candidate.isHandCut,
-        isDelivery = null,
-        price = null,
-        rating = null,
-        ownerId = null,
-        brandId = brandId,
-        provenance = candidate.provenance,
-        venueKey = candidate.venueKey,
-        verificationStatus = candidate.verificationStatus,
-        createdAt = Clock.System.now(),
-        crossContamination = candidate.crossContamination,
-    )
+    ): Uuid {
+        val listing = RestaurantListing.imported(
+            name = candidate.name,
+            address = candidate.address,
+            city = candidate.city,
+            province = candidate.region,
+            postal = candidate.postal,
+            country = candidate.country,
+            location = candidate.location,
+            cuisine = null,
+            isHandCut = candidate.isHandCut,
+            isDelivery = null,
+            price = null,
+            rating = null,
+            ownerId = null,
+            brandId = brandId,
+            provenance = candidate.provenance,
+            venueKey = candidate.venueKey,
+            verificationStatus = candidate.verificationStatus,
+            verificationBasis = candidate.verificationBasis,
+            createdAt = Clock.System.now(),
+            crossContamination = candidate.crossContamination,
+        )
+        return queryRows(
+            """
+            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, venue_key, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination)
+            VALUES (
+                ?, ?, ?, ?, ?, ?,
+                ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            RETURNING id
+            """.trimIndent(),
+            saveArgs(listing),
+        ) { it.getObject("id", UUID::class.java).toKotlinUuid() }.firstOrNull()
+            ?: error("INSERT RETURNING id returned no row")
+    }
 
     private fun JdbcTransaction.resolveOrCreateBrand(name: String): Uuid {
         val brandName = name.trim()
+        // Case-insensitive, exactly like ExposedBrandRepository: "The Halal
+        // Guys" and "the halal guys" are one brand, not two rows.
+        findBrand(brandName)?.let { return it }
         executeUpdate(
             "INSERT INTO brands (name) VALUES (?) ON CONFLICT (name) DO NOTHING",
             listOf(Brands.name bind brandName),
             StatementType.INSERT,
         )
-        return queryRows(
-            "SELECT id FROM brands WHERE name = ?",
-            listOf(Brands.name bind brandName),
-        ) { it.getObject("id", UUID::class.java).toKotlinUuid() }.firstOrNull()
+        return findBrand(brandName)
             ?: error("brand '$brandName' could not be created or found")
     }
+
+    private fun JdbcTransaction.findBrand(name: String): Uuid? =
+        queryRows(
+            "SELECT id FROM brands WHERE lower(name) = lower(?) ORDER BY created_at LIMIT 1",
+            listOf(Brands.name bind name),
+        ) { it.getObject("id", UUID::class.java).toKotlinUuid() }.firstOrNull()
 
     private fun JdbcTransaction.assertClaimsBelongTo(listingId: Uuid, candidate: IngestionCandidate) {
         for (claim in candidate.claims) {
@@ -396,11 +566,14 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
     }
 
     private fun JdbcTransaction.claimOwner(claim: CertificationClaim): Uuid? =
+        claimOwner(claim.source, claim.sourceRecordRef)
+
+    private fun JdbcTransaction.claimOwner(source: String, sourceRecordRef: String): Uuid? =
         queryRows(
             "SELECT listing_id FROM external_certification_claims WHERE source = ? AND source_record_ref = ?",
             listOf(
-                ExternalCertificationClaims.claimSource bind claim.source,
-                ExternalCertificationClaims.sourceRecordRef bind claim.sourceRecordRef,
+                ExternalCertificationClaims.claimSource bind source,
+                ExternalCertificationClaims.sourceRecordRef bind sourceRecordRef,
             ),
         ) { it.getObject("listing_id", UUID::class.java).toKotlinUuid() }.firstOrNull()
 

@@ -9,6 +9,7 @@ import com.tahirslist.domain.restaurant.Provenance
 import com.tahirslist.domain.restaurant.VerificationBasis
 import com.tahirslist.domain.restaurant.VerificationStatus
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 
@@ -138,5 +139,19 @@ class IngestionModelTest : FunSpec({
         decoded.candidates.single().winningClaim shouldBe batch.candidates.single().winningClaim
         decoded.candidates.single().verificationStatus shouldBe VerificationStatus.VERIFIED
         decoded.rejects.single().reason shouldBe RejectReason.NO_GEOCODER_MATCH
+    }
+
+    test("merging candidates is transitive across venue keys and claims") {
+        val first = candidate(venueKey = "1".repeat(64), claims = listOf(claim(source = "hms", record = "A")))
+        val bridge = candidate(venueKey = "2".repeat(64), claims = listOf(claim(source = "hms", record = "A")))
+        val third = candidate(
+            venueKey = "2".repeat(64),
+            claims = listOf(claim(source = "hfsaa", record = "C", url = "https://www.hfsaa.org/c")),
+        )
+
+        val merged = mergeCandidates(listOf(first, bridge, third))
+
+        merged.size shouldBe 1
+        merged.single().claims.map { it.key }.shouldContainExactlyInAnyOrder("hms::A", "hfsaa::C")
     }
 })

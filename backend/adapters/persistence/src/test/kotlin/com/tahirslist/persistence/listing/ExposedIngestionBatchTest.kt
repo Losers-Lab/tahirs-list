@@ -1,8 +1,11 @@
 package com.tahirslist.persistence.listing
 
 import com.tahirslist.application.ingestion.BatchLoadResult
+import com.tahirslist.application.ingestion.BatchPlanException
 import com.tahirslist.application.ingestion.ClaimConflictException
+import com.tahirslist.application.ingestion.ClaimReattachment
 import com.tahirslist.application.ingestion.IngestionCandidate
+import com.tahirslist.application.ingestion.ListingMerge
 import com.tahirslist.application.ingestion.ListingWrite
 import com.tahirslist.application.ingestion.WriteTarget
 import com.tahirslist.application.ingestion.BrandRepository
@@ -195,8 +198,38 @@ class ExposedIngestionBatchTest : FunSpec() {
             }
         }
 
-        test("a manual candidate stays unverified, with hand-cut NULL and no index row") {
+        test("a Tier-3 manual update never demotes a verified Tier-1 listing") {
             runTest {
+                insertDefault()
+                val tierOne = listings.findByVenueKey(VENUE_KEY) ?: error("missing")
+                tierOne.verificationStatus shouldBe VerificationStatus.VERIFIED
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${tierOne.id}'") shouldBe 1
+
+                val manual = candidate(
+                    claims = listOf(
+                        claim(
+                            source = "manual-zabihah",
+                            record = "Z-1",
+                            tier = CertificationTier.TIER_3,
+                            declaredHandCut = HandCutDeclaration.UNSPECIFIED,
+                        ),
+                    ),
+                    crossContamination = CrossContamination.UNCERTAIN,
+                )
+
+                listings.applyBatch(listOf(ListingWrite(WriteTarget.Update(tierOne.id), manual)))
+
+                val after = listings.findById(tierOne.id) ?: error("missing")
+                after.verificationStatus shouldBe VerificationStatus.VERIFIED
+                after.isHandCut shouldBe true
+                after.provenance shouldBe Provenance.CERTIFIER_HMS
+                after.crossContamination shouldBe CrossContamination.NO_CROSS_CONTAMINATION
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${tierOne.id}'") shouldBe 1
+                postgis.count("SELECT count(*) FROM external_certification_claims WHERE listing_id = '${tierOne.id}'") shouldBe 2
+            }
+        }
+
+        test("a manual candidate stays unverified, with hand-cut NULL and no index row") {            runTest {
                 val manual = candidate(
                     name = "Manual Place",
                     venueKey = "d".repeat(64),
@@ -233,7 +266,7 @@ class ExposedIngestionBatchTest : FunSpec() {
                     lng = -79.1,
                 )
                 val second = candidate(
-                    name = "Chain",
+                    name = "CHAIN",
                     venueKey = "f".repeat(64),
                     claims = listOf(claim(source = "hms", record = "H-11")),
                     lat = 43.2,
@@ -248,7 +281,124 @@ class ExposedIngestionBatchTest : FunSpec() {
                 )
 
                 result.inserted shouldBe 2
-                postgis.count("SELECT count(*) FROM brands WHERE name = 'Chain'") shouldBe 1
+                // Case-insensitive: the second row reuses the first brand.
+                postgis.count("SELECT count(*) FROM brands WHERE lower(name) = 'chain'") shouldBe 1
+                postgis.count(
+                    "SELECT count(DISTINCT brand_id) FROM restaurant_listings WHERE lower(name) = 'chain'",
+                ) shouldBe 1
+            }
+        }
+
+        test("a same-venue merge moves claims, child rows and reviews, then deletes the duplicate") {
+            runTest {
+                val keep = candidate(
+                    name = "Keep",
+                    venueKey = "1".repeat(64),
+                    claims = listOf(claim(source = "hms", record = "H-1")),
+                    lat = 43.1,
+                    lng = -79.1,
+                )
+                val retire = candidate(
+                    name = "Duplicate",
+                    venueKey = "2".repeat(64),
+                    claims = listOf(claim(source = "hms", record = "H-2")),
+                    lat = 43.2,
+                    lng = -79.2,
+                )
+                listings.applyBatch(
+                    listOf(ListingWrite(WriteTarget.Insert, keep), ListingWrite(WriteTarget.Insert, retire)),
+                )
+                val kept = listings.findByVenueKey("1".repeat(64)) ?: error("missing keeper")
+                val removed = listings.findByVenueKey("2".repeat(64)) ?: error("missing duplicate")
+
+                val user = accounts.save(Account.new(email = Email("merge-${Uuid.random()}@example.com"), passwordHash = "argon2id\$h")).id
+                postgis.execute("INSERT INTO restaurant_listing_cuisines (listing_id, cuisine) VALUES ('${kept.id}'::uuid, 'PAKISTANI')")
+                postgis.execute("INSERT INTO restaurant_listing_cuisines (listing_id, cuisine) VALUES ('${removed.id}'::uuid, 'PAKISTANI')")
+                postgis.execute("INSERT INTO restaurant_listing_cuisines (listing_id, cuisine) VALUES ('${removed.id}'::uuid, 'AFGHAN')")
+                postgis.execute("INSERT INTO restaurant_halal_items (listing_id, name, is_halal) VALUES ('${removed.id}'::uuid, 'Chicken', true)")
+                postgis.execute("INSERT INTO favorites (user_id, listing_id) VALUES ('$user'::uuid, '${kept.id}'::uuid)")
+                postgis.execute("INSERT INTO favorites (user_id, listing_id) VALUES ('$user'::uuid, '${removed.id}'::uuid)")
+                postgis.execute(
+                    "INSERT INTO halal_certification_reviews (listing_id, submitted_by, state) " +
+                        "VALUES ('${removed.id}'::uuid, '$user'::uuid, 'SUBMITTED')",
+                )
+
+                val result = listings.applyBatch(
+                    writes = emptyList(),
+                    merges = listOf(ListingMerge(keepId = kept.id, retireId = removed.id)),
+                )
+
+                result.merged shouldBe 1
+                listings.findById(removed.id) shouldBe null
+                listings.findClaim("hms", "H-2")?.id shouldBe kept.id
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${removed.id}'") shouldBe 0
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${kept.id}'") shouldBe 1
+                postgis.count("SELECT count(*) FROM restaurant_listing_cuisines WHERE listing_id = '${kept.id}'") shouldBe 2
+                postgis.count("SELECT count(*) FROM restaurant_listing_cuisines WHERE listing_id = '${removed.id}'") shouldBe 0
+                postgis.count("SELECT count(*) FROM restaurant_halal_items WHERE listing_id = '${kept.id}'") shouldBe 1
+                postgis.count("SELECT count(*) FROM favorites WHERE listing_id = '${kept.id}'") shouldBe 1
+                postgis.count("SELECT count(*) FROM favorites WHERE listing_id = '${removed.id}'") shouldBe 0
+                postgis.count("SELECT count(*) FROM halal_certification_reviews WHERE listing_id = '${kept.id}'") shouldBe 1
+                postgis.count("SELECT count(*) FROM halal_certification_reviews WHERE listing_id = '${removed.id}'") shouldBe 0
+            }
+        }
+
+        test("attach-to re-points exactly one claim, and a stale re-point fails the batch") {
+            runTest {
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Insert,
+                            candidate(
+                                name = "Claim owner",
+                                venueKey = "3".repeat(64),
+                                claims = listOf(claim(source = "hms", record = "H-1")),
+                                lat = 43.3,
+                                lng = -79.3,
+                            ),
+                        ),
+                        ListingWrite(
+                            WriteTarget.Insert,
+                            candidate(
+                                name = "Venue owner",
+                                venueKey = "4".repeat(64),
+                                claims = listOf(claim(source = "hms", record = "H-2")),
+                                lat = 43.4,
+                                lng = -79.4,
+                            ),
+                        ),
+                    ),
+                )
+                val from = listings.findByVenueKey("3".repeat(64)) ?: error("missing")
+                val to = listings.findByVenueKey("4".repeat(64)) ?: error("missing")
+
+                listings.applyBatch(
+                    writes = emptyList(),
+                    reattachments = listOf(
+                        ClaimReattachment(
+                            source = "hms",
+                            sourceRecordRef = "H-1",
+                            fromListingId = from.id,
+                            toListingId = to.id,
+                        ),
+                    ),
+                )
+
+                listings.findClaim("hms", "H-1")?.id shouldBe to.id
+
+                shouldThrow<BatchPlanException> {
+                    listings.applyBatch(
+                        writes = emptyList(),
+                        reattachments = listOf(
+                            ClaimReattachment(
+                                source = "hms",
+                                sourceRecordRef = "H-1",
+                                fromListingId = from.id,
+                                toListingId = to.id,
+                            ),
+                        ),
+                    )
+                }
             }
         }
     }

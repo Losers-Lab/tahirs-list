@@ -1,6 +1,8 @@
 package com.tahirslist.application.listing
 
 import com.tahirslist.application.ingestion.BatchLoadResult
+import com.tahirslist.application.ingestion.ClaimReattachment
+import com.tahirslist.application.ingestion.ListingMerge
 import com.tahirslist.application.ingestion.ListingWrite
 import com.tahirslist.domain.restaurant.RestaurantListing
 import com.tahirslist.domain.restaurant.VerificationStatus
@@ -66,6 +68,15 @@ interface RestaurantListingRepository {
      * child rows, claims and the search mirror commit together or not at all
      * (BR-13). A claim that already points at a different listing aborts the
      * batch (BR-21) rather than silently re-pointing the audit trail.
+     *
+     * [merges] and [reattachments] carry the effects of curator decisions
+     * (same-venue, attach-to). They are applied before the writes, in the same
+     * transaction; each is re-validated against the current rows first, so a
+     * stale plan fails the whole batch instead of half-applying it.
      */
-    suspend fun applyBatch(writes: List<ListingWrite>): BatchLoadResult
+    suspend fun applyBatch(
+        writes: List<ListingWrite>,
+        merges: List<ListingMerge> = emptyList(),
+        reattachments: List<ClaimReattachment> = emptyList(),
+    ): BatchLoadResult
 }

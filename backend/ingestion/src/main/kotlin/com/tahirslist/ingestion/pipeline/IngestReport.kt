@@ -72,6 +72,26 @@ data class IngestReport(
         appendLine("| claims | ${candidates.sumOf { it.claims.size }} |")
         appendLine()
 
+        if (candidates.isNotEmpty()) {
+            appendLine("## Candidates and claims")
+            appendLine()
+            appendLine("Every row below is a candidate for the reviewed load. The claim keys are the")
+            appendLine("citation identity the load matches on; a claim already on another listing is a")
+            appendLine("conflict that needs a curator decision.")
+            appendLine()
+            appendLine("| name | city | metro | tier | status | hand-cut | cross-contamination | claims |")
+            appendLine("|---|---|---|---|---|---|---|---|")
+            candidates.sortedWith(compareBy({ it.metro ?: "" }, { it.name })).forEach {
+                appendLine(
+                    "| ${it.name.cell()} | ${it.city.orEmpty().cell()} | ${it.metro.orEmpty()} | " +
+                        "${it.tier.name} | ${it.verificationStatus} | ${it.isHandCut ?: "NULL"} | " +
+                        "${it.crossContamination} | " +
+                        "${it.claims.joinToString("<br>") { claim -> claim.key.cell() }} |",
+                )
+            }
+            appendLine()
+        }
+
         if (rejects.isNotEmpty()) {
             appendLine("## Rejected rows")
             appendLine()
@@ -99,6 +119,8 @@ data class IngestReport(
             .mapNotNull { reason -> rejects.count { it.reason == reason }.takeIf { it > 0 }?.let { reason to it } }
             .forEach { (reason, count) -> appendLine("- $reason: $count") }
     }
+
+    private fun String.cell(): String = replace("|", "\\|").replace("\n", " ").trim()
 
     private fun sourceOrder(source: String): Int = when (source) {
         "hms" -> 0

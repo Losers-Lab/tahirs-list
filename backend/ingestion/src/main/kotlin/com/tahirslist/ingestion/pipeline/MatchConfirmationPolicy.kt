@@ -31,17 +31,19 @@ class MatchConfirmationPolicy {
         if (label.isBlank()) {
             return MatchDecision.Rejected("AMBIGUOUS_GEOCODER_MATCH", "geocoder returned a blank label")
         }
+        val labelTokens = label.split(' ').filter { it.isNotBlank() }
 
-        val cityHit = query.city?.let { normalize(it) }?.let { it.isNotBlank() && it in label } ?: false
+        val cityHit = query.city?.let { containsPhrase(labelTokens, normalize(it)) } ?: false
         val nameTokens = normalize(query.name).split(' ').filter { it.length >= 3 && it !in GENERIC }
-        val nameHit = nameTokens.any { it in label }
+        // Whole-token match: "ham" must not match "Birmingham".
+        val nameHit = nameTokens.any { it in labelTokens }
 
         if (nameHit || cityHit) return MatchDecision.Confirmed(place)
 
         val regionHint = query.region?.let { normalize(it) }
         val countryHint = query.country?.let { normalize(it) }
-        val regionPresent = regionHint?.let { it.isNotBlank() && it in label } ?: false
-        val countryPresent = countryHint?.let { it.isNotBlank() && it in label } ?: true
+        val regionPresent = regionHint?.let { containsPhrase(labelTokens, it) } ?: false
+        val countryPresent = countryHint?.let { containsPhrase(labelTokens, it) } ?: true
 
         return when {
             regionHint != null && countryHint != null && !regionPresent && !countryPresent ->
@@ -60,6 +62,15 @@ class MatchConfirmationPolicy {
         value.lowercase()
             .replace(Regex("[^a-z0-9]+"), " ")
             .trim()
+
+    /** A contiguous run of whole tokens, so "york" matches "new york" but not "yorkshire". */
+    private fun containsPhrase(labelTokens: List<String>, phrase: String): Boolean {
+        val needle = phrase.split(' ').filter { it.isNotBlank() }
+        if (needle.isEmpty() || needle.size > labelTokens.size) return false
+        return (0..labelTokens.size - needle.size).any { start ->
+            labelTokens.subList(start, start + needle.size) == needle
+        }
+    }
 
     private companion object {
         /**

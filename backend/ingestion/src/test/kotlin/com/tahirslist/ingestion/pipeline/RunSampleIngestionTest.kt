@@ -107,6 +107,10 @@ class RunSampleIngestionTest : FunSpec({
         result.report.rejects shouldBe emptyList()
         artifacts.completedRun shouldBe "run-1"
         artifacts.reportMarkdown!!.contains("| hms | Toronto |") shouldBe true
+        // The reviewer must be able to see each candidate and its citation(s).
+        artifacts.reportMarkdown!!.contains("## Candidates and claims") shouldBe true
+        artifacts.reportMarkdown!!.contains("hms::H-1") shouldBe true
+        artifacts.reportMarkdown!!.contains("hfsaa::R-1") shouldBe true
         CandidateBatchJson.decode(artifacts.candidatesJson!!).candidates.size shouldBe 2
     }
 

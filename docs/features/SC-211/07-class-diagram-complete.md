@@ -45,7 +45,7 @@ flowchart TB
 | `:certifier-hms` | **new** | `HmsDirectory`, `HmsParser`, `HmsEstablishment`, `HmsCategory`, `HmsCertificationStatus`, `HmsAddress`, `HmsLocation`, `HmsProfile` |
 | `:certifier-hfsaa` | **new** | `HfsaaLocator`, `HfsaaParser`, `HfsaaEntry`, `HfsaaEntryType`, `HfsaaProject`, `HfsaaProfile` |
 | `:certifier-hma` | **new** | `HmaCertifiedOutlets`, `HmaParser`, `HmaCertifiedOutlet`, `HmaAddress`, `HmaProfile` |
-| `:ingestion` | **new** | `SourceListing`, `SourceRef`, `SourceTier`, `DirectoryStandard`, `SourceTranslator`, `HmsTranslator`, `HfsaaTranslator`, `HmaTranslator`, `LiveProbe`, `FileRunArtifacts` (per-run dirs, pending guard, checksums), `ArtifactStore`, `VenueIdentity` (deterministic venue key); pipeline: `DirectoryFeed`/`HmsFeed`/`HfsaaFeed`/`HmaFeed`, `MetroFilter`, `MatchConfirmationPolicy`, `CandidateFactory`, `IngestReport`, `RunSampleIngestion`, `CuratedBatchSource`/`JsonCuratedBatchSource`, `CompileManualBatch` |
+| `:ingestion` | **new** | `SourceListing`, `SourceRef`, `SourceTier`, `DirectoryStandard`, `SourceTranslator`, `HmsTranslator`, `HfsaaTranslator`, `HmaTranslator`, `LiveProbe`, `FileRunArtifacts` (per-run dirs, pending guard, checksums, `resolutions.json`), `ArtifactStore`, `VenueIdentity` (deterministic venue key); pipeline: `DirectoryFeed`/`HmsFeed`/`HfsaaFeed`/`HmaFeed`, `MetroDefinition`/`MetroCatalog`/`MetroFilter` (centre + radius from `metros.json`, aliases only a prefilter), `MatchConfirmationPolicy`, `CandidateFactory`, `IngestReport`, `RunSampleIngestion`, `CuratedBatchSource`/`JsonCuratedBatchSource`, `CompileManualBatch` |
 | `:persistence` | modified | V22; `ExternalCertificationClaims`; `ExposedBrandRepository`; `ExposedRestaurantListingRepository.applyBatch` (one transaction, shared with Add Listing) + claim/venue/location matching |
 | `:bootstrap` | modified | `SampleIngestMain` + `:bootstrap:ingestSample`; `LoadIngestBatchMain` + `:bootstrap:loadIngestBatch`; `scripts/ingest-sample.sh`, `scripts/load-ingest-batch.sh` |
 | `:web-api` · `:geocoding` · frontend | unchanged | No API/frontend change; `PhotonGeocoder` reused |
@@ -99,7 +99,11 @@ flowchart TB
 
 | Item | Status | Detail |
 |---|---|---|
-| CLI flags | new | `--metros --caps --sources --cache-dir --out-dir --run-id --on-pending=abort|archive|ignore` |
+| CLI flags | new | run: `--metros --metros-file --caps --sources --cache-dir --out-dir --run-id --on-pending=abort|archive|ignore --refresh` · load: `--run-id --out-dir --resolutions --execute --load-run-id --interactive --no-interactive` |
+| Metro catalogue | new | `metros.json` (classpath) or `--metros-file`: each metro is a centre + radius + optional prefilter aliases. Membership is confirmed after geocoding against the circle; a city name alone never admits a row. Adding a metro is a data change |
+| Decision sheet | new | `runs/<runId>/resolutions.json` is generated at preview (one entry per finding, with evidence) and filled interactively or by an agent; `resolutionsSha256` is recorded in `loaded.json` |
+| Decision vocabulary | new | claim: `same-venue` (merge, keeping the named listing), `attach-to` (re-point the claim), `bad-citation` (drop the claim); held duplicate: `same-venue` (write into the named listing), `distinct` (insert). Every decided entry needs a reason |
+| `Application` decisions | new | `Finding` (claim conflict, suspected duplicate), `Resolutions`/`ResolutionsJson`, `ListingMerge`, `ClaimReattachment`, `StaleResolutionException`, `TrustMerge` (monotonic trust)` |
 | `FetchPolicy` defaults | new | UA `TahirsListBot/0.1`, HTTPS-only + per-certifier host allow-list, 1 req/s/host, 3 attempts, 10 wire requests/run, 24 h cache, robots on (fail-closed), max 3 redirects (each re-checked), 16 MB response cap |
 | `scripts/ingest-sample.sh` | new | Containerized `:bootstrap:ingestSample` |
 | `scripts/certifier-live.sh` | **new** | Containerized `:ingestion:liveProbe` (ad-hoc live check) |
@@ -127,7 +131,10 @@ flowchart TB
 | Ingested rows excluded from search | Tier-1 certification implies `NO_CROSS_CONTAMINATION` (D-16); manual/web rows stay explicit/`UNCERTAIN` |
 | Batch fails partway | One transaction covers brands, listings, children, claims and mirror; any failure rolls back |
 | A run overwrites an unreviewed batch | Per-run directories + pending guard; default abort, optional archive with unique names; checksum verified at load |
-| A location-only match is treated as the same venue | It is held as `SUSPECTED_DUPLICATE` and not inserted until a curator resolves it; exact `venue_key` matches update in place |
+| A location-only match is treated as the same venue | It is held as a `SUSPECTED_DUPLICATE` finding: nothing is written until a curator records `same-venue` or `distinct`; exact `venue_key` matches update in place |
+| A curator decision applied to a changed catalogue | Decisions name the listings they saw; a decision whose finding no longer exists (or names another listing) is refused as stale and the batch is not applied |
+| An ingestion upgrade lowers a verified venue's trust | `TrustMerge` is monotonic: status, hand-cut, index qualification and certifier provenance never go backwards; a Tier-3 row matching a Tier-1 venue keeps it `VERIFIED` |
+| A merge destroys evidence | `same-venue` moves claims, cuisines, halal items, favourites and reviews to the keeper in the same transaction, then deletes the duplicate; nothing merges without a recorded decision |
 | Coordinates drift for the same venue | `venue_key` excludes coordinates; the same normalized name/address maps to the existing listing |
 | Badge copy says "committee" for registry rows | D-8 follow-up story |
 | Certifier expiry/revocation | Expiry stored; no auto-demotion (D-10) |

@@ -12,17 +12,41 @@ import com.tahirslist.domain.restaurant.VerificationStatus
  * Merge candidates that name the same venue (same venue key) or share any
  * claim identity. Used by the run, the manual compile and the load preview so
  * all three produce the same one-write-per-venue plan (E4).
+ *
+ * Merging is transitive: if A shares a claim with B and B shares a venue key
+ * with C, then A, B and C are one venue. A merged candidate keeps every
+ * identity key its members had, not just the winning one, so a later row that
+ * matches a key of a member folded into an earlier group is still merged.
  */
 fun mergeCandidates(candidates: List<IngestionCandidate>): List<IngestionCandidate> {
-    val merged = mutableListOf<IngestionCandidate>()
+    val groups = mutableListOf<CandidateGroup>()
+
     for (candidate in candidates) {
-        val index = merged.indexOfFirst { existing ->
-            existing.venueKey == candidate.venueKey ||
-                existing.claims.any { left -> candidate.claims.any { right -> left.key == right.key } }
+        val keys = candidate.identityKeys()
+        val matching = groups.filter { group -> group.keys.any { it in keys } }
+        val target = matching.firstOrNull() ?: CandidateGroup().also { groups += it }
+        matching.drop(1).forEach { other ->
+            target.members += other.members
+            target.keys += other.keys
+            other.members.clear()
+            other.keys.clear()
         }
-        if (index >= 0) merged[index] = merged[index].mergeWith(candidate) else merged += candidate
+        target.members += candidate
+        target.keys += keys
     }
-    return merged
+
+    return groups.filter { it.members.isNotEmpty() }
+        .map { group -> group.members.reduce { left, right -> left.mergeWith(right) } }
+}
+
+private class CandidateGroup {
+    val members = mutableListOf<IngestionCandidate>()
+    val keys = linkedSetOf<String>()
+}
+
+private fun IngestionCandidate.identityKeys(): Set<String> = buildSet {
+    addAll(claims.map { "claim:${it.key}" })
+    add("venue:$venueKey")
 }
 
 /** Why a fetched or curated row never became a candidate. */
@@ -59,6 +83,9 @@ enum class RejectReason {
 
     /** A candidate does not name its metro (needed for the run and the report). */
     MISSING_METRO,
+
+    /** The confirmed location is outside the selected metro's configured radius. */
+    OUTSIDE_METRO,
 
     /** A location-only match was found; the row is held, not inserted. */
     SUSPECTED_DUPLICATE,

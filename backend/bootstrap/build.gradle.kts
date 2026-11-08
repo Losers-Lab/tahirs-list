@@ -83,6 +83,9 @@ tasks.register<JavaExec>("loadIngestBatch") {
     description = "Preview (and with --execute apply) a reviewed ingestion run."
     mainClass.set("com.tahirslist.bootstrap.ingestion.LoadIngestBatchMainKt")
     classpath = sourceSets["main"].runtimeClasspath
+    // JavaExec defaults stdin to an empty stream; forward the container's stdin
+    // so the `--interactive` decisions can actually be answered.
+    standardInput = System.`in`
     (project.findProperty("ingestArgs") as String?)
         ?.split(' ')
         ?.filter { it.isNotBlank() }
