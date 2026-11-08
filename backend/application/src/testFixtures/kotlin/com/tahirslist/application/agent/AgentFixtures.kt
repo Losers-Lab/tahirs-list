@@ -2,6 +2,9 @@ package com.tahirslist.application.agent
 
 import com.tahirslist.application.geo.GeocodedPlace
 import com.tahirslist.application.geo.GeocoderPort
+import com.tahirslist.application.ingestion.BatchLoadResult
+import com.tahirslist.application.ingestion.ListingWrite
+import com.tahirslist.application.ingestion.WriteTarget
 import com.tahirslist.application.listing.ListingSearchQuery
 import com.tahirslist.application.listing.ListingSearchResult
 import com.tahirslist.application.listing.RestaurantListingRepository
@@ -139,6 +142,15 @@ class FakeListingRepository(private val listing: RestaurantListing?) : Restauran
     override suspend fun update(listing: RestaurantListing): RestaurantListing? = listing
     override suspend fun updateVerificationStatus(id: Uuid, status: VerificationStatus): RestaurantListing? = listing
     override suspend fun findAll(): List<RestaurantListing> = listOfNotNull(listing)
+    override suspend fun findClaim(source: String, sourceRecordRef: String): RestaurantListing? = null
+    override suspend fun findByVenueKey(venueKey: String): RestaurantListing? = null
+    override suspend fun findByNormalizedLocation(lat: Double, lng: Double): List<RestaurantListing> = emptyList()
+    override suspend fun applyBatch(
+        writes: List<ListingWrite>,
+        merges: List<com.tahirslist.application.ingestion.ListingMerge>,
+        reattachments: List<com.tahirslist.application.ingestion.ClaimReattachment>,
+    ): BatchLoadResult =
+        BatchLoadResult(inserted = writes.count { it.target == WriteTarget.Insert }, merged = merges.size)
 }
 
 class FakeReviewRepository(private val review: HalalCertificationReview?) :

@@ -16,6 +16,11 @@ dependencies {
     implementation(libs.kotlin.logging.jvm)
     testRuntimeOnly(libs.logback.classic)
 
+    // The ingestion candidate batch is a versioned JSON artifact read by the
+    // runtime load; the wire DTOs live here so the writer and reader share one
+    // contract without depending on an adapter module.
+    implementation(libs.kotlinx.serialization.json)
+
     // This module's own tests run the contract spec against the in-memory fake.
     testImplementation(testFixtures(project(":application")))
 
