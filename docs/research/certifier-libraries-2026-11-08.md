@@ -1,7 +1,7 @@
 # Certifier libraries — verified API surface and field coverage
 
 **Author:** Hamza (backend/DB) · **Date:** 2026-11-08 · **Consumer:** SC-211
-**Status:** implemented, 85 new tests green, one live probe passed
+**Status:** implemented, 99 new tests green, final live probe passed on the hardened client (2026-11-08)
 **Scope:** the three Tier-1 libraries (`certifier-hms`, `certifier-hfsaa`, `certifier-hma`), the shared `certifier-core`, and the `:ingestion` translators
 
 ## What was built
@@ -79,6 +79,9 @@ flowchart LR
 | Opening hours | — | some | — |
 | Cuisine | — | some | — |
 | Google place id | — | some | — |
+| Cross-contamination | **— (not published)** | **— (not published)** | **— (not published)** |
+| Hand-cut declaration | profile (research, not a field) | profile (research, not a field) | profile (research, not a field) |
+| Brand | — (derive from name) | — (derive from name) | — (derive from name) |
 | Chapters / regions | US states | 10 chapters | Canadian provinces |
 | HTTP access | 1 GET, 10.7 MB | 1 POST RPC | 1 GET, 3.1 MB |
 
@@ -89,6 +92,7 @@ flowchart LR
 - Hand-cut `TRUE` for all three current certifiers — from their own declaration, never from the tier.
 - Dedupe by normalized location; cross-source confirmation (HMS + HFSAA) in NYC.
 - Honest rejections: a row with no confirmed Photon match is excluded, never given invented coordinates.
+- A per-source snapshot with `requestedUrl`, final `url`, `fetchedAt`, and SHA-256, so every claim can cite the exact bytes that were read. The final probe confirmed HMS redirects `/certified-listing/` to `/certified-listing`; both URLs are recorded.
 
 ## What is not possible (and why)
 
@@ -99,6 +103,8 @@ flowchart LR
 | HFSAA publishes no expiry | HFSAA claims carry the certificate id but no expiry date. |
 | 46 HMS restaurants are missing from `Map_Hidden` | No directory coordinates; geocoding only. |
 | 10 HMS rows have a blank city | City is derived from the address, or left null. |
+| No directory publishes cross-contamination evidence | Tier-1 rows are index-qualified by certification policy (D-16), not by a published field. Manual/web rows keep `UNCERTAIN` unless the curator has evidence. |
+| No directory publishes a brand id | Brands are resolved/created by name; a name collision is possible and should be reported. |
 | Zabihah has no unlicensed bulk path | Tier-3 stays a hand-curated, cited batch (D-13). |
 | The HFSAA RPC is undocumented | Treated as public-but-unstable; key rotation is handled, schema drift is not guaranteed. |
 
@@ -110,7 +116,7 @@ Snapshots record the URL that actually served the bytes (`url`) and the URL requ
 
 A full probe is **six requests** (three robots.txt + three data), and a repeat run is **zero**. An ingestion run adds exactly one Photon pre-flight query before any directory request (D-14); if it fails, the directories are never contacted.
 
-## Tests (85 new, all green)
+## Tests (99 new, all green)
 
 | Module | Tests | What they pin |
 |---|---:|---|
@@ -118,7 +124,7 @@ A full probe is **six requests** (three robots.txt + three data), and a repeat r
 | `certifier-hms` | 11 | 20-record fixture, entity decoding, blank-city recovery, coordinate-less row, no-records failure |
 | `certifier-hfsaa` | 12 | 13-row fixture, certificate ids, chapter filter, headers, rotated-key re-discovery, 403 hard stop, hostile bundle URL, honest failure |
 | `certifier-hma` | 8 | 8-outlet fixture, Elementor anchors, address splitting, pagination, malformed JSON |
-| `:ingestion` | 8 | Tier-1 standard, not-hand-cut and silent declarations, manual-row null, HFSAA certificate/place id, HMA province + geocoding warning |
+| `:ingestion` | 22 | 8 translator/derivation tests; 14 artifact-lifecycle tests: per-run dirs, pending-run abort/archive with unique names, checksum at load, loaded/abandoned markers |
 | `:application` | 4 (new) | `CheckGeocoderHealth`: probe resolves, no match, provider failure, cancellation not swallowed |
 
 Run them all in the container:
@@ -138,7 +144,7 @@ docker run --rm -v "$PWD/backend:/app" -w /app -v tahirs-list-gradle-test-cache:
 ./scripts/certifier-live.sh
 ```
 
-Actual output on 2026-11-08:
+Actual output on 2026-11-08 (hardened client, final run): cold = 3 data fetches + 3 `robots.txt`; warm = 3 cache hits, 0 network calls. HMS `requestedUrl` is `/certified-listing/`; the served `url` is `/certified-listing` (redirect recorded, not lost).
 
 ```
 | source | records | with coords | with certificate | sample fields |

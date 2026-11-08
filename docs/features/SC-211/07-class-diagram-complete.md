@@ -54,12 +54,15 @@ flowchart TB
 | Phone | map records | 313 | most outlets |
 | Website | — | some | some |
 | Hours / cuisine | — | some | — |
-| Google place id | — | some | — |
+| Google place id | - | some | - |
+| Cross-contamination | **not published** | **not published** | **not published** |
+| Hand-cut declaration | profile (research, not a field) | profile | profile |
+| Brand | derive from name | derive from name | derive from name |
 | Chapters / regions | US states | 10 chapters | Canadian provinces |
 | Access | 1 GET, 10.7 MB | 1 POST RPC | 1 GET, 3.1 MB |
 
-**Possible:** 15–25 rows per metro (Dallas 43, NYC 58, Toronto 28 before dedupe); claim-backed `VERIFIED`; certificate IDs for HFSAA; expiry for HMS; geocoding for HMA and the 46 HMS rows without coordinates.
-**Not possible:** HMA coordinates; HMS certificate IDs; HFSAA expiry; any bulk Zabihah access (D-13).
+**Possible:** 15-25 rows per metro (Dallas 43, NYC 58, Toronto 28 before dedupe); claim-backed `VERIFIED`; certificate IDs for HFSAA; expiry for HMS; geocoding for HMA and the 46 HMS rows without coordinates; a cited snapshot (`requestedUrl` + final `url` + SHA-256) for every claim.
+**Not possible:** HMA coordinates; HMS certificate IDs; HFSAA expiry; any cross-contamination evidence from the directories (Tier-1 index qualification is a policy decision, D-16); directory brand ids (resolve by name); any bulk Zabihah access (D-13).
 
 ## Persistence delta
 
