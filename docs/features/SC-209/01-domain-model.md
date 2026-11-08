@@ -106,7 +106,7 @@ classDiagram
 | AI agent | Software acting for a user; a supporting external actor, not a persona |
 | MCP | Model Context Protocol; the JSON-RPC protocol used to discover and call tools |
 | Tool / structured content | A named, model-callable read operation exposed over MCP; its output is machine-readable, not prose |
-| Halal item | A named menu item/section with an explicit halal flag; absence means unknown, not non-halal |
+| Halal item | Declared `{item, isHalal}`; absence = unknown, not non-halal. No "rest of menu is not halal" claim is stored (Q-9). |
 | Place | Free-text location input resolved to coordinates before searching |
 | Search centre | The point a radius is measured from (resolved place or coordinates) |
 | Straight-line distance | Great-circle distance in statute miles; not driving distance |
