@@ -17,8 +17,8 @@ import java.text.Normalizer
  *
  * This is a *conservative* key: it catches case, punctuation, whitespace and
  * diacritic differences, but it does not fuzzy-match "McDonald's" to
- * "McDonalds Plaza". A location-only near-match is reported as a suspected
- * duplicate, never silently merged.
+ * "McDonalds Plaza". A location-only near-match is held as a suspected
+ * duplicate (not inserted, not merged) until a curator resolves it.
  */
 @JvmInline
 value class VenueIdentity(val key: String) {
