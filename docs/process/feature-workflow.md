@@ -254,7 +254,9 @@ flowchart LR
 ```
 
 No tables, no JSON, no framework annotations — those are Phase 7. Every use case
-step must resolve to an operation here.
+step must resolve to an operation here. **Show the owned data store** as an
+explicit node (database shape or `<<database>>`), with the repository/query port
+pointing at it. A system diagram with no data store is incomplete.
 
 ## Phase 6 — White-box sequences
 
