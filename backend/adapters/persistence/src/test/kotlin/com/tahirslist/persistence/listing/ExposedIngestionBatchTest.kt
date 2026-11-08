@@ -343,6 +343,174 @@ class ExposedIngestionBatchTest : FunSpec() {
             }
         }
 
+        test("a certifier withdrawing hand-cut on a refresh is reflected, not frozen at TRUE") {
+            runTest {
+                insertDefault()
+                val listing = listings.findByVenueKey(VENUE_KEY) ?: error("missing")
+                listing.isHandCut shouldBe true
+
+                val refreshed = candidate(
+                    claims = listOf(
+                        claim(record = "H-1", declaredHandCut = HandCutDeclaration.NOT_HAND_CUT),
+                    ),
+                )
+                listings.applyBatch(listOf(ListingWrite(WriteTarget.Update(listing.id), refreshed)))
+
+                val after = listings.findById(listing.id) ?: error("missing")
+                after.verificationStatus shouldBe VerificationStatus.VERIFIED
+                after.isHandCut shouldBe false
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listings WHERE id = '${listing.id}' " +
+                        "AND verification_basis = 'CERTIFIER_REGISTRY'",
+                ) shouldBe 1
+            }
+        }
+
+        test("a certifier going silent is FALSE, not a retained TRUE") {
+            runTest {
+                insertDefault()
+                val listing = listings.findByVenueKey(VENUE_KEY) ?: error("missing")
+
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Update(listing.id),
+                            candidate(
+                                claims = listOf(
+                                    claim(record = "H-1", declaredHandCut = HandCutDeclaration.UNSPECIFIED),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+
+                listings.findById(listing.id)?.isHandCut shouldBe false
+            }
+        }
+
+        test("a merge into a Tier-3 keeper keeps the folded-in Tier-1 verification") {
+            runTest {
+                val verified = candidate(
+                    name = "Verified",
+                    venueKey = "7".repeat(64),
+                    claims = listOf(claim(source = "hms", record = "H-7")),
+                    lat = 43.7,
+                    lng = -79.7,
+                )
+                val manual = candidate(
+                    name = "Manual",
+                    venueKey = "8".repeat(64),
+                    claims = listOf(
+                        claim(
+                            source = "manual-zabihah",
+                            record = "Z-8",
+                            tier = CertificationTier.TIER_3,
+                            declaredHandCut = HandCutDeclaration.UNSPECIFIED,
+                        ),
+                    ),
+                    crossContamination = CrossContamination.UNCERTAIN,
+                    lat = 43.8,
+                    lng = -79.8,
+                )
+                listings.applyBatch(
+                    listOf(ListingWrite(WriteTarget.Insert, verified), ListingWrite(WriteTarget.Insert, manual)),
+                )
+                val keeper = listings.findByVenueKey("8".repeat(64)) ?: error("missing keeper")
+                val retired = listings.findByVenueKey("7".repeat(64)) ?: error("missing verified")
+
+                listings.applyBatch(
+                    writes = emptyList(),
+                    merges = listOf(ListingMerge(keepId = keeper.id, retireId = retired.id)),
+                )
+
+                val after = listings.findById(keeper.id) ?: error("missing keeper")
+                after.verificationStatus shouldBe VerificationStatus.VERIFIED
+                after.isHandCut shouldBe true
+                after.provenance shouldBe Provenance.CERTIFIER_HMS
+                after.crossContamination shouldBe CrossContamination.NO_CROSS_CONTAMINATION
+                postgis.count("SELECT count(*) FROM listing_search WHERE id = '${keeper.id}'") shouldBe 1
+            }
+        }
+
+        test("a committee-verified listing is never demoted by an ingestion update") {
+            runTest {
+                val manual = candidate(
+                    name = "Committee Verified",
+                    venueKey = "9".repeat(64),
+                    claims = listOf(
+                        claim(
+                            source = "manual-zabihah",
+                            record = "Z-9",
+                            tier = CertificationTier.TIER_3,
+                            declaredHandCut = HandCutDeclaration.UNSPECIFIED,
+                        ),
+                    ),
+                    crossContamination = CrossContamination.UNCERTAIN,
+                    lat = 43.9,
+                    lng = -79.9,
+                )
+                listings.applyBatch(listOf(ListingWrite(WriteTarget.Insert, manual)))
+                val listing = listings.findByVenueKey("9".repeat(64)) ?: error("missing")
+                // The committee promotes directly; there is no certifier basis.
+                postgis.execute(
+                    "UPDATE restaurant_listings SET verification_status = 'VERIFIED' WHERE id = '${listing.id}'",
+                )
+
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Update(listing.id),
+                            candidate(
+                                venueKey = "9".repeat(64),
+                                claims = listOf(
+                                    claim(
+                                        source = "manual-zabihah",
+                                        record = "Z-9",
+                                        tier = CertificationTier.TIER_3,
+                                        declaredHandCut = HandCutDeclaration.UNSPECIFIED,
+                                    ),
+                                ),
+                                crossContamination = CrossContamination.UNCERTAIN,
+                                lat = 43.9,
+                                lng = -79.9,
+                            ),
+                        ),
+                    ),
+                )
+
+                listings.findById(listing.id)?.verificationStatus shouldBe VerificationStatus.VERIFIED
+            }
+        }
+
+        test("two distinct businesses may share one point, as a curator decided") {
+            runTest {
+                val first = candidate(
+                    name = "Counter One",
+                    venueKey = "a1".repeat(32),
+                    claims = listOf(claim(record = "H-21")),
+                    lat = 43.75,
+                    lng = -79.75,
+                )
+                val second = candidate(
+                    name = "Counter Two",
+                    venueKey = "a2".repeat(32),
+                    claims = listOf(claim(record = "H-22")),
+                    lat = 43.75,
+                    lng = -79.75,
+                )
+
+                val result = listings.applyBatch(
+                    listOf(ListingWrite(WriteTarget.Insert, first), ListingWrite(WriteTarget.Insert, second)),
+                )
+
+                result.inserted shouldBe 2
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listings WHERE location_lat_6 = round(43.75::numeric, 6) " +
+                        "AND location_lng_6 = round(-79.75::numeric, 6)",
+                ) shouldBe 2
+            }
+        }
+
         test("attach-to re-points exactly one claim, and a stale re-point fails the batch") {
             runTest {
                 listings.applyBatch(

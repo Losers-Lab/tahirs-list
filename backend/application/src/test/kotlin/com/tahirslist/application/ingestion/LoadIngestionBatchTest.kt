@@ -333,6 +333,28 @@ class ClaimResolutionTest : FunSpec({
         listings.applied shouldBe emptyList()
     }
 
+    test("a same-venue merge redirects another candidate's write to the keeper") {
+        val keep = storedListing(Uuid.random(), "Keep", venueKey = "d".repeat(64))
+        val retire = storedListing(Uuid.random(), "Retire", venueKey = "e".repeat(64))
+        val listings = FakeListings(
+            claims = mapOf("hms::HMS-1" to retire, "hms::H-2" to retire),
+            venues = mapOf("d".repeat(64) to keep),
+        )
+        val load = LoadIngestionBatch(listings, FakeBrands())
+        val conflicted = candidate(venueKey = "d".repeat(64), claims = listOf(claim(record = "HMS-1")))
+        val other = candidate(venueKey = "f".repeat(64), claims = listOf(claim(record = "H-2")))
+
+        val review = load.preview(
+            CandidateBatch("run-1", batchTime, listOf(conflicted, other)),
+            decision(ClaimDecision.SAME_VENUE, keep.id),
+        )
+
+        review.merges.single().retireId shouldBe retire.id
+        review.writes.single().target shouldBe WriteTarget.Update(keep.id)
+        review.writes.single().candidate.claims.map { it.key }
+            .shouldContainExactlyInAnyOrder("hms::HMS-1", "hms::H-2")
+    }
+
     test("a decision whose listing is neither side of the conflict is refused") {
         val (_, load) = conflicting()
         shouldThrow<InvalidResolutionException> {

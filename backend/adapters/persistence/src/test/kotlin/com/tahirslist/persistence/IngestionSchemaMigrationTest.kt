@@ -105,15 +105,13 @@ class IngestionSchemaMigrationTest : FunSpec() {
             }
         }
 
-        test("V22 makes one ingested venue per coordinate pair") {
+        test("V23 allows two different businesses at one point, as a curator decided") {
             runTest {
                 val shared = pointExpr(43.5, -79.5)
-                postgis.execute(listingSql(UUID.randomUUID(), "Ingested one", point = shared))
-                shouldThrow<ExposedSQLException> {
-                    postgis.execute(listingSql(UUID.randomUUID(), "Ingested two", point = shared))
-                }
+                postgis.execute(listingSql(UUID.randomUUID(), "Counter one", point = shared))
+                postgis.execute(listingSql(UUID.randomUUID(), "Counter two", point = shared))
 
-                // An ordinary user row (provenance NULL) may share the point.
+                // An ordinary user row (provenance NULL) may share the point too.
                 postgis.execute(
                     """
                     INSERT INTO restaurant_listings
@@ -121,6 +119,46 @@ class IngestionSchemaMigrationTest : FunSpec() {
                     VALUES ('User row', '1 St', $shared, NULL, 'UNVERIFIED', false, 'NOT_DISCLOSED', 'UNCERTAIN')
                     """.trimIndent(),
                 )
+
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listings WHERE location_lat_6 = round(43.5::numeric, 6) " +
+                        "AND location_lng_6 = round(-79.5::numeric, 6)",
+                ) shouldBe 3
+            }
+        }
+
+        test("V23 keeps the seed corpus unique per point so re-seeding stays a no-op") {
+            runTest {
+                val shared = pointExpr(43.6, -79.6)
+                val seed = {
+                    """
+                    INSERT INTO restaurant_listings
+                        (name, address, location, provenance, verification_status, alcohol_served, halal_scope, cross_contamination)
+                    VALUES ('Seed row', '1 St', $shared, 'research-seed / photon-geocode', 'UNVERIFIED', false, 'NOT_DISCLOSED', 'UNCERTAIN')
+                    """.trimIndent()
+                }
+                postgis.execute(seed())
+                shouldThrow<ExposedSQLException> { postgis.execute(seed()) }
+            }
+        }
+
+        test("V23 records where certifier-derived trust came from") {
+            runTest {
+                postgis.count(
+                    "SELECT count(*) FROM information_schema.columns " +
+                        "WHERE table_name = 'restaurant_listings' AND column_name = 'verification_basis'",
+                ) shouldBe 1
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(
+                        """
+                        INSERT INTO restaurant_listings
+                            (name, address, location, provenance, verification_status, verification_basis,
+                             alcohol_served, halal_scope, cross_contamination)
+                        VALUES ('Bad basis', '1 St', ${freshPoint()}, 'certifier-hma', 'UNVERIFIED', 'COMMITTEE',
+                                false, 'NOT_DISCLOSED', 'UNCERTAIN')
+                        """.trimIndent(),
+                    )
+                }
             }
         }
 
@@ -231,13 +269,18 @@ class IngestionSchemaMigrationTest : FunSpec() {
             }
         }
 
-        test("V22 replaces the seed-location index with the research-wide one") {
+        test("V23 restores the seed-only unique index and makes the research one a plain lookup") {
             runTest {
                 postgis.count(
-                    "SELECT count(*) FROM pg_indexes WHERE indexname = 'uq_restaurant_listings_seed_location'",
-                ) shouldBe 0
+                    "SELECT count(*) FROM pg_indexes WHERE indexname = 'uq_restaurant_listings_seed_location' " +
+                        "AND indexdef LIKE 'CREATE UNIQUE INDEX%'",
+                ) shouldBe 1
                 postgis.count(
                     "SELECT count(*) FROM pg_indexes WHERE indexname = 'uq_restaurant_listings_research_location'",
+                ) shouldBe 0
+                postgis.count(
+                    "SELECT count(*) FROM pg_indexes WHERE indexname = 'idx_restaurant_listings_research_location' " +
+                        "AND indexdef LIKE 'CREATE INDEX%'",
                 ) shouldBe 1
             }
         }

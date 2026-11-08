@@ -7,7 +7,6 @@ import com.tahirslist.application.ingestion.ClaimReattachment
 import com.tahirslist.application.ingestion.IngestionCandidate
 import com.tahirslist.application.ingestion.ListingMerge
 import com.tahirslist.application.ingestion.ListingWrite
-import com.tahirslist.application.ingestion.TrustMerge
 import com.tahirslist.application.ingestion.WriteTarget
 import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.domain.restaurant.CertificationClaim
@@ -287,6 +286,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 writeClaim(listingId, claim)
                 claimsWritten++
             }
+            recomputeCertifierTrust(listingId)
             loadById(listingId)?.let { mirrorIntoListingSearch(it) }
         }
 
@@ -418,6 +418,11 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             ),
         )
 
+        // The keeper now owns the union of both claim sets: recompute so a
+        // verified row that was folded in cannot lose its trust (round 2, B4).
+        recomputeCertifierTrust(keep.id)
+        loadById(keep.id)?.let { mirrorIntoListingSearch(it) }
+
         executeUpdate(
             "DELETE FROM listing_search WHERE id = ?",
             listOf(ListingSearch.id bind retire.id),
@@ -440,36 +445,25 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             listOf(RestaurantListings.id bind id),
         ) { rs -> toListing(rs) }.firstOrNull()?.let { withHalalItems(it) }
 
+    /**
+     * Updates only the identity/address content ingestion owns. Trust columns
+     * (status, basis, hand-cut, provenance, cross-contamination) are NOT written
+     * here: after the claims are written, [recomputeCertifierTrust] derives them
+     * from the resulting claim set. That is what lets a certifier's own
+     * withdrawal of hand-cut take effect, and stops a Tier-3 row from silently
+     * overriding a verified venue (D-10).
+     */
     private fun JdbcTransaction.updateImported(
         id: Uuid,
         candidate: IngestionCandidate,
         brandId: Uuid,
     ): Uuid {
-        val existing = loadById(id) ?: error("listing $id vanished between preview and apply")
-        val status = TrustMerge.verificationStatus(
-            existing.verificationStatus,
-            candidate.verificationStatus,
-        )
-        val handCut = TrustMerge.handCut(
-            existing.isHandCut,
-            candidate.isHandCut,
-        )
-        val crossContamination = TrustMerge.crossContamination(
-            existing.crossContamination,
-            candidate.crossContamination,
-        )
-        val provenance = TrustMerge.provenance(
-            existing.provenance,
-            candidate.provenance,
-        )
-
         val rows = executeUpdate(
             """
             UPDATE restaurant_listings SET
                 name = ?, address = ?, city = ?, province = ?, postal = ?, country = ?,
                 location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
-                brand_id = ?, provenance = ?, venue_key = ?, verification_status = ?,
-                is_hand_cut = ?, cross_contamination = ?
+                brand_id = ?, venue_key = ?
             WHERE id = ?
             """.trimIndent(),
             listOf(
@@ -482,17 +476,111 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 doubleParam(candidate.location.lng),
                 doubleParam(candidate.location.lat),
                 RestaurantListings.brandId bind brandId,
-                RestaurantListings.provenance bind provenance.value,
                 RestaurantListings.venueKey bind candidate.venueKey,
-                RestaurantListings.verificationStatus bind status.name,
-                RestaurantListings.isHandCut bind handCut,
-                RestaurantListings.crossContamination bind crossContamination.name,
                 RestaurantListings.id bind id,
             ),
         )
         check(rows == 1) { "listing $id vanished between preview and apply" }
         return id
     }
+
+    /**
+     * Trust is a projection of the claim set, not an accumulator.
+     *
+     * - A Tier-1 claim wins: `VERIFIED` + `CERTIFIER_REGISTRY`, hand-cut follows
+     *   *that claim's current declaration* (TRUE only for HAND_CUT, FALSE for
+     *   declared-not and for silence), certifier provenance, index-qualified.
+     * - With no Tier-1 claim, only trust this method previously derived
+     *   (`verification_basis = CERTIFIER_REGISTRY`) is withdrawn. A committee
+     *   verification (basis NULL) and an owner's hand-cut value are left alone:
+     *   an ingestion batch never demotes them (D-10).
+     * - A merge moved the retired row's claims here, so the keeper is recomputed
+     *   from the union and cannot lose a verified outcome (review round 2).
+     */
+    private fun JdbcTransaction.recomputeCertifierTrust(listingId: Uuid) {
+        val current = queryRows(
+            """
+            SELECT verification_basis, provenance, cross_contamination
+            FROM restaurant_listings WHERE id = ?
+            """.trimIndent(),
+            listOf(RestaurantListings.id bind listingId),
+        ) { rs ->
+            Triple(
+                rs.getString("verification_basis"),
+                rs.getString("provenance")?.let { Provenance(it) },
+                CrossContamination.valueOf(rs.getString("cross_contamination")),
+            )
+        }.firstOrNull() ?: return
+
+        val winner = queryRows(
+            """
+            SELECT source, source_tier, source_record_ref, hand_cut_declaration
+            FROM external_certification_claims
+            WHERE listing_id = ?
+            """.trimIndent(),
+            listOf(ExternalCertificationClaims.listingId bind listingId),
+        ) { rs ->
+            ClaimEvidence(
+                source = rs.getString("source"),
+                tier = rs.getShort("source_tier").toInt(),
+                recordRef = rs.getString("source_record_ref"),
+                declaration = rs.getString("hand_cut_declaration"),
+            )
+        }.minWithOrNull(
+            compareBy<ClaimEvidence> { it.tier }
+                .thenBy { IngestionCandidate.sourcePriority(it.source) }
+                .thenBy { it.recordRef },
+        )
+
+        if (winner != null && winner.tier == 1) {
+            val handCut = winner.declaration == "HAND_CUT"
+            val provenance = runCatching { IngestionCandidate.provenanceFor(winner.source) }
+                .getOrElse { current.second ?: Provenance.CERTIFIER_HMS }
+            executeUpdate(
+                """
+                UPDATE restaurant_listings SET
+                    verification_status = 'VERIFIED',
+                    verification_basis = 'CERTIFIER_REGISTRY',
+                    is_hand_cut = ?,
+                    provenance = ?,
+                    cross_contamination = 'NO_CROSS_CONTAMINATION'
+                WHERE id = ?
+                """.trimIndent(),
+                listOf(
+                    RestaurantListings.isHandCut bind handCut,
+                    RestaurantListings.provenance bind provenance.value,
+                    RestaurantListings.id bind listingId,
+                ),
+            )
+            return
+        }
+
+        if (current.first == "CERTIFIER_REGISTRY") {
+            // The certifier evidence was withdrawn or moved away: withdraw only
+            // what the certifier conferred. Committee trust has basis NULL.
+            executeUpdate(
+                """
+                UPDATE restaurant_listings SET
+                    verification_status = 'UNVERIFIED',
+                    verification_basis = NULL,
+                    is_hand_cut = NULL,
+                    cross_contamination = ?
+                WHERE id = ?
+                """.trimIndent(),
+                listOf(
+                    RestaurantListings.crossContamination bind CrossContamination.DEFAULT.name,
+                    RestaurantListings.id bind listingId,
+                ),
+            )
+        }
+    }
+
+    private data class ClaimEvidence(
+        val source: String,
+        val tier: Int,
+        val recordRef: String,
+        val declaration: String,
+    )
 
     /** D-15: inserts go through the domain factory, so its trust guard is on the write path. */
     private fun JdbcTransaction.insertImported(
@@ -691,8 +779,10 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         // kept in sync in the SAME transaction so a promotion is atomically
         // visible to the public read surface (sc-73 → sc-49 verified display).
         val rows = suspendTransaction(db) {
+            // A committee decision is not certifier-derived: basis NULL keeps
+            // the ingestion recompute from ever demoting it (D-10).
             val updated = executeUpdate(
-                "UPDATE restaurant_listings SET verification_status = ? WHERE id = ?",
+                "UPDATE restaurant_listings SET verification_status = ?, verification_basis = NULL WHERE id = ?",
                 listOf(
                     RestaurantListings.verificationStatus bind status.name,
                     RestaurantListings.id bind id,

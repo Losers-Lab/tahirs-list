@@ -147,7 +147,10 @@ class LoadIngestionBatch(
 
         return CatalogUpdateReview(
             runId = batch.runId,
-            writes = dedupeWrites(writes),
+            // A same-venue decision retires one listing; any other candidate in
+            // the same batch that targeted the retired row must follow it to the
+            // keeper, or the merge would delete the row its write expects.
+            writes = dedupeWrites(redirectWrites(writes, merges)),
             findings = findings,
             rejects = rejects + batch.rejects,
             brandsToCreate = brandsToCreate,
@@ -358,6 +361,32 @@ class LoadIngestionBatch(
     /** Merge two candidates that share a venue key or any claim identity (E4). */
     private fun mergeDuplicates(candidates: List<IngestionCandidate>): List<IngestionCandidate> =
         mergeCandidates(candidates)
+
+    /** Follow a merge chain: a write aimed at a retired listing belongs to its keeper. */
+    private fun redirectWrites(writes: List<ListingWrite>, merges: List<ListingMerge>): List<ListingWrite> {
+        if (merges.isEmpty()) return writes
+        val redirect = merges.associate { it.retireId to it.keepId }
+
+        fun resolve(id: Uuid): Uuid {
+            var currentId = id
+            repeat(redirect.size + 1) {
+                val next = redirect[currentId] ?: return currentId
+                if (next == currentId) return currentId
+                currentId = next
+            }
+            return currentId
+        }
+
+        return writes.map { write ->
+            when (val target = write.target) {
+                WriteTarget.Insert -> write
+                is WriteTarget.Update -> {
+                    val keeper = resolve(target.listingId)
+                    if (keeper == target.listingId) write else write.copy(target = WriteTarget.Update(keeper))
+                }
+            }
+        }
+    }
 
     /**
      * One write per target. Two different source rows can resolve to the same
