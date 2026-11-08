@@ -33,11 +33,9 @@ flowchart LR
 ## Public API
 
 ```kotlin
-val http = CertifierHttp.create(cacheDir = Path.of("/tmp/tahirs-list-certifier-cache"))
-
-val hms = HmsDirectory(http).certifiedRestaurants()
-val hfsaa = HfsaaLocator(http).entries(chapter = "New York")
-val hma = HmaCertifiedOutlets(http).outlets()
+val hms = HmsDirectory(CertifierHttp.createFor(HmsProfile)).certifiedRestaurants()
+val hfsaa = HfsaaLocator(CertifierHttp.createFor(HfsaaProfile)).entries(chapter = "New York")
+val hma = HmaCertifiedOutlets(CertifierHttp.createFor(HmaProfile)).outlets()
 
 val listings: List<SourceListing> =
     HmsTranslator().translate(hms) +

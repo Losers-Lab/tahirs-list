@@ -77,7 +77,7 @@ classDiagram
 | INV-1 | Ingested listing is `VERIFIED` iff a recognized Tier-1 claim backs it; otherwise `UNVERIFIED` | `IngestSampleMigrationTest.loadsTierOneAsVerifiedWithClaims` |
 | INV-2 | Every ingested listing carries a closed-vocabulary provenance stamp | `ProvenanceTest.rejectsUnknownVocabulary` |
 | INV-3 | `isHandCut` is TRUE iff the backing claim declares hand-cut; FALSE for every other Tier-1 declaration (declared not or silent); NULL only where there is no certifier claim. Every `VERIFIED` row has a cited Tier-1 claim | `LoadIngestionBatchTest.handCutFollowsDeclaredStandard` · `refusesVerifiedWithoutClaim` |
-| INV-4 | The geocoder pre-flight passes before any directory fetch, and every candidate location came from a confirmed geocoder match | `CheckGeocoderHealthTest` · `MatchConfirmationPolicyTest.rejectsWrongRegion` |
+| INV-4 | The run's first step is the geocoder pre-flight; `RunSampleIngestion` (pipeline PR) must call it before any source, and every candidate location came from a confirmed geocoder match | `CheckGeocoderHealthTest` · Phase 6 `ING-1` · `MatchConfirmationPolicyTest.rejectsWrongRegion` |
 | INV-5 | Claims are unique per (listing, source, record) and cite a source URL | `CertificationClaimTest.requiresCitation` |
 | INV-6 | Same venue → one candidate; highest tier wins provenance; all claims retained | `RunSampleIngestionTest.mergesTierPriority` |
 | INV-7 | Loading is idempotent (no duplicate listing or claim) | `IngestSampleMigrationTest.isIdempotent` |

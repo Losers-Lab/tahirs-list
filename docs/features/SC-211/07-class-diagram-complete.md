@@ -28,7 +28,7 @@ flowchart TB
 
 | Module | Status | Contents |
 |---|---|---|
-| `:domain` | modified | `Provenance` (+4 strings); new `CertificationClaim` (+`declaredHandCut`), `VerificationBasis`; `VerificationStatus`/`VerificationCommittee` KDoc |
+| `:domain` | modified | `Provenance` (+4 strings); new `CertificationClaim` (+`declaredHandCut`, persisted as `hand_cut_declaration`), `VerificationBasis`; `VerificationStatus`/`VerificationCommittee` KDoc |
 | `:application` | modified | `com.tahirslist.application.ingestion`: 4 use cases, ports, model, errors; `com.tahirslist.application.geo.CheckGeocoderHealth` (pre-flight) |
 | `:certifier-core` | **new** | `CertifierHttp`, `FetchPolicy` (HTTPS + per-certifier host allow-list, capped redirects, response-size cap), `HttpTransport`/`KtorHttpTransport`, `SnapshotStore`/`FileSnapshotStore`, `RobotsPolicy`, `SourceSnapshot`, `CertifierPage`, `CertifierProfile`, `HandCutDeclaration` |
 | `:certifier-hms` | **new** | `HmsDirectory`, `HmsParser`, `HmsEstablishment`, `HmsCategory`, `HmsCertificationStatus`, `HmsAddress`, `HmsLocation`, `HmsProfile` |

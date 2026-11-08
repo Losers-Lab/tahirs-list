@@ -49,7 +49,7 @@ Counts by category: Restaurants 370 · Retail Store 157 · Slaughter House 74 ·
 
 ```
 POST https://pmolfcjxryccsisyhhwm.supabase.co/rest/v1/rpc/get_public_locator_entries
-apikey: sb_publishable_…   (shipped by the public locator bundle; read at runtime, not stored here)
+apikey: sb_publishable_…   (public key shipped by the locator bundle; the library pins the current value and re-discovers it on 401)
 {}
 → 200, Content-Range: 0-312/*, 313 rows
 ```
