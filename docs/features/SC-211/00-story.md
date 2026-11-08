@@ -57,7 +57,7 @@ flowchart LR
 | 12 | Pre-flight: one Photon test query runs before any directory fetch; a failure aborts the run with no artifacts. |
 | 13 | Tier-1 certification implies index qualification: ingested Tier-1 rows are written with `cross_contamination = NO_CROSS_CONTAMINATION`. Manual and web rows keep their explicit value (default `UNCERTAIN`). |
 | 14 | Run artifacts are immutable and per-run: `<out>/runs/<runId>/…`. A new run refuses to start while an unreviewed run exists (default), or archives it under a unique `archive/<runId>-<timestamp>-<token>/` name first. A load marks the run loaded; nothing overwrites a run or an archive. |
-| 15 | Load idempotency: a claim is unique by `(source, source_record_ref)`; an ingested listing carries a deterministic `venue_key` (normalized name + address + city/region/country). Matching order is claim → venue_key → location fallback (reported, not silently merged). Replaying an older/archived batch never duplicates a venue. |
+| 15 | Load idempotency: a claim is unique by `(source, source_record_ref)`; an ingested listing carries a deterministic `venue_key` (normalized name + address + city/region/country). Matching order is claim → venue_key → location fallback; a location-only near-match is held as `SUSPECTED_DUPLICATE`, never inserted. Replaying an older/archived batch never duplicates a venue. |
 
 ## Acceptance criteria (amended 2026-11-08; Shortcut sync pending re-auth)
 
@@ -135,11 +135,11 @@ flowchart LR
 | E-13 | HMS row has an empty `data-city-name` | Derive the city from the address line; if absent, the row is geocoded or rejected — never invented |
 | E-14 | Photon is down at pre-flight | Abort before fetching any directory; report the outage; no artifacts |
 | E-15 | Load fails partway (constraint, DB outage) | One transaction: every listing/claim/mirror write rolls back; no partial catalogue |
-| E-16 | Ingested row matches a user-added row at the same location | Match by normalized location; upgrade the existing row, attach claims, never duplicate |
+| E-16 | Ingested row matches a user-added row | Exact `venue_key` (or normalized name/address) match → upgrade the existing row and attach claims; location-only near-match → hold as `SUSPECTED_DUPLICATE` |
 | E-17 | Tier-1 certification but no cross-contamination evidence | Certification implies index qualification (`NO_CROSS_CONTAMINATION`); manual/web rows stay explicit/`UNCERTAIN` |
 | E-18 | A previous `candidates.json` exists and was never loaded | Per-run directories + a pending-run guard: refuse by default, or archive under a unique name; never overwrite |
 | E-19 | Two archives for the same run | Archive names include a timestamp + random token and are created new; a collision retries, never replaces |
-| E-20 | An older/archived batch is replayed after a newer batch loaded the same venues | Claim-first match by `(source, source_record_ref)`, then `venue_key`; update the existing listing, attach claims; location-only near-matches are reported, never silently duplicated |
+| E-20 | An older/archived batch is replayed after a newer batch loaded the same venues | Claim-first match by `(source, source_record_ref)`, then `venue_key`; update the existing listing, attach claims; a location-only near-match is held as `SUSPECTED_DUPLICATE`, never inserted |
 
 ## Open questions
 

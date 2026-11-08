@@ -66,7 +66,7 @@ sequenceDiagram
   SEARCH-->>DC: 16. Tier-1 verified — manual unverified — claims intact
 ```
 
-**Idempotency:** the run's `candidatesSha256` is verified before preview and load. For each candidate the matcher checks, in order: the existing claim `(source, source_record_ref)` → `venue_key` → normalized-location fallback. Only the first two update/attach silently; a location-only match is reported as a suspected duplicate. Claims are globally unique per `(source, source_record_ref)`, so the same source record cannot attach to two listings even if its coordinates drift. Brands are matched by name; the search mirror upserts by `id`. The whole batch is one transaction: a failure leaves no partial load and no `loaded.json`. Replaying an older/archived batch follows the same order, so it updates the newer listings instead of duplicating them.
+**Idempotency:** the run's `candidatesSha256` is verified before preview and load. For each candidate the matcher checks, in order: the existing claim `(source, source_record_ref)` → `venue_key` → normalized-location fallback. Only the first two update/attach silently; a location-only match is **held as `SUSPECTED_DUPLICATE` and not written**. Claims are globally unique per `(source, source_record_ref)`, so the same source record cannot attach to two listings even if its coordinates drift. Brands are matched by name; the search mirror upserts by `id`. The whole batch is one transaction: a failure leaves no partial load and no `loaded.json`. Replaying an older/archived batch follows the same order, so it updates the newer listings instead of duplicating them.
 
 **Index gate:** Tier-1 certified rows are written with `cross_contamination = NO_CROSS_CONTAMINATION` (D-16), so they reach `listing_search`. Manual/web rows keep their explicit value (default `UNCERTAIN`).
 
@@ -77,7 +77,7 @@ sequenceDiagram
 | A3 | `UPDATE` matched row to `VERIFIED`; hand-cut per the claim's declaration; attach claim |
 | A4 | Validator rejects an unbacked `VERIFIED`/TRUE hand-cut before execute |
 | A5 | Older/archived batch replayed → claim-first match, then `venue_key`; existing listing updated, no duplicate |
-| A6 | Location matches but name/address does not → reported as a suspected duplicate, not merged |
+| A6 | Location matches but name/address does not → held as `SUSPECTED_DUPLICATE`; no write until resolved |
 | E1 | Any persistence failure → the single transaction rolls back; `loaded.json` is not written |
 | E2 | Missing V22 → the load refuses before writing |
 | E3 | Wrong verification/hand-cut state for the claim's declaration → blocking (AC-7/INV-1/INV-3) |

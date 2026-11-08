@@ -65,12 +65,12 @@ sequenceDiagram
   DB-->>TL: no duplicate
 ```
 
-**A6 - location matches, name/address does not** · report, never merge.
+**A6 - location matches, name/address does not** · hold, never insert.
 
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: suspected duplicate in report — no write
+  TL->>TL: SUSPECTED_DUPLICATE — held for review, no write
 ```
 
 **A4 — blocking preview error** · no execute offered.

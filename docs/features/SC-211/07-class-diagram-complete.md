@@ -69,7 +69,7 @@ flowchart TB
 | Element | Status | Detail |
 |---|---|---|
 | `V22__sc_211_ingestion_schema.sql` | new | provenance CHECK (+4 values); `external_certification_claims` table (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, `hand_cut_declaration TEXT NOT NULL` with CHECK `(HAND_CUT, NOT_HAND_CUT, UNSPECIFIED)`, first/last_seen, created_at; **unique `(source, source_record_ref)` globally**); index on listing_id; `restaurant_listings.venue_key CHAR(64) NULL` with partial unique index on `venue_key` where provenance is a certifier value; drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` |
-| `RestaurantListingRepository.applyBatch` | new | One transaction for a batch: brands, listings (insert/update), cuisines, halal items, claims, search mirror. Matching order: claim `(source, record)` → `venue_key` → location fallback (reported). Shared by Add Listing and ingestion |
+| `RestaurantListingRepository.applyBatch` | new | One transaction for a batch: brands, listings (insert/update), cuisines, halal items, claims, search mirror. Matching order: claim `(source, record)` → `venue_key` → location fallback (held, not written). Shared by Add Listing and ingestion |
 | `VenueIdentity` | new | SHA-256 over normalized name + address + city + region + country; coordinates excluded; conservative (no fuzzy `Rd`/`Road` merge) |
 | `BrandRepository` | new | `resolve` (preview) + `resolveOrCreate` (execute) by name |
 | `V23__sc_211_ingest_sample.sql` | **retired** | No generated data migration: `LoadIngestionBatch` writes through `RestaurantListingRepository.applyBatch` in one transaction (D-15) |
@@ -111,12 +111,12 @@ flowchart TB
 | Source markup/JSON changes | Recorded-fixture tests + `SOURCE_PARSE_FAILED` quarantine |
 | HFSAA publishable key rotates | Key re-discovery from the public bundle, retry once (tested) |
 | HMS city blank on 10 rows | `deriveCity` from the address; null if not derivable (tested) |
-| Dedupe merges coincident venues | Suspected duplicates reported (D-4) |
+| Dedupe merges coincident venues | Exact `venue_key` merges; location-only matches are held as suspected duplicates (D-4/D-18) |
 | Web/ingestion logic drift | Ingestion uses the same aggregate and `RestaurantListingRepository.applyBatch` as Add Listing (D-15); no generated SQL, no Python renderer |
 | Ingested rows excluded from search | Tier-1 certification implies `NO_CROSS_CONTAMINATION` (D-16); manual/web rows stay explicit/`UNCERTAIN` |
 | Batch fails partway | One transaction covers brands, listings, children, claims and mirror; any failure rolls back |
 | A run overwrites an unreviewed batch | Per-run directories + pending guard; default abort, optional archive with unique names; checksum verified at load |
-| Older/archived batch replayed after a newer load | Claim-first match `(source, record)`, then `venue_key`; location is only a fallback/report signal, never the sole identity |
+| A location-only match is treated as the same venue | It is held as `SUSPECTED_DUPLICATE` and not inserted until a curator resolves it; exact `venue_key` matches update in place |
 | Coordinates drift for the same venue | `venue_key` excludes coordinates; the same normalized name/address maps to the existing listing |
 | Badge copy says "committee" for registry rows | D-8 follow-up story |
 | Certifier expiry/revocation | Expiry stored; no auto-demotion (D-10) |

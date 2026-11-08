@@ -94,7 +94,7 @@ classDiagram
 | INV-14 | A Tier-1 ingested row is index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value, default `UNCERTAIN` | `LoadIngestionBatchTest.certifiedRowsAreIndexQualified` |
 | INV-15 | A source record maps to exactly one listing across runs: claims are globally unique by `(source, source_record_ref)` | `CertificationClaimTest.sourceRecordIsGloballyUnique` · `LoadIngestionBatchTest.replaysArchivedBatchWithoutDuplicates` |
 | INV-16 | An ingested listing has a deterministic `venue_key`; the same normalized name/address/city/region maps to one listing even when coordinates drift | `VenueIdentityTest` · `LoadIngestionBatchTest.coordinateDriftDoesNotDuplicate` |
-| INV-17 | A location-only near-match is reported as a suspected duplicate, never silently inserted or merged | `LoadIngestionBatchTest.locationOnlyMatchIsReported` |
+| INV-17 | A location-only near-match is held as a suspected duplicate (not inserted, not merged) until a curator resolves it | `LoadIngestionBatchTest.locationOnlyMatchIsHeld` |
 
 ## States
 
