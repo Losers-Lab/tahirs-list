@@ -14,6 +14,7 @@ sequenceDiagram
     participant CTRL as SearchListingsForAgent
     participant GEO as GeocoderPort
     participant PHOTON as PhotonGeocoder
+    participant EXT as Photon API
     participant Q as ListingSearchQuery
     participant SQL as ExposedListingSearchQuery
     participant MAP as AgentResultMapper
@@ -28,7 +29,11 @@ sequenceDiagram
         TOOL->>CTRL: 4. execute(request)
         CTRL->>GEO: geocode(place)
         GEO->>PHOTON: geocode(place)
-        PHOTON-->>CTRL: GeocodedPlace
+        PHOTON->>EXT: GET /api/?q=url-encoded-place
+        EXT-->>PHOTON: 200 GeoJSON FeatureCollection
+        PHOTON->>PHOTON: parse features[0] geometry [lng, lat]
+        PHOTON-->>GEO: GeocodedPlace(location, displayName, providerRef)
+        GEO-->>CTRL: GeocodedPlace
     else coordinates
         TOOL->>CTRL: 4. execute(request)
     end
@@ -51,12 +56,18 @@ before tool execution. **State transitions:** none.
 | Flow | Concrete cause | Result |
 |---|---|---|
 | E1 | `InvalidSearchArgumentsException` | `isError=true`, specific reason |
-| E2 | `GeocoderPort.geocode` → null → `PlaceNotResolvedException` | `isError=true`, "try a nearby city or coordinates" |
-| E3 | `GeocoderPort.geocode` throws `GeocodingException` | `isError=true`, "location lookup unavailable; supply coordinates" |
+| E2 | Photon 200 with no feature/geometry → `PhotonGeocoder` returns null → `PlaceNotResolvedException` | `isError=true`, "try a nearby city or coordinates" |
+| E3 | Non-200 / 5s timeout / empty body / unparseable JSON / invalid coords → `GeocodingException` | `isError=true`, "location lookup unavailable; supply coordinates" |
 | E4 | `AgentRateLimiter.tryAcquire` false | HTTP 429 + `Retry-After`, no tool work |
 | E5 | SDK JSON-RPC failure | JSON-RPC error, no tool work |
 | E6 | Origin not in allow-list | HTTP 403, no tool work |
 | E7 | Persistence failure | `isError=true`, generic message; logged only |
+
+**Geocoding mechanics:** `PhotonGeocoder` is a Ktor CIO client doing
+`GET {base}/?q=<url-encoded place>` with a 5s timeout and no redirects; it parses
+`features[0].geometry.coordinates` as `[lng, lat]` into `GeocodedPlace`. Server-side
+only, no API key, no cache in v1; this feature is the first production wiring of
+`GeocoderPort`.
 
 **A1** — coordinates: the `place text` branch is skipped; the rest is unchanged.
 **A2** — empty result: `AgentSearchResult([], 0, null)` maps to success.

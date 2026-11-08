@@ -55,7 +55,7 @@ flowchart TD
 | BR-7 | Cuisines combine with OR (default) or AND; no-cuisine listings never match a cuisine filter. |
 | BR-8 | Price bounds 0..100000, min ≤ max; unknown-price listings never match. |
 | BR-9 | Minimum rating 0..5; unknown-rating listings never match. |
-| BR-10 | Place text is resolved server-side; "no match" ≠ "provider unavailable". |
+| BR-10 | Place text is resolved server-side by an HTTP geocoder (5s timeout, no key, no cache in v1); "no match" ≠ "provider unavailable". |
 | BR-11 | The surface is read-only: it mutates nothing. |
 | BR-12 | Requests are rate-limited per client before any work. |
 | BR-13 | The id must be valid; a malformed id is a caller error. |
@@ -79,7 +79,7 @@ flowchart TD
 1. The user asks for halal restaurants near a place, optionally with filters.
 2. The agent calls the search tool with place **or** coordinates, a radius, and filters.
 3. Tahir's List validates radius, page and every filter value.
-4. If place text was supplied, Tahir's List resolves it to a search centre.
+4. If place text was supplied, Tahir's List calls the geocoding provider over HTTP and resolves it to a search centre.
 5. Tahir's List finds index-qualified listings within the radius matching the filters.
 6. Results are ordered by distance, paged, and returned with halal/verification facts and links.
 7. The agent presents the results.

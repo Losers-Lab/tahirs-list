@@ -22,8 +22,8 @@ flowchart TB
 | `:mcp` | **new** | `McpConfig`, `McpUseCases`, `TahirsListMcpServer`, `installMcp`, `SearchRestaurantsTool` / `GetRestaurantTool`, `AgentResultMapper`, `McpOriginGuard`, `McpRateLimiter` / `Bucket4jMcpRateLimiter` |
 | `:application` | **modified** | `SearchListingsForAgent`, `GetListingForAgent`, `ListingSearchRequestParser`, `CertificateFacts` |
 | `:web-api` | **modified** | `WebApi.isPublicRequest`; `ListingRoutes` + `ListingReadDtos` use the shared helpers (behaviour-preserving) |
-| `:bootstrap` | **modified** | `AppConfig` + `McpSettings`, `ConfigValidation`, `AppModules`, `Application.module` |
-| `:domain`, `:persistence`, `:geocoding`, storage, verification | unchanged | No schema or migration change; `PhotonGeocoder` already implements `GeocoderPort` |
+| `:bootstrap` | **modified** | `AppConfig` + `McpSettings`, `ConfigValidation`, `AppModules`, `Application.module`; first `GeocoderPort` → `PhotonGeocoder` wiring |
+| `:domain`, `:persistence`, `:geocoding`, storage, verification | unchanged | No schema or migration change; `PhotonGeocoder` already implements `GeocoderPort` (now wired) |
 | `settings.gradle.kts`, `libs.versions.toml` | **modified** | `include(":mcp")`; MCP SDK + test client + CORS |
 | Frontend | **unchanged** | no UI/typed-client change; deep links use `/restaurants/[id]` |
 
@@ -162,6 +162,7 @@ as instructions.
 | `APP_MCP_ALLOWED_ORIGINS` | empty | comma-separated; empty = no browser origins |
 | `APP_MCP_RATELIMIT_CAPACITY` / `..._MAX_KEYS` | `60` / `100000` | per-client bucket / bounded LRU |
 | `APP_MCP_RATELIMIT_REFILL_TOKENS` / `..._WINDOW_SECONDS` | `60` / `60` | refill budget |
+| `APP_GEOCODER_BASE_URL` | `https://photon.komoot.io/api/` | Photon adapter base; self-host later |
 | — | — | proxy trust reuses `APP_RATELIMIT_TRUST_PROXY` |
 
 **Prod guard:** when enabled, both URLs must be absolute https, non-default; capacity/refill positive.

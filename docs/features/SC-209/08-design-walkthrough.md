@@ -42,7 +42,7 @@ flowchart LR
 **Need:** approve; D-8 (rate-limiter placement).
 
 ## 6. White-box sequences
-**Shows:** endpoint → gate → tool → control → port → adapter; read-only transactions; error mapping.
+**Shows:** endpoint → gate → tool → control → port → adapter → external Photon HTTP; read-only transactions; error mapping.
 **Locks in:** no writes; no external call inside a transaction; no internal leakage; certificate URLs gated.
 **Need:** approve; D-11 (fallback only if the spike proves it necessary).
 
