@@ -24,11 +24,19 @@ data class CertificationClaim(
 ) {
     init {
         require(source.isNotBlank()) { "claim source must not be blank" }
+        require(source.length <= SOURCE_MAX_LENGTH) { "claim source must be $SOURCE_MAX_LENGTH characters or fewer" }
         require(source == source.trim().lowercase()) { "claim source must be trimmed and lowercase" }
+        require(SOURCE_PATTERN.matches(source)) { "claim source must match $SOURCE_PATTERN" }
         require(sourceRecordRef.isNotBlank()) { "claim source record must not be blank" }
+        require(sourceRecordRef.length <= RECORD_MAX_LENGTH) {
+            "claim source record must be $RECORD_MAX_LENGTH characters or fewer"
+        }
         require(sourceRecordRef == sourceRecordRef.trim()) { "claim source record must be trimmed" }
         require(certifier.isNotBlank()) { "claim certifier must not be blank" }
-        require(sourceUrl.startsWith("https://")) { "claim source URL must be https" }
+        require(certifier.length <= CERTIFIER_MAX_LENGTH) {
+            "claim certifier must be $CERTIFIER_MAX_LENGTH characters or fewer"
+        }
+        require(isHttpsCitation(sourceUrl)) { "claim source URL must be an https URL" }
         require(firstSeen == null || lastSeen == null || lastSeen >= firstSeen) {
             "claim lastSeen must not be before firstSeen"
         }
@@ -38,4 +46,21 @@ data class CertificationClaim(
     val key: String get() = "$source::$sourceRecordRef"
 
     val isHandCut: Boolean get() = declaredHandCut.isHandCut
+
+    companion object {
+        /** Mirror the V22 column widths so persistence can never truncate silently. */
+        const val SOURCE_MAX_LENGTH: Int = 64
+        const val RECORD_MAX_LENGTH: Int = 255
+        const val URL_MAX_LENGTH: Int = 1024
+        const val CERTIFIER_MAX_LENGTH: Int = 255
+
+        private val SOURCE_PATTERN = Regex("^[a-z0-9-]+$")
+
+        /** `https://` + a non-empty host/path and no embedded whitespace. */
+        private fun isHttpsCitation(url: String): Boolean =
+            url.length <= URL_MAX_LENGTH &&
+                url.startsWith("https://") &&
+                url.length > "https://".length &&
+                url.none { it.isWhitespace() }
+    }
 }

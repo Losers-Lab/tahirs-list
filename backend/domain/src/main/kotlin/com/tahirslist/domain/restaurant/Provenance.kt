@@ -41,6 +41,13 @@ data class Provenance(val raw: String) {
             "manual-zabihah",
         )
 
+        /** Provenance values stamped by an audited Tier-1 certifier registry. */
+        val CertifierRegistry: Set<String> = setOf(
+            "certifier-hms",
+            "certifier-hfsaa",
+            "certifier-hma",
+        )
+
         val RESEARCH_SEED = Provenance("research-seed")
         val PHOTON_GEOCODE = Provenance("photon-geocode")
         val RESEARCH_SEED_PHOTON_GEOCODE = Provenance("research-seed / photon-geocode")
@@ -49,4 +56,7 @@ data class Provenance(val raw: String) {
         val CERTIFIER_HMA = Provenance("certifier-hma")
         val MANUAL_ZABIHAH = Provenance("manual-zabihah")
     }
+
+    /** True only for a Tier-1 certifier registry stamp (never manual or seed). */
+    val isCertifierRegistry: Boolean get() = value in CertifierRegistry
 }

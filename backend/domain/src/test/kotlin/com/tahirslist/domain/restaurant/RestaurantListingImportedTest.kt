@@ -16,7 +16,7 @@ class RestaurantListingImportedTest : FunSpec({
     fun imported(
         name: String = "  Paramount Fine Foods  ",
         address: String = "  253 Yonge St  ",
-        venueKey: String? = "a".repeat(64),
+        venueKey: String = "a".repeat(64),
         verificationStatus: VerificationStatus = VerificationStatus.VERIFIED,
         verificationBasis: VerificationBasis? = VerificationBasis.CERTIFIER_REGISTRY,
     ) = RestaurantListing.imported(
@@ -56,6 +56,12 @@ class RestaurantListingImportedTest : FunSpec({
         }
     }
 
+    test("refuses the committee basis on an imported row") {
+        shouldThrow<IllegalArgumentException> {
+            imported(verificationBasis = VerificationBasis.COMMITTEE_REVIEW)
+        }
+    }
+
     test("refuses a basis on an UNVERIFIED row") {
         shouldThrow<IllegalArgumentException> {
             imported(
@@ -75,6 +81,39 @@ class RestaurantListingImportedTest : FunSpec({
         listing.provenance shouldBe Provenance.CERTIFIER_HMA
     }
 
+    test("refuses VERIFIED without a certifier-registry provenance") {
+        shouldThrow<IllegalArgumentException> {
+            RestaurantListing.imported(
+                name = "Manual",
+                address = "1 St",
+                location = location(),
+                provenance = Provenance.MANUAL_ZABIHAH,
+                venueKey = "a".repeat(64),
+                verificationStatus = VerificationStatus.VERIFIED,
+                verificationBasis = VerificationBasis.CERTIFIER_REGISTRY,
+            )
+        }
+    }
+
+    test("allows a manual row as UNVERIFIED with no basis") {
+        val listing = RestaurantListing.imported(
+            name = "Manual",
+            address = "1 St",
+            location = location(),
+            provenance = Provenance.MANUAL_ZABIHAH,
+            venueKey = "a".repeat(64),
+        )
+
+        listing.verificationStatus shouldBe VerificationStatus.UNVERIFIED
+        listing.provenance shouldBe Provenance.MANUAL_ZABIHAH
+    }
+
+    test("refuses a malformed venue key") {
+        shouldThrow<IllegalArgumentException> { imported(venueKey = "A".repeat(64)) }
+        shouldThrow<IllegalArgumentException> { imported(venueKey = "a".repeat(63)) }
+        shouldThrow<IllegalArgumentException> { imported(venueKey = "z".repeat(64)) }
+    }
+
     test("requires a provenance stamp for an imported row") {
         shouldThrow<IllegalArgumentException> {
             RestaurantListing.imported(
@@ -82,6 +121,7 @@ class RestaurantListingImportedTest : FunSpec({
                 address = "1 St",
                 location = location(),
                 provenance = null,
+                venueKey = "a".repeat(64),
             )
         }
     }
@@ -93,6 +133,7 @@ class RestaurantListingImportedTest : FunSpec({
                 address = " ",
                 location = location(),
                 provenance = Provenance.CERTIFIER_HMA,
+                venueKey = "a".repeat(64),
             )
         }
         shouldThrow<IllegalArgumentException> {
@@ -102,6 +143,7 @@ class RestaurantListingImportedTest : FunSpec({
                 city = " ",
                 location = location(),
                 provenance = Provenance.CERTIFIER_HMA,
+                venueKey = "a".repeat(64),
             )
         }
     }

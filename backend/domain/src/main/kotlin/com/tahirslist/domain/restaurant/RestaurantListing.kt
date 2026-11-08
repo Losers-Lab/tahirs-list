@@ -226,14 +226,20 @@ data class RestaurantListing(
 
         /**
          * Build an ingested listing (D-15). Unlike [new], the row may have no
-         * owner and no cuisine, carries a brand/provenance and a deterministic
-         * [venueKey], and may start `VERIFIED` only when the caller supplies the
+         * owner and no cuisine, carries a brand/provenance and a required
+         * deterministic [venueKey] (D-18), and may start `VERIFIED` only when it
+         * is backed by a certifier-registry provenance and the
          * `CERTIFIER_REGISTRY` basis. The claim that justifies it is enforced by
          * the load use case, not here.
          *
+         * [venueKey] is deliberately immutable on edit: [withUpdatedFields]
+         * preserves it, because it is the venue's identity, not its content.
+         *
          * @throws IllegalArgumentException if the name/address is blank, an
-         *   address field is blank/too long, [provenance] is null, the basis does
-         *   not match the status, or [venueKey] is not a 64-char lowercase hex.
+         *   address field is blank/too long, [provenance] is null, [venueKey] is
+         *   not a 64-char lowercase hex, a `VERIFIED` row is not certifier-backed
+         *   with the `CERTIFIER_REGISTRY` basis, or an `UNVERIFIED` row carries a
+         *   basis.
          */
         fun imported(
             name: String,
@@ -251,7 +257,7 @@ data class RestaurantListing(
             ownerId: Uuid? = null,
             brandId: Uuid? = null,
             provenance: Provenance?,
-            venueKey: String? = null,
+            venueKey: String,
             verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
             verificationBasis: VerificationBasis? = null,
             createdAt: Instant = Clock.System.now(),
@@ -265,12 +271,17 @@ data class RestaurantListing(
             require(trimmedName.isNotBlank()) { "Listing name must not be blank." }
             require(trimmedAddress.isNotBlank()) { "Listing address must not be blank." }
             require(provenance != null) { "An imported listing must carry a provenance stamp." }
-            require(venueKey == null || VENUE_KEY.matches(venueKey)) {
+            require(VENUE_KEY.matches(venueKey)) {
                 "venueKey must be a 64-character lowercase hex string."
             }
             when (verificationStatus) {
-                VerificationStatus.VERIFIED -> require(verificationBasis == VerificationBasis.CERTIFIER_REGISTRY) {
-                    "A VERIFIED imported listing requires the CERTIFIER_REGISTRY basis."
+                VerificationStatus.VERIFIED -> {
+                    require(verificationBasis == VerificationBasis.CERTIFIER_REGISTRY) {
+                        "A VERIFIED imported listing requires the CERTIFIER_REGISTRY basis."
+                    }
+                    require(provenance.isCertifierRegistry) {
+                        "A VERIFIED imported listing must carry a certifier-registry provenance."
+                    }
                 }
                 VerificationStatus.UNVERIFIED -> require(verificationBasis == null) {
                     "An UNVERIFIED imported listing must not carry a verification basis."

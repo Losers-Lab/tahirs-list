@@ -59,6 +59,22 @@ class CertificationClaimTest : FunSpec({
     test("requires an https citation URL") {
         shouldThrow<IllegalArgumentException> { claim(url = "http://hmsusa.org/certified-listing/") }
         shouldThrow<IllegalArgumentException> { claim(url = "not-a-url") }
+        shouldThrow<IllegalArgumentException> { claim(url = "https://") }
+        shouldThrow<IllegalArgumentException> { claim(url = "https://hms usa.org/x") }
+    }
+
+    test("rejects a source that is not a lowercase slug") {
+        shouldThrow<IllegalArgumentException> { claim(source = "hms_usa") }
+        shouldThrow<IllegalArgumentException> { claim(source = "hms usa") }
+    }
+
+    test("caps claim fields at the persisted column widths") {
+        shouldThrow<IllegalArgumentException> { claim(source = "a".repeat(CertificationClaim.SOURCE_MAX_LENGTH + 1)) }
+        shouldThrow<IllegalArgumentException> { claim(record = "a".repeat(CertificationClaim.RECORD_MAX_LENGTH + 1)) }
+        shouldThrow<IllegalArgumentException> { claim(certifier = "a".repeat(CertificationClaim.CERTIFIER_MAX_LENGTH + 1)) }
+        shouldThrow<IllegalArgumentException> {
+            claim(url = "https://example.test/" + "a".repeat(CertificationClaim.URL_MAX_LENGTH))
+        }
     }
 
     test("tiers are ordered and only Tier-1 confers registry verification") {

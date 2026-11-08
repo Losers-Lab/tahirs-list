@@ -34,22 +34,28 @@ CREATE UNIQUE INDEX uq_restaurant_listings_venue_key
     ON restaurant_listings (venue_key)
     WHERE venue_key IS NOT NULL;
 
--- 2b. One ingested venue per coordinate pair (D-18). Seed rows and certifier
---     rows share the same space, so a certifier row that only matches an
---     existing seed row by location is rejected here too; the load holds it as
---     SUSPECTED_DUPLICATE before ever reaching this backstop. The narrower seed
---     index (V6) is kept because V7's `ON CONFLICT ... WHERE provenance =
---     'research-seed / photon-geocode'` inference and the seed generator still
---     target it on re-run.
+-- 2b. One ingested venue per coordinate pair (D-18). Seed rows and ingestion
+--     rows share the same space, so a row that matches an existing row only by
+--     location is rejected here too; the load holds it as SUSPECTED_DUPLICATE
+--     before ever reaching this backstop.
+--
+--     This index subsumes V6's narrower seed-location index, so the seed index
+--     is dropped. PostgreSQL still infers this index for V7's
+--     `ON CONFLICT (location_lat_6, location_lng_6) WHERE provenance =
+--     'research-seed / photon-geocode'` because that predicate implies
+--     `provenance IS NOT NULL`, so re-running the seed corpus stays a no-op.
+DROP INDEX uq_restaurant_listings_seed_location;
 CREATE UNIQUE INDEX uq_restaurant_listings_research_location
     ON restaurant_listings (location_lat_6, location_lng_6)
     WHERE provenance IS NOT NULL;
 
--- 3. Cited certifier observations. The listing FK is the audit link; the
---    globally unique (source, source_record_ref) is the idempotency key.
+-- 3. Cited certifier observations. The listing FK is the audit link and is
+--    RESTRICT, so deleting a listing can never silently destroy a claim or free
+--    the global (source, source_record_ref) idempotency key. The globally unique
+--    source record is the idempotency key.
 CREATE TABLE external_certification_claims (
     id                  UUID        NOT NULL DEFAULT gen_random_uuid(),
-    listing_id          UUID        NOT NULL REFERENCES restaurant_listings (id) ON DELETE CASCADE,
+    listing_id          UUID        NOT NULL REFERENCES restaurant_listings (id) ON DELETE RESTRICT,
     source              VARCHAR(64) NOT NULL,
     source_tier         SMALLINT    NOT NULL,
     source_record_ref   VARCHAR(255) NOT NULL,
@@ -61,8 +67,11 @@ CREATE TABLE external_certification_claims (
     last_seen           TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pk_external_certification_claims PRIMARY KEY (id),
+    CONSTRAINT ck_external_claims_source CHECK (
+        source = lower(source) AND source ~ '^[a-z0-9-]+$'
+    ),
     CONSTRAINT ck_external_claims_tier CHECK (source_tier BETWEEN 1 AND 3),
-    CONSTRAINT ck_external_claims_url CHECK (source_url LIKE 'https://%'),
+    CONSTRAINT ck_external_claims_url CHECK (source_url ~ '^https://[^[:space:]]+$'),
     CONSTRAINT ck_external_claims_hand_cut CHECK (
         hand_cut_declaration IN ('HAND_CUT', 'NOT_HAND_CUT', 'UNSPECIFIED')
     ),

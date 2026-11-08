@@ -58,14 +58,17 @@ class IngestionSchemaMigrationTest : FunSpec() {
             record: String = "HMS-1",
             tier: Int = 1,
             declaration: String = "HAND_CUT",
+            url: String = "https://example.test/listing",
+            firstSeen: String = "now()",
+            lastSeen: String = "now()",
         ): String = """
             INSERT INTO external_certification_claims
                 (id, listing_id, source, source_tier, source_record_ref, source_url,
                  certifier, hand_cut_declaration, first_seen, last_seen, created_at)
             VALUES (
                 '$id', '$listingId', '$source', $tier, '$record',
-                'https://example.test/listing', 'Example Certifier', '$declaration',
-                now(), now(), now()
+                '$url', 'Example Certifier', '$declaration',
+                $firstSeen, $lastSeen, now()
             )
         """.trimIndent()
 
@@ -158,8 +161,84 @@ class IngestionSchemaMigrationTest : FunSpec() {
                 postgis.execute(listingSql(listing, "Decl"))
 
                 shouldThrow<ExposedSQLException> {
-                    postgis.execute(claimSql(UUID.randomUUID(), listing, declaration = "MAYBE"))
+                    postgis.execute(
+                        claimSql(UUID.randomUUID(), listing, source = "hma", record = "DECL-1", declaration = "MAYBE"),
+                    )
                 }
+            }
+        }
+
+        test("claim CHECKs reject a bad source, tier, url and seen order") {
+            runTest {
+                val listing = UUID.randomUUID()
+                postgis.execute(listingSql(listing, "Checked"))
+
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(claimSql(UUID.randomUUID(), listing, source = "HMS", record = "CHECK-1"))
+                }
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(claimSql(UUID.randomUUID(), listing, source = "hfsaa", record = "CHECK-2", tier = 0))
+                }
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(claimSql(UUID.randomUUID(), listing, source = "hfsaa", record = "CHECK-3", tier = 4))
+                }
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(claimSql(UUID.randomUUID(), listing, source = "hfsaa", record = "CHECK-4", url = "https://"))
+                }
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(
+                        claimSql(UUID.randomUUID(), listing, source = "hfsaa", record = "CHECK-5", url = "http://example.test/x"),
+                    )
+                }
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(
+                        claimSql(
+                            UUID.randomUUID(),
+                            listing,
+                            source = "hfsaa",
+                            record = "CHECK-6",
+                            firstSeen = "now()",
+                            lastSeen = "now() - interval '1 day'",
+                        ),
+                    )
+                }
+            }
+        }
+
+        test("a claim blocks deleting its listing (audit trail survives)") {
+            runTest {
+                val listing = UUID.randomUUID()
+                postgis.execute(listingSql(listing, "Audited"))
+                postgis.execute(claimSql(UUID.randomUUID(), listing, source = "hfsaa", record = "AUDIT-1"))
+
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute("DELETE FROM restaurant_listings WHERE id = '$listing'")
+                }
+            }
+        }
+
+        test("the venue key CHECK rejects non-hex and uppercase keys") {
+            runTest {
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(listingSql(UUID.randomUUID(), "Upper", "A".repeat(64)))
+                }
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(listingSql(UUID.randomUUID(), "Short", "a".repeat(63)))
+                }
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(listingSql(UUID.randomUUID(), "NonHex", "z".repeat(64)))
+                }
+            }
+        }
+
+        test("V22 replaces the seed-location index with the research-wide one") {
+            runTest {
+                postgis.count(
+                    "SELECT count(*) FROM pg_indexes WHERE indexname = 'uq_restaurant_listings_seed_location'",
+                ) shouldBe 0
+                postgis.count(
+                    "SELECT count(*) FROM pg_indexes WHERE indexname = 'uq_restaurant_listings_research_location'",
+                ) shouldBe 1
             }
         }
     }
