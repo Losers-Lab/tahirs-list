@@ -10,6 +10,7 @@ import com.tahirslist.bootstrap.config.AppConfig
 import com.tahirslist.bootstrap.config.CookieSettings
 import com.tahirslist.bootstrap.config.DatabaseSettings
 import com.tahirslist.bootstrap.config.JwtSettings
+import com.tahirslist.bootstrap.config.McpSettings
 import com.tahirslist.bootstrap.config.RateLimitSettings
 import com.tahirslist.bootstrap.config.SeedIngestSettings
 import com.tahirslist.persistence.db.DatabaseFactory
@@ -168,6 +169,22 @@ val DEFAULT_RATE_LIMIT = RateLimitSettings(
     maxKeys = 100_000,
 )
 
+/**
+ * MCP settings every spec boots with: enabled, generous budget (so a spec's own
+ * calls are never throttled), predictable public base URLs for link assertions.
+ */
+val DEFAULT_MCP = McpSettings(
+    enabled = true,
+    publicWebBaseUrl = "http://localhost:5173",
+    publicApiBaseUrl = "http://localhost:8080",
+    allowedOrigins = emptySet(),
+    geocoderBaseUrl = "https://photon.komoot.io/api/",
+    capacity = 10_000,
+    maxKeys = 100_000,
+    refillTokens = 10_000,
+    refillWindowSeconds = 60,
+)
+
 /** The password every end-to-end spec signs accounts up with. */
 const val TEST_PASSWORD = "s3cr3t-password"
 
@@ -188,6 +205,7 @@ const val TEST_PASSWORD = "s3cr3t-password"
  */
 abstract class KtorPostgresTest(
     private val rateLimit: RateLimitSettings = DEFAULT_RATE_LIMIT,
+    private val mcpSettings: McpSettings = DEFAULT_MCP,
     /** Extra Koin definitions appended after the production graph. */
     private val extraModules: List<Module> = emptyList(),
 ) : FunSpec() {
@@ -387,6 +405,7 @@ abstract class KtorPostgresTest(
         storage = null,
         verification = null,
         seedIngest = SeedIngestSettings(enabled = false),
+        mcp = mcpSettings,
     )
 }
 

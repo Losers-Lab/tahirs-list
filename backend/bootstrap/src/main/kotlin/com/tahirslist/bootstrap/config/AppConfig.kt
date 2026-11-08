@@ -18,6 +18,7 @@ data class AppConfig(
     val storage: StorageSettings?,
     val verification: HostedVisionConfig?,
     val seedIngest: SeedIngestSettings,
+    val mcp: McpSettings = McpSettings(),
 ) {
     val isProduction: Boolean get() = profile.split(",").map { it.trim() }.contains("prod")
 }
@@ -56,6 +57,19 @@ data class StorageSettings(
 data class SeedIngestSettings(
     val enabled: Boolean = false,
     val manifest: String = "classpath:seed-photos.json",
+)
+
+/** Public MCP endpoint settings (SC-209). */
+data class McpSettings(
+    val enabled: Boolean = true,
+    val publicWebBaseUrl: String = "http://localhost:5173",
+    val publicApiBaseUrl: String = "http://localhost:8080",
+    val allowedOrigins: Set<String> = emptySet(),
+    val geocoderBaseUrl: String = "https://photon.komoot.io/api/",
+    val capacity: Long = 60,
+    val maxKeys: Int = 100_000,
+    val refillTokens: Long = 60,
+    val refillWindowSeconds: Long = 60,
 )
 
 /** Reads all settings once at startup; no dynamic re-read. */
@@ -107,6 +121,22 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
         seedIngest = SeedIngestSettings(
             enabled = env("APP_SEED_INGEST_ENABLED")?.toBooleanStrictOrNull() ?: false,
             manifest = env("APP_SEED_INGEST_MANIFEST") ?: "classpath:seed-photos.json",
+        ),
+        mcp = McpSettings(
+            enabled = env("APP_MCP_ENABLED")?.toBooleanStrictOrNull() ?: true,
+            publicWebBaseUrl = env("APP_MCP_PUBLIC_WEB_BASE_URL") ?: "http://localhost:5173",
+            publicApiBaseUrl = env("APP_MCP_PUBLIC_API_BASE_URL") ?: "http://localhost:8080",
+            allowedOrigins = env("APP_MCP_ALLOWED_ORIGINS")
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet()
+                ?: emptySet(),
+            geocoderBaseUrl = env("APP_GEOCODER_BASE_URL") ?: "https://photon.komoot.io/api/",
+            capacity = env("APP_MCP_RATELIMIT_CAPACITY")?.toLongOrNull() ?: 60,
+            maxKeys = env("APP_MCP_RATELIMIT_MAX_KEYS")?.toIntOrNull() ?: 100_000,
+            refillTokens = env("APP_MCP_RATELIMIT_REFILL_TOKENS")?.toLongOrNull() ?: 60,
+            refillWindowSeconds = env("APP_MCP_RATELIMIT_WINDOW_SECONDS")?.toLongOrNull() ?: 60,
         ),
     )
 }

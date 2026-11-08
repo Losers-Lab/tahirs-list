@@ -16,6 +16,7 @@ dependencies {
     implementation(project(":storage-s3"))
     implementation(project(":verification-ai"))
     implementation(project(":geocoding"))
+    implementation(project(":mcp"))
 
     implementation(platform(libs.ktor.bom))
     implementation(platform(libs.koin.bom))

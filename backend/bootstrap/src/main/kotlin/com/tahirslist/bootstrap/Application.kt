@@ -5,6 +5,7 @@ import com.tahirslist.bootstrap.config.loadConfig
 import com.tahirslist.bootstrap.config.requireValidProductionConfig
 import com.tahirslist.bootstrap.image.SeedImageIngestRunner
 import com.tahirslist.bootstrap.modules.appModules
+import com.tahirslist.mcp.installMcp
 import com.tahirslist.persistence.db.Migrations
 import com.tahirslist.web.AuthUseCases
 import com.tahirslist.web.FavoriteUseCases
@@ -102,6 +103,15 @@ fun Application.module(
         listingRoutes(listings)
         favoriteRoutes(favorites)
         verificationRoutes(verification)
+    }
+
+    if (config.mcp.enabled) {
+        installMcp(
+            config = get(),
+            useCases = get(),
+            limiter = get(),
+            originGuard = get(),
+        )
     }
 
     if (config.seedIngest.enabled) {

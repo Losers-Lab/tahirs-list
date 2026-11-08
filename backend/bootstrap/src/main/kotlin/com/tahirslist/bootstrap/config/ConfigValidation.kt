@@ -40,6 +40,15 @@ fun requireValidProductionConfig(config: AppConfig) {
                 "process memory, so an approved certificate would vanish on restart.",
         )
     }
+
+    if (config.mcp.enabled) {
+        requireHttps("APP_MCP_PUBLIC_WEB_BASE_URL", config.mcp.publicWebBaseUrl)
+        requireHttps("APP_MCP_PUBLIC_API_BASE_URL", config.mcp.publicApiBaseUrl)
+        requireHttps("APP_GEOCODER_BASE_URL", config.mcp.geocoderBaseUrl)
+        if (config.mcp.capacity <= 0) fail("APP_MCP_RATELIMIT_CAPACITY")
+        if (config.mcp.refillTokens <= 0) fail("APP_MCP_RATELIMIT_REFILL_TOKENS")
+        if (config.mcp.refillWindowSeconds <= 0) fail("APP_MCP_RATELIMIT_WINDOW_SECONDS")
+    }
 }
 
 /**
@@ -59,6 +68,22 @@ private fun requireKnownProfile(profile: String) {
 }
 
 private val KNOWN_PROFILES = setOf("dev", "test", "live", "prod")
+
+/** A public URL must be absolute https and must not be a localhost default. */
+private fun requireHttps(variable: String, value: String) {
+    val uri = runCatching { java.net.URI(value) }.getOrNull()
+    if (uri == null || uri.scheme != "https" || uri.host.isNullOrBlank()) {
+        throw IllegalStateException(
+            "Refusing to start in the 'prod' profile: $variable must be an absolute https URL.",
+        )
+    }
+    val host = uri.host.lowercase()
+    if (host == "localhost" || host == "127.0.0.1" || host == "::1") {
+        throw IllegalStateException(
+            "Refusing to start in the 'prod' profile: $variable still points at localhost.",
+        )
+    }
+}
 
 private fun fail(variable: String): Nothing =
     throw IllegalStateException(

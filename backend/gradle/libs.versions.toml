@@ -19,6 +19,7 @@ bouncycastle = "1.86"
 nimbus-jose-jwt = "10.10"
 bucket4j = "8.10.1"
 flyway = "13.12.0"
+mcp = "0.16.0"
 
 [libraries]
 # --- Ktor 3 (versions from the BOM) ---
@@ -69,6 +70,9 @@ bucket4j = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
 # --- Object storage: AWS SDK for Kotlin (coroutines) ---
 aws-kotlin-bom = { module = "aws.sdk.kotlin:bom", version.ref = "aws-kotlin" }
 aws-kotlin-s3 = { module = "aws.sdk.kotlin:s3" }
+
+# --- MCP: Model Context Protocol server (Ktor integration included) ---
+mcp-sdk-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcp" }
 
 # --- Testing ---
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }

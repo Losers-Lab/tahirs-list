@@ -283,6 +283,7 @@ private val PUBLIC_POST_PATHS = setOf(
     "/v1/auth/login",
     "/v1/auth/refresh",
     "/v1/auth/logout",
+    "/mcp",
 )
 
 /**
@@ -292,6 +293,10 @@ private val PUBLIC_POST_PATHS = setOf(
  */
 internal fun isPublicRequest(method: HttpMethod, path: String): Boolean = when {
     method == HttpMethod.Post && path in PUBLIC_POST_PATHS -> true
+    // The MCP endpoint is POST-only; GET/DELETE are answered with 405 by the
+    // transport, so they must reach routing instead of the auth guard.
+    method == HttpMethod.Get && path == "/mcp" -> true
+    method == HttpMethod.Delete && path == "/mcp" -> true
     method == HttpMethod.Get && path == "/v1/health" -> true
     method == HttpMethod.Get && (path == "/v1/listings" || path.startsWith("/v1/listings/")) -> true
     else -> false
