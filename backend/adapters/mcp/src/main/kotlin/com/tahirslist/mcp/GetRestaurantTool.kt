@@ -10,10 +10,8 @@ import io.modelcontextprotocol.kotlin.sdk.types.Tool
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlin.time.measureTimedValue
 import kotlin.uuid.Uuid
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -113,18 +111,6 @@ class GetRestaurantTool(
 
         private fun outputSchema(): ToolSchema = ToolSchema(
             properties = buildJsonObject {
-                fun JsonObjectBuilder.nullable(name: String, type: String) {
-                    put(
-                        name,
-                        buildJsonObject {
-                            put(
-                                "type",
-                                JsonArray(listOf(JsonPrimitive(type), JsonPrimitive("null"))),
-                            )
-                        },
-                    )
-                }
-
                 putJsonObject("id") { put("type", "string") }
                 putJsonObject("name") { put("type", "string") }
                 putJsonObject("address") { put("type", "string") }

@@ -16,7 +16,6 @@ import kotlin.time.measureTimedValue
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
@@ -252,20 +251,6 @@ class SearchRestaurantsTool(
                     putJsonObject("items") {
                         put("type", "object")
                         putJsonObject("properties") {
-                            fun JsonObjectBuilder.nullable(name: String, type: String) {
-                                put(
-                                    name,
-                                    buildJsonObject {
-                                        put(
-                                            "type",
-                                            JsonArray(
-                                                listOf(JsonPrimitive(type), JsonPrimitive("null")),
-                                            ),
-                                        )
-                                    },
-                                )
-                            }
-
                             putJsonObject("id") { put("type", "string") }
                             putJsonObject("name") { put("type", "string") }
                             putJsonObject("address") { put("type", "string") }
