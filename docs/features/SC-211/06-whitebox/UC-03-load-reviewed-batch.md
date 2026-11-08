@@ -14,7 +14,7 @@ sequenceDiagram
   participant SEARCH as ExposedListingSearchQuery
   DC->>CLI: 1. generateCatalogUpdate(candidates)
   CLI->>LOAD: generate(candidates, runId)
-  LOAD->>WR: 2. generate(...) [emits verified/unverified + upgrades + claims]
+  LOAD->>WR: 2. generate(...) [emits verification + hand-cut per standard + upgrades + claims]
   WR-->>LOAD: CatalogBatch (SQL + counts)
   LOAD->>REV: build(batch, candidates, reportRef)
   LOAD-->>CLI: CatalogUpdateReview
@@ -25,18 +25,18 @@ sequenceDiagram
   MIG-->>REV: appliedCounts()
   CLI-->>DC: 5. inserted / upgraded / skipped
   DC->>SEARCH: 6. search metro + handCut filter + verified display
-  SEARCH-->>DC: 7. Tier-1 verified â€” manual unverified â€” claims intact
+  SEARCH-->>DC: 7. Tier-1 verified — manual unverified — claims intact
 ```
 
-**Idempotency:** brands `ON CONFLICT (name)`; listings conflict on normalized location (ingested provenance); matched rows upgraded with `UPDATE … WHERE verification_status = 'UNVERIFIED'`; claims unique per (listing, source, record); projection `ON CONFLICT (id)`.
+**Idempotency:** brands `ON CONFLICT (name)`; listings conflict on normalized location (ingested provenance); matched rows upgraded with `UPDATE … WHERE verification_status = 'UNVERIFIED'` (hand-cut set from the claim's standard); claims unique per (listing, source, record); projection `ON CONFLICT (id)`.
 
 | Phase-4 flow | Error / outcome |
 |---|---|
 | A1 | Survivors only; header references the report |
 | A2 | Applied version → no-op; counts zero |
-| A3 | `UPDATE` matched row to `VERIFIED` + hand-cut, attach claim |
+| A3 | `UPDATE` matched row to `VERIFIED`; hand-cut per the claim's standard; attach claim |
 | E1 | `ExposedSQLException` → Flyway rolls back; startup fails |
 | E2 | Missing V22 → fail fast, data never runs alone |
-| E3 | Missing/wrong trust state → blocking (AC-7/INV-1) |
+| E3 | Wrong verification/hand-cut state for the claim's standard → blocking (AC-7/INV-1/INV-3) |
 
 **Authorization:** migration uses the app's configured DB credentials; merge authorization is PR review of the generated diff; no new endpoint.

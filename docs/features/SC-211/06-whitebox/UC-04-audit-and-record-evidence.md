@@ -22,7 +22,7 @@ sequenceDiagram
 |---|---|
 | Fetched-row accounting | `UnaccountedRowException` (blocking) |
 | Verification backing (`VERIFIED` ⇒ Tier-1 claim + basis) | `UnbackedHandCutException` / `ProvenanceMismatchException` |
-| Hand-cut backing | `UnbackedHandCutException` (blocking) |
+| Hand-cut backing (`TRUE` ⇒ claim standard HAND; `FALSE` ⇒ MACHINE) | `UnbackedHandCutException` (blocking) |
 | Claim citation (URL + date) | `UncitedClaimException` (blocking) |
 | Duplicate suspicion vs existing rows | Non-blocking; listed in report |
 
@@ -31,6 +31,6 @@ sequenceDiagram
 | A1/A2 | Failed source / shortfall recorded as gaps |
 | E1 | Run not accepted; accounting fixed |
 | E2 | Row quarantined; run re-executed |
-| E3 | Generator refuses `VERIFIED`/`TRUE` without a claim |
+| E3 | Generator refuses `VERIFIED` without a Tier-1 claim, or `TRUE` without a HAND-standard claim |
 
 **Authorization:** none at runtime; evidence edits are gated by PR review. No DB writes.

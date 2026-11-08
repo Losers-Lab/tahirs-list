@@ -33,7 +33,7 @@ sequenceDiagram
     G-->>RUN: GeocodedPlace? / GeocodingException
     RUN->>MC: confirm(query, place, listing)
     MC-->>RUN: MatchConfirmation | RejectReason
-    RUN->>C: 7. create/mergeWith + set intendedStatus/verificationBasis
+    RUN->>C: 7. create/mergeWith + intendedStatus/verificationBasis + handCutFor(standard)
   end
   RUN->>R: build(counts, rejects, duplicates, gaps)
   RUN->>A: 8. writeSnapshots / writeCandidates / writeReport
@@ -41,7 +41,7 @@ sequenceDiagram
   CLI-->>DC: 9. counts + rejects
 ```
 
-**Consistency:** `ING-1` — candidates written only after every fetched row is classified; geocoder outage aborts before write. `ING-3` — `VERIFIED` + `CERTIFIER_REGISTRY` iff the winning claim is Tier-1; else `UNVERIFIED`. Files are atomic (temp + rename); report is the commit marker.
+**Consistency:** `ING-1` — candidates written only after every fetched row is classified; geocoder outage aborts before write. `ING-3` — `VERIFIED` + `CERTIFIER_REGISTRY` iff the winning claim is Tier-1; hand-cut is `TRUE`/`FALSE`/`NULL` from that claim's declared standard (HAND/MACHINE/unspecified), never from the tier alone. Files are atomic (temp + rename); report is the commit marker.
 
 | Phase-4 flow | Error / outcome |
 |---|---|

@@ -2,7 +2,7 @@
 
 > **Purpose:** the domain vocabulary the use cases rely on · **Derived from:** 00 · **Delta:** extends (`CertificationClaim`, `VerificationBasis`) + changes (`VERIFIED` route)
 
-**ARCHITECTURE.md §1.2 impact: changes** — `VERIFIED` gains a second route (`CERTIFIER_REGISTRY`); `Restaurant ↔ 0..* CertificationClaim`. Committee flow unchanged.
+**ARCHITECTURE.md §1.2 impact: changes** — `VERIFIED` gains a second route (`CERTIFIER_REGISTRY`); `Restaurant ↔ 0..* CertificationClaim`. Verification follows the tier; hand-cut follows the certifier's declared slaughter standard. Committee flow unchanged.
 
 ```mermaid
 classDiagram
@@ -15,7 +15,7 @@ classDiagram
     +source
     +tier
     +certifier
-    +expiresOn
+    +claimedSlaughter
     +sourceRef
   }
   class IngestionRun {
@@ -28,7 +28,7 @@ classDiagram
     +tier
     +intendedStatus
     +verificationBasis
-    +claims
+    +slaughterStandard
   }
   class SourceListing {
     +name
@@ -39,7 +39,6 @@ classDiagram
   }
   class IngestReject
   class IngestReport
-  class RejectReason
   class MetroFilter
 
   IngestionRun "1" o-- "0..*" SourceListing
@@ -60,13 +59,13 @@ classDiagram
 |---|---|---|
 | RestaurantListing (existing) | Catalogue root; trust + halal attributes | Unverified → Verified (two routes) |
 | Brand (existing) | Location grouping | Persistent |
-| CertificationClaim (new) | Cited certifier observation; verification evidence | Observed → ReObserved |
+| CertificationClaim (new) | Cited certifier observation; verification + slaughter-standard evidence | Observed → ReObserved |
 | IngestionRun (new) | Audit unit for one pipeline execution | Planned → … → Loaded / Abandoned / Aborted |
 | IngestionCandidate (new) | Proposed listing derived from one or more source listings | Created per run |
 | SourceListing (new) | Raw directory record | Immutable |
 | IngestReject (new) | Excluded row with a closed-vocabulary reason | Immutable |
 | IngestReport (new) | Run accounting + rejects + gaps | Produced once |
-| Provenance · SourceTier · SourceRef · VerificationBasis · MetroFilter · MatchConfirmation | Value objects | Immutable |
+| Provenance · SourceTier · SourceRef · VerificationBasis · DirectoryStandard · MetroFilter · MatchConfirmation | Value objects | Immutable |
 
 ## Invariants
 
@@ -74,7 +73,7 @@ classDiagram
 |---|---|---|
 | INV-1 | Ingested listing is `VERIFIED` iff a recognized Tier-1 claim backs it; otherwise `UNVERIFIED` | `IngestSampleMigrationTest.loadsTierOneAsVerifiedWithClaims` |
 | INV-2 | Every ingested listing carries a closed-vocabulary provenance stamp | `ProvenanceTest.rejectsUnknownVocabulary` |
-| INV-3 | `isHandCut = TRUE` only with a Tier-1 `HAND` claim; every `VERIFIED` row has a cited basis | `LoadIngestionBatchTest.refusesVerifiedWithoutClaim` |
+| INV-3 | `isHandCut` is TRUE iff the backing claim's declared slaughter standard is HAND; FALSE iff MACHINE; NULL otherwise. Every `VERIFIED` row has a cited Tier-1 claim | `LoadIngestionBatchTest.handCutFollowsDeclaredStandard` · `refusesVerifiedWithoutClaim` |
 | INV-4 | Every candidate location came from a confirmed geocoder match | `MatchConfirmationPolicyTest.rejectsWrongRegion` |
 | INV-5 | Claims are unique per (listing, source, record) and cite a source URL | `CertificationClaimTest.requiresCitation` |
 | INV-6 | Same venue → one candidate; highest tier wins provenance; all claims retained | `RunSampleIngestionTest.mergesTierPriority` |
@@ -114,6 +113,7 @@ classDiagram
 | Match confirmation | Country/region agreement + name-token overlap evidence |
 | Provenance | Listing's origin stamp (winning directory) |
 | Verification basis | Why `VERIFIED`: `COMMITTEE_REVIEW` or `CERTIFIER_REGISTRY` |
+| Declared slaughter standard | The certifier's stated method for its certified supply: HAND · MACHINE · UNSPECIFIED |
 | Registry verification | `VERIFIED` conferred by a recognized Tier-1 entry + claim |
 | Batch | One reviewed run's candidates, materialized as a catalogue update |
 | Hand-cut | Product boolean (Zabiha); `NULL` = unknown/not claimed |

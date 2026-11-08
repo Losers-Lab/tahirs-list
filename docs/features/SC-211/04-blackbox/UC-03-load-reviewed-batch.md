@@ -9,12 +9,12 @@ sequenceDiagram
   actor DC as Data Curator
   participant TL as Tahir's List
   DC->>TL: 1. Generate update from approved candidates
-  TL-->>DC: 2. Migration + diff (brands, verified/unverified, upgrades, claims, projection)
+  TL-->>DC: 2. Migration + diff (brands, verification, hand-cut per standard, upgrades, claims)
   DC->>TL: 3. Review and merge
   TL->>TL: 4. Apply migrations at startup (one transaction)
   TL-->>DC: 5. Counts: inserted / upgraded / skipped
   DC->>TL: 6. Verify search, Verified display, hand-cut filter
-  TL-->>DC: 7. Tier-1 verified â€” manual unverified â€” claims intact
+  TL-->>DC: 7. Tier-1 verified — hand-cut per standard — manual unverified
 ```
 
 **A1 — rejected rows excluded** · survivors only.
@@ -22,7 +22,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: emit survivors â€” header references the report
+  TL->>TL: emit survivors — header references the report
 ```
 
 **A2 — re-apply** · idempotent no-op.
@@ -30,7 +30,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: zero new rows â€” idempotency proven
+  TL->>TL: zero new rows — idempotency proven
 ```
 
 **A3 — matched existing row** · upgrade, never duplicate.
@@ -38,7 +38,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: `UPDATE` to `VERIFIED` + hand-cut â€” attach claim
+  TL->>TL: `UPDATE` to `VERIFIED` — hand-cut per the claim's standard — attach claim
 ```
 
 **E1 — constraint violation** · rollback, no partial load.
@@ -46,7 +46,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: transaction rolls back â€” startup fails
+  TL->>TL: transaction rolls back — startup fails
 ```
 
 **E2 — schema missing** · fail fast.
@@ -62,5 +62,5 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: Tier-1 not Verified / manual Verified → investigate
+  TL->>TL: wrong verification/hand-cut state for the claim's standard → investigate
 ```

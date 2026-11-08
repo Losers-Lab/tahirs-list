@@ -20,7 +20,7 @@ flowchart LR
 - **Goal:** produce a geocoded, reconciled candidate batch + honest run report for three metros
 - **Trigger:** curator starts the sample-ingestion command with a metro selection
 - **Preconditions:** design approved; network to sources + Photon; metros/caps configured
-- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping · BR-6a Tier-1 claim ⇒ `VERIFIED` + hand-cut, else `UNVERIFIED` + `NULL`
+- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut follows the declared standard (HAND → TRUE, MACHINE → FALSE, unspecified → NULL); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL`
 
 **Main success scenario**
 
@@ -30,7 +30,7 @@ flowchart LR
 4. System requests the HMA GTA list and the sampled detail pages.
 5. System filters fetched rows to restaurants inside the metro city allowlists.
 6. System geocodes each row via Photon; accepts only confirmed matches.
-7. System reconciles same-venue rows, merges claims, records the intended verification outcome.
+7. System reconciles same-venue rows, merges claims, records the intended verification and hand-cut outcomes.
 8. System writes raw snapshots, `candidates.json` (outcome/basis), and `report.md`.
 9. System reports per-source/per-metro counts and rejected rows with reasons.
 
@@ -90,16 +90,16 @@ flowchart LR
 - **Goal:** turn an approved batch into searchable listings with the correct trust outcome, provenance, and claims — idempotently
 - **Trigger:** curator generates the catalogue update from the approved candidates and merges it
 - **Preconditions:** artifacts reviewed; V22 schema merged; database available
-- **Business rules:** BR-11 `VERIFIED` + hand-cut iff a Tier-1 claim backs the row · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands upsert before locations
+- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut follows that claim's declared standard (HAND/MACHINE/unspecified → TRUE/FALSE/NULL) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands upsert before locations
 
 **Main success scenario**
 
 1. Curator asks for the catalogue update from the approved `candidates.json`.
-2. System generates the Flyway migration (brands, listings, upgrades, claims, projection) + diff summary.
+2. System generates the Flyway migration (brands, listings with verification + hand-cut outcomes, upgrades, claims, projection) + diff summary.
 3. Curator reviews the migration and diff, then merges it.
 4. System applies pending migrations at startup in one transaction.
 5. System reports applied counts (inserted, upgraded, skipped).
-6. Curator verifies search per metro, Verified display, and the hand-cut filter on the live stack.
+6. Curator verifies search per metro, Verified display, and the hand-cut filter (HAND-standard rows only) on the live stack.
 7. Curator records the batch and evidence in the traceability matrix.
 
 **Flows**
@@ -123,7 +123,7 @@ flowchart LR
 - **Goal:** confirm the run is honest and complete, record evidence, track gaps as stories
 - **Trigger:** curator opens the run report
 - **Preconditions:** a run completed (UC-01/02); optionally loaded (UC-03)
-- **Business rules:** BR-16 every fetched row accounted for · BR-17 spot-check rows against citations · BR-18 gaps become stories, not TODOs · BR-19 `VERIFIED`/hand-cut without a claim is blocking
+- **Business rules:** BR-16 every fetched row accounted for · BR-17 spot-check rows against citations · BR-18 gaps become stories, not TODOs · BR-19 `VERIFIED` without a Tier-1 claim, or hand-cut TRUE without a HAND-standard claim, is blocking
 
 **Main success scenario**
 
@@ -141,7 +141,7 @@ flowchart LR
 | A2 | 2 | Metro shortfall → record as a known gap with cause | Gap recorded |
 | E1 | 2 | Unaccounted fetched row → blocking | Run not accepted |
 | E2 | 3 | Spot-check mismatch → blocking | Quarantine + re-run |
-| E3 | 2 | `VERIFIED`/hand-cut without a claim → blocking | Generator must refuse |
+| E3 | 2 | `VERIFIED` without a Tier-1 claim, or hand-cut TRUE without HAND standard → blocking | Generator must refuse |
 
 - **Postconditions:** success — report accepted, evidence recorded, gaps tracked; failure — no load until fixed.
 - **Data:** read — artifacts · created — traceability entries, follow-up stories

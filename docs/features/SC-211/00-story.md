@@ -37,11 +37,12 @@ flowchart LR
 | 1 | Automated Tier-1: HMS (Dallas + NYC), HFSAA (NYC), HMA (Toronto/GTA). |
 | 2 | Tier-3: hand-curated, individually cited Zabihah sample; no scraping. |
 | 3 | Excluded from automation: Crave Halal, Muslim Foodies, AVA/Achada. |
-| 4 | Tier-1 rows: `VERIFIED` + `is_hand_cut = TRUE`, backed by a claim. |
-| 5 | Tier-3 rows: `UNVERIFIED` + `is_hand_cut = NULL`. |
-| 6 | Load: committed artifacts → generated, idempotent Flyway migration. |
-| 7 | Metros: Dallas, NYC, Toronto; 15–25 rows each. |
-| 8 | Photon-only geocoding; non-matching rows rejected — no invented coordinates. |
+| 4 | Tier-1 rows: `VERIFIED` (the certifier is authoritative for halal), backed by a claim. |
+| 5 | Hand-cut is separate: `TRUE` only if the certifier's declared slaughter standard is HAND, `FALSE` if MACHINE, `NULL` if unspecified. Tier is not a hand-cut proxy. |
+| 6 | Tier-3 rows: `UNVERIFIED` + `is_hand_cut = NULL`. |
+| 7 | Load: committed artifacts → generated, idempotent Flyway migration. |
+| 8 | Metros: Dallas, NYC, Toronto; 15–25 rows each. |
+| 9 | Photon-only geocoding; non-matching rows rejected — no invented coordinates. |
 
 ## Acceptance criteria (verbatim)
 
@@ -58,14 +59,16 @@ flowchart LR
 > source(s).
 
 > **AC-4** A generated, idempotent Flyway migration loads the sample with
-> per-source provenance: Tier-1 rows as `VERIFIED` + `is_hand_cut = TRUE`,
-> manual Zabihah rows as `UNVERIFIED` + `NULL`; plus
+> per-source provenance: Tier-1 rows as `VERIFIED`; `is_hand_cut` derived from
+> the certifier's declared slaughter standard (HAND → TRUE, MACHINE → FALSE,
+> unspecified → NULL); manual Zabihah rows as `UNVERIFIED` + `NULL`; plus
 > `external_certification_claims` rows citing source URL (+ certifier/expiry
 > where published); brands upserted by name.
 
-> **AC-5** Every ingested `VERIFIED`/hand-cut assertion is backed by a claims row
-> from a Tier-1 certifier; no `VERIFIED` row exists without such a claim.
-> Manual Zabihah rows are never marked verified or hand-cut.
+> **AC-5** Every `VERIFIED` row is backed by a Tier-1 claim. `is_hand_cut = TRUE`
+> requires a claim whose declared slaughter standard is HAND; a Tier-1 certifier
+> with a machine or unspecified standard never yields TRUE. Manual Zabihah rows
+> are never marked verified or hand-cut.
 
 > **AC-6** Re-applying the migration adds no duplicates, and no existing V7 seed
 > row is duplicated (e.g. Paramount Fine Foods); a matched existing row is
@@ -93,6 +96,7 @@ flowchart LR
 | E-8 | Metro below 15 rows | Report the shortfall; never pad |
 | E-9 | Certification expires or is revoked | Expiry stored on the claim; revocation stays an open flag (D-10) |
 | E-10 | Tier-1 venue matches an existing row | Upgrade that row to `VERIFIED` + hand-cut with claims (AC-6) |
+| E-11 | Future Tier-1 certifier permits machine slaughter or is silent on method | `VERIFIED` (halal), `is_hand_cut = FALSE` (machine) or `NULL` (unspecified) — never auto-TRUE |
 
 ## Open questions
 

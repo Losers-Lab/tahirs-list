@@ -6,7 +6,7 @@ Design commit: this branch · Date: 2026-11-07 · **Status: awaiting decision**
 | Date | Change | Phases re-run |
 |---|---|---|
 | 2026-11-07 | Initial walkthrough | — |
-| 2026-11-07 | Founder amendment: Tier-1 registries confer `VERIFIED` + hand-cut | 0–2, 4–8 |
+| 2026-11-07 | Founder amendment: Tier-1 registries confer verification; hand-cut derives from the declared standard | 0–2, 4–8 |
 | 2026-11-07 | Format-only retrofit to the ratified diagram-first standard | none (content unchanged) |
 
 ```mermaid
@@ -18,8 +18,8 @@ flowchart LR
 
 ## 1. Story and domain model
 **Shows:** the pipeline's vocabulary — claim-backed registry verification, run/report, claims.
-**Locks in:** `VERIFIED` has two routes; a Tier-1 claim is the evidence; manual rows never verify.
-**Need:** approve D-3; confirm D-9, D-10.
+**Locks in:** `VERIFIED` has two routes; verification follows tier, hand-cut follows the certifier's declared standard; manual rows never verify.
+**Need:** approve D-3; confirm D-9, D-10, D-11.
 
 ## 2. Use cases
 **Shows:** UC-01 Tier-1 sample · UC-02 cited manual batch · UC-03 reviewed load · UC-04 audit.
@@ -42,14 +42,14 @@ flowchart LR
 **Need:** approve; confirm no additional sources now.
 
 ## 6. White-box sequences
-**Shows:** the serving path; one transaction for V23; verification rule; error classes.
-**Locks in:** dedupe/upgrade semantics; fail-fast migration; blocking audit checks.
+**Shows:** the serving path; one transaction for V23; verification-by-tier and hand-cut-by-standard; error classes.
+**Locks in:** dedupe/upgrade semantics; hand-cut never derived from tier; fail-fast migration; blocking audit checks.
 **Need:** approve; confirm D-4.
 
 ## 7. Complete class diagram (the design being approved)
 **Shows:** layer map, module/class names, V22/V23, no API/frontend delta, tests.
 **Locks in:** module boundaries, migration contents, provenance strings, test names.
-**Need:** approve, including D-5, D-6, D-8.
+**Need:** approve, including D-5, D-6, D-8, D-11.
 
 ## Decision items
 
@@ -63,8 +63,9 @@ flowchart LR
 | D-6 | The four provenance strings | Approve | pending |
 | D-7 | Out of scope: scheduler, claims UI, auto-Zabihah, ODbL display | Confirm | pending |
 | D-8 | Verified-badge attribution copy as a follow-up story | Yes | pending |
-| D-9 | Upgrade matched existing rows to `VERIFIED` + hand-cut | Yes | pending |
+| D-9 | Upgrade matched existing rows to `VERIFIED`; hand-cut per their claim's standard | Yes | pending |
 | D-10 | Expiry stored; no auto-demotion; revocation stays open | Yes | pending |
+| D-11 | Per-directory declared standard (tier + HAND/MACHINE/UNSPECIFIED) drives hand-cut; tier drives only verification | Yes | pending |
 
 ## Approval
 
@@ -72,7 +73,7 @@ flowchart LR
 
 ```
 Approved by: <pending> · Date: · Design commit:
-Decision items: D-1 … D-10 resolved as tabled
+Decision items: D-1 … D-11 resolved as tabled
 ```
 
 Re-approval: format-only retrofit, technical content unchanged, be3630e.

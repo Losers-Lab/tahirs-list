@@ -28,10 +28,10 @@ classDiagram
   class IngestionRun
   class IngestionCandidate {
     +mergeWith(other)
+    +handCutFor(standard)
   }
   class SourceListing
   class IngestReject
-  class IngestReport
   class MetroFilter {
     +accepts(listing)
   }
@@ -137,7 +137,7 @@ classDiagram
 | UC-01.2–4 | `HalalDirectorySource.fetch` (one adapter per directory) |
 | UC-01.5 | `MetroFilter.accepts` |
 | UC-01.6 | `GeocoderPort.geocode` + `MatchConfirmationPolicy.confirm` |
-| UC-01.7 | `IngestionCandidate.mergeWith` + `intendedStatus`/`verificationBasis` |
+| UC-01.7 | `IngestionCandidate.mergeWith` + `intendedStatus`/`verificationBasis`/`handCutFor(standard)` |
 | UC-01.8–9 | `ArtifactWriter.write*`; `IngestReport` |
 | UC-02.1–5 | `CompileManualBatch` → `CuratedBatchSource.read` → `GeocoderPort.geocode` → `mergeWith` |
 | UC-02.6–7 | `ArtifactWriter.writeCandidates/writeReport` |

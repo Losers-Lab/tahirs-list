@@ -14,9 +14,9 @@ sequenceDiagram
   ZAB-->>DC: Venue details
   DC->>TL: 2. Submit curated file (URL + access date per row)
   TL->>TL: 3. Validate manual-entry schema
-  TL->>PH: 4. Resolve each row â€” confirm match
+  TL->>PH: 4. Resolve each row — confirm match
   PH-->>TL: Place or no match
-  TL->>TL: 5. Merge (Tier-1 keeps `VERIFIED` â€” Tier-3 claim added)
+  TL->>TL: 5. Merge (Tier-1 keeps `VERIFIED` — Tier-3 claim added)
   TL->>TL: 6. Update candidates.json + report.md
   TL-->>DC: 7. Merged/rejected rows with reasons
 ```
@@ -26,7 +26,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: `NULL` structured fields â€” report the gap
+  TL->>TL: `NULL` structured fields — report the gap
 ```
 
 **A2 — page unavailable** · cite research as secondary, or omit.
@@ -42,7 +42,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: reject with field detail â€” rest proceeds
+  TL->>TL: reject with field detail — rest proceeds
 ```
 
 **E2 — no geocode** · reject; never reuse coordinates.
@@ -58,5 +58,5 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: `DUPLICATE_MERGED` â€” Tier-1 stays the listing
+  TL->>TL: `DUPLICATE_MERGED` — Tier-1 stays the listing
 ```

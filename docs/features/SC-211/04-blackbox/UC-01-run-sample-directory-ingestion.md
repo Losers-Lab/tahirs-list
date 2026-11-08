@@ -12,7 +12,7 @@ sequenceDiagram
   participant HF as HFSAA (external)
   participant HM as HMA (external)
   participant PH as Photon (external)
-  DC->>TL: 1. Run sample (Dallas, NYC, Toronto â€” caps)
+  DC->>TL: 1. Run sample (Dallas, NYC, Toronto — caps)
   TL->>HMS: 2. Request certified restaurants (throttled)
   HMS-->>TL: Listing pages
   TL->>HF: 3. Discover chapters + request New York
@@ -22,7 +22,7 @@ sequenceDiagram
   TL->>TL: 5. Filter to metro restaurants
   TL->>PH: 6. Resolve "name, address, city, region"
   PH-->>TL: Place or no match
-  TL->>TL: 7. Reconcile venues, merge claims, set trust outcome
+  TL->>TL: 7. Reconcile venues, merge claims, set verification + hand-cut from standard
   TL->>TL: 8. Write snapshots, candidates.json, report.md
   TL-->>DC: 9. Counts per source/metro + rejects
 ```
@@ -42,19 +42,19 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: keep confirmed rows only â€” no padding (step 6)
+  TL->>TL: keep confirmed rows only — no padding (step 6)
 ```
 **A4 — repeat run** · cached snapshots, no fetch.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: read cache â€” mark cache-sourced
+  TL->>TL: read cache — mark cache-sourced
 ```
 **E1 — source unreachable** · `SOURCE_UNAVAILABLE`, run continues.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: retry/backoff → mark source failed â€” report what was missed
+  TL->>TL: retry/backoff → mark source failed — report what was missed
 ```
 **E2 — Photon down** · abort; no candidates artifact.
 ```mermaid
@@ -66,7 +66,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: `SOURCE_PARSE_FAILED` â€” follow-up required
+  TL->>TL: `SOURCE_PARSE_FAILED` — follow-up required
 ```
 **E4 — zero metro matches** · reported; no load.
 ```mermaid
