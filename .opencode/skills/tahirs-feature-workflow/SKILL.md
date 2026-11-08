@@ -7,8 +7,11 @@ metadata:
 
 # Tahir's List Feature Workflow
 
-Canonical: `docs/process/feature-workflow.md` (ratified, advisory). Read it for
-templates and rationale. This file is the checklist.
+Canonical: the *Feature Workflow — diagrams first* note in the `tahirs-list-kb`
+KB (moved there from `docs/process/feature-workflow.md` in #78). Read it for
+templates and rationale. This file is the checklist. The design-PR gate in
+Step 8 is newer than the KB note — mirror it to the KB when the `basic-memory`
+MCP is enabled.
 
 ## When
 
