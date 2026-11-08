@@ -324,10 +324,11 @@ arguments happen now, not in code review.
 ## Phase 8 — Design PR, walkthrough and approval
 
 **The design package ships as a PR before approval is asked for.** Commit
-`00`–`08` on the feature branch, push, and open a PR titled
-`[SC-###] Design: <feature>` with the walkthrough in the PR body. GitHub renders
-every Mermaid block, the diff is auditable, and the founder's `approved` is
-recorded both in `08-design-walkthrough.md` and as a PR comment. A design that
+`00`–`08` on the feature branch, **parse-check every Mermaid block** (a diagram
+that does not render is a bug in the artifact, not in the review), push, and open
+a PR titled `[SC-###] Design: <feature>` with the walkthrough in the PR body.
+GitHub renders every block, the diff is auditable, and the founder's `approved`
+is recorded both in `08-design-walkthrough.md` and as a PR comment. A design that
 exists only in a local worktree has not been delivered for review.
 
 `08-design-walkthrough.md` is **one section per diagram, three bullets each**:
@@ -552,6 +553,7 @@ Use cases: UC-02 (04/UC-02, 06/UC-02)
 [ ] 07 complete: layer map + persistence/API/frontend deltas
 [ ] 08 walkthrough: 3 bullets per diagram + decisions + approval line
 [ ] design branch pushed + design PR opened with the walkthrough in the body
+[ ] every Mermaid block parse-checked — 0 failures
 [ ] 09 work items: two-way coverage, tests named
 [ ] 10 traceability: open and current
 ```

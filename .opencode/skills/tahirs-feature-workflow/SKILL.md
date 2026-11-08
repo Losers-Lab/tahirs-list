@@ -89,9 +89,11 @@ Write `08-design-walkthrough.md`: one section per diagram, **three bullets** eac
 
 **Then ship it for review — don't just describe it.** Commit (`[SC-###]`), push the
 branch, and open a PR titled `[SC-###] Design: <feature>` with the walkthrough in
-the PR body (`Author: <agent>` attribution, `[agent]` comments). GitHub renders
-every Mermaid block; that PR is the review surface. A design that only exists in a
-local worktree has not been delivered for review.
+the PR body (`Author: <agent>` attribution, `[agent]` comments). Parse-check every
+Mermaid block before pushing (`mmdc` or a Mermaid parse script); a broken diagram
+is a bug in the artifact, not in the review. GitHub renders every block; that PR
+is the review surface. A design that only exists in a local worktree has not been
+delivered for review.
 
 Give the founder the PR link and ask:
 
