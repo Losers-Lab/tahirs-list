@@ -35,13 +35,13 @@ sequenceDiagram
     R->>CG: geocode(address)
     rect rgba(230, 240, 255, .35)
       Note over ST,DB: read transaction
-      CG->>ST: findByQueryHash(hash)
-      ST->>DB: SELECT lat, lng, display_name, provider_ref FROM geocoded_addresses<br/>WHERE normalized_query_hash = ?
+      CG->>ST: findByQueryHash(hash, now − 90 days)(hash, notBefore = now − 90 days)
+      ST->>DB: SELECT lat, lng, display_name, provider_ref, provider FROM geocoded_addresses<br/>WHERE normalized_query_hash = ? AND created_at >= ?
     end
-    alt warm hit
+    alt fresh hit (≤ 90 days)
       ST-->>CG: GeocodedAddress
       CG-->>R: place (no provider call)
-    else cold miss
+    else miss or stale row
       CG->>PG: geocode(address) · upstream
       PG->>PH: GET /api/?q=…
       PH-->>PG: GeoJSON
@@ -49,7 +49,7 @@ sequenceDiagram
       rect rgba(230, 255, 235, .35)
         Note over ST,DB: write transaction
         CG->>ST: save(entry)
-        ST->>DB: INSERT … ON CONFLICT (normalized_query_hash) DO NOTHING
+        ST->>DB: INSERT … ON CONFLICT (normalized_query_hash) DO UPDATE SET created_at = now(), …
       end
       CG-->>R: place
     end
@@ -88,7 +88,7 @@ sequenceDiagram
 
   Note over DC,ST: E2 — provider dies mid-run
   R->>CG: geocode(address N)
-  CG->>ST: findByQueryHash
+  CG->>ST: findByQueryHash(hash, now − 90 days)
   ST-->>CG: null
   CG->>PG: geocode(address N)
   PG--xCG: GeocodingException
@@ -97,7 +97,7 @@ sequenceDiagram
   Note over R,ST: rows 1…N-1 are each a complete cached match — not partial output
 
   Note over DC,ST: E5/E6 — cache store trouble
-  CG->>ST: findByQueryHash
+  CG->>ST: findByQueryHash(hash, now − 90 days)
   ST--xCG: SQLException
   Note over CG: WARN — treat as a miss, call the provider
 ```
@@ -107,8 +107,8 @@ sequenceDiagram
 | Concern | Shown |
 |---|---|
 | Transaction boundary | Short read and write transactions per row; the provider call is never inside one |
-| State transition | Each successfully geocoded address: Absent → Stored; rejected rows may still be stored (the cache records the provider's answer) |
+| State transition | Each successfully geocoded address: `Absent`/`Stale` → `Stored`; a stale row is refreshed; rejected rows may still be stored (the cache records the provider's answer) |
 | Authorization | Operator CLI only; no user identity exists to scope. The cache key has no tenant dimension |
 | Concrete errors | Pre-flight `Unavailable` → abort; provider `GeocodingException` → abort; store errors → WARN + continue |
 | No dependency change | SC-211's guard, fetch, translate, confirm, reconcile and artifact contract are untouched |
-| Cost | A warm row costs one indexed `SELECT`; only the first sighting of an address reaches Photon |
+| Cost | A fresh row costs one indexed `SELECT`; only the first sighting of an address — or one older than 90 days — reaches Photon |

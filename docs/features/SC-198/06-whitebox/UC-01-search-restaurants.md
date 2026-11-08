@@ -25,16 +25,16 @@ sequenceDiagram
 
   rect rgba(230, 240, 255, .35)
     Note over ST,DB: read transaction
-    CG->>ST: findByQueryHash(hash)
-    ST->>DB: SELECT lat, lng, display_name, provider_ref FROM geocoded_addresses<br/>WHERE normalized_query_hash = ?
+    CG->>ST: findByQueryHash(hash, now − 90 days)(hash, notBefore = now − 90 days)
+    ST->>DB: SELECT lat, lng, display_name, provider_ref, provider FROM geocoded_addresses<br/>WHERE normalized_query_hash = ? AND created_at >= ?
     DB-->>ST: row | none
     ST-->>CG: GeocodedAddress | null
   end
   Note over CG,PH: no transaction is open across the outbound call
 
-  alt warm hit · UC-01.4.3
+  alt fresh hit (≤ 90 days) · UC-01.4.3
     CG-->>A: place (0 provider calls)
-  else cold miss · UC-01.4.4
+  else miss or stale row · UC-01.4.4
     CG->>PG: geocode(text) · upstream GeocoderPort
     PG->>PH: GET /api/?q=…
     PH-->>PG: GeoJSON FeatureCollection
@@ -42,7 +42,7 @@ sequenceDiagram
     rect rgba(230, 255, 235, .35)
       Note over ST,DB: write transaction
       CG->>ST: save(entry)
-      ST->>DB: INSERT INTO geocoded_addresses (normalized_query_hash, lat, lng,<br/>display_name, provider_ref, provider) VALUES (?,…,?)<br/>ON CONFLICT (normalized_query_hash) DO NOTHING
+      ST->>DB: INSERT INTO geocoded_addresses (normalized_query_hash, lat, lng,<br/>display_name, provider_ref, provider) VALUES (?,…,?)<br/>ON CONFLICT (normalized_query_hash) DO UPDATE SET<br/>lat = EXCLUDED.lat, lng = EXCLUDED.lng, display_name = EXCLUDED.display_name,<br/>provider_ref = EXCLUDED.provider_ref, provider = EXCLUDED.provider, created_at = now()
     end
     CG-->>A: place
   end
@@ -66,7 +66,7 @@ sequenceDiagram
 
   Note over A,DB: E2 — cold, no match
   A->>CG: geocode(text)
-  CG->>ST: findByQueryHash
+  CG->>ST: findByQueryHash(hash, now − 90 days)
   ST-->>CG: null
   CG->>PG: geocode(text)
   PG->>PH: GET
@@ -83,7 +83,7 @@ sequenceDiagram
   Note over CG,DB: no row exists for this query
 
   Note over A,DB: E5 — cache read fails
-  CG->>ST: findByQueryHash
+  CG->>ST: findByQueryHash(hash, now − 90 days)
   ST--xCG: ExposedSQLException
   Note over CG: WARN "geocode cache read failed" — treat as a miss
   CG->>PG: geocode(text) → result returned
@@ -100,8 +100,9 @@ sequenceDiagram
 | Concern | Shown |
 |---|---|
 | Transaction boundary | Two short transactions (read, then write) with **no** transaction held across the HTTP call (INV-10) |
-| State transition | Absent → Stored on a cold success; Absent stays Absent on no-match/failure |
+| State transition | `Absent`/`Stale` → `Stored` on a successful lookup; a stale row is refreshed in place; no-match/failure leaves the state unchanged |
 | Authorization | None beyond the anonymous MCP gate — the cache key carries no identity, so no cross-user data can be reached by guessing a place |
 | Concrete errors | `PlaceNotResolvedException` (null) · `GeocodingException` (provider) · WARN-and-continue (store read/write) |
-| Idempotency | `ON CONFLICT (normalized_query_hash) DO NOTHING`; a duplicate save is a no-op |
+| TTL | A row older than 90 days is not a hit; the next success rewrites it with `created_at = now()` (INV-11) |
+| Idempotency | `ON CONFLICT … DO UPDATE` keeps one row per key and refreshes a stale one; the unique key is the idempotency |
 | Data minimization | Only the hash, point, provider label/ref and provider name are written; the address text is not |

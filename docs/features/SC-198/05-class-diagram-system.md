@@ -66,7 +66,7 @@ classDiagram
   }
   class GeocodedAddressStore {
     <<interface>>
-    +findByQueryHash(hash) GeocodedAddress?
+    +findByQueryHash(hash, notBefore) GeocodedAddress?
     +save(entry)
   }
   class CachingGeocoder {
@@ -129,7 +129,7 @@ classDiagram
 |---|---|---|---|
 | `GeocoderPort` (cached) | `geocode(address): GeocodedPlace?` | `CachingGeocoder` (decorator) | — |
 | `GeocoderPort` (upstream) | `geocode(address): GeocodedPlace?` | `PhotonGeocoder` (existing) | Photon HTTP API |
-| `GeocodedAddressStore` | `findByQueryHash(hash)` · `save(entry)` | `ExposedGeocodedAddressStore` | PostgreSQL `geocoded_addresses` |
+| `GeocodedAddressStore` | `findByQueryHash(hash, notBefore)` · `save(entry)` | `ExposedGeocodedAddressStore` | PostgreSQL `geocoded_addresses` |
 | `ListingSearchQuery` (existing) | `searchNearby(centre, radius, filters, offset, limit)` | `ExposedListingSearchQuery` | PostgreSQL/PostGIS |
 | `RestaurantListingRepository` (existing) | batch/read operations (SC-211) | `ExposedRestaurantListingRepository` | PostgreSQL/PostGIS |
 

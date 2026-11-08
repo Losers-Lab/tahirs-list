@@ -26,7 +26,7 @@ flowchart TB
 | Column | new | `display_name` | `TEXT NOT NULL` — provider label, preserved on hits |
 | Column | new | `provider_ref` | `TEXT NULL` — provider's own id, preserved on hits |
 | Column | new | `provider` | `VARCHAR(32) NOT NULL` — `'photon'` today (D-5) |
-| Column | new | `created_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` |
+| Column | new | `created_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` — first sighting, refreshed when a stale row is re-fetched |
 | Exposed | new | `GeocodedAddresses` | `Tables.kt`, same columns |
 | Adapter | new | `ExposedGeocodedAddressStore` | `findByQueryHash` / `save`, own short transactions |
 | Migration | new | `V22__sc_198_geocoded_addresses.sql` | Next free version; renumber on collision |
@@ -45,7 +45,7 @@ CREATE TABLE geocoded_addresses (
 );
 ```
 
-The primary key *is* the idempotency: `INSERT … ON CONFLICT (normalized_query_hash) DO NOTHING`.
+The primary key *is* the idempotency: `INSERT … ON CONFLICT (normalized_query_hash) DO UPDATE` keeps one row per key and rewrites a stale one. Reads are `… WHERE normalized_query_hash = ? AND created_at >= ?` with a cutoff of `now − 90 days` (D-6): a stale row is simply not a hit, so no scheduler or sweep job is needed. The TTL is a config value (`GEOCODE_CACHE_TTL_DAYS`, default 90; `0` = permanent).
 
 ## API delta
 
@@ -91,7 +91,7 @@ flowchart LR
 | Binding | Type | Change |
 |---|---|---|
 | `single<GeocoderPort>(named(UPSTREAM)) { PhotonGeocoder(...) }` | provider | modified (was the only binding) |
-| `single<GeocoderPort> { CachingGeocoder(get(UPSTREAM), get()) }` | consumers | new |
+| `single<GeocoderPort> { CachingGeocoder(get(UPSTREAM), get(), ttl = Duration.ofDays(config.geocodeCache.ttlDays)) }` | consumers | new (default 90 days) |
 | `single<GeocodedAddressStore> { ExposedGeocodedAddressStore(get()) }` | cache store | new |
 | `single { CheckGeocoderHealth(get(UPSTREAM)) }` | pre-flight | new wiring (class exists) |
 
@@ -109,10 +109,12 @@ flowchart LR
 | `CachingGeocoderTest.noMatchIsNotCached` | application | AC-d |
 | `CachingGeocoderTest.providerFailureLeavesNoCacheRow` | application | AC-d |
 | `CachingGeocoderTest.lookupAndWriteUseSameKey` | application | INV-8 |
+| `CachingGeocoderTest.expiredRowIsRefetchedAndRefreshed` | application | INV-11 |
 | `CachingGeocoderTest.readFailureFallsBackToProvider` | application | INV-9 |
 | `CachingGeocoderTest.writeFailureStillReturnsPlace` | application | INV-9 |
 | `ExposedGeocodedAddressStoreTest.saveThenFindRoundTrips` | persistence | AC-a |
-| `ExposedGeocodedAddressStoreTest.duplicateSaveIsNoOp` | persistence | AC-a |
+| `ExposedGeocodedAddressStoreTest.saveRefreshesStaleRow` | persistence | INV-11 |
+| `ExposedGeocodedAddressStoreTest.oldRowIsNotServed` | persistence | INV-11 |
 | `GeocodedAddressesMigrationTest.uniqueQueryHash` | persistence | AC-a |
 | `GeocodedAddressesMigrationTest.rejectsOutOfRangePoint` | persistence | AC-a (checks) |
 | `GeocodingWiringTest.healthProbeBypassesCache` | bootstrap | D-2, INV-7 |

@@ -14,9 +14,9 @@ sequenceDiagram
   U->>AG: 1. halal food near "Main St"
   AG->>S: 2. search(place, radius, filters)
   Note over S: 3. validate radius, page, filters
-  alt place already known (warm)
+  alt place resolved within 90 days (warm)
     S->>S: 4a. resolve from cache
-  else place not known (cold)
+  else never resolved, or row older than 90 days (cold)
     S->>PH: 4b. geocode "Main St"
     PH-->>S: 4c. coordinates + label
     S->>S: 4d. store the match
@@ -61,7 +61,7 @@ sequenceDiagram
 
 Nothing is stored: a miss stays a miss and is retried on the next request.
 
-## Exception — E3 provider unavailable (cold), warm queries unaffected
+## Exception — E3 provider unavailable (cold), fresh queries unaffected
 
 ```mermaid
 sequenceDiagram
@@ -76,11 +76,11 @@ sequenceDiagram
   S-->>AG: E3. "lookup unavailable — supply coordinates"
   Note over S: nothing stored for X
   AG->>S: 2'. search(place Y, radius, filters)
-  Note over S: 4a. Y already cached
+  Note over S: 4a. Y cached and fresh (≤ 90 days)
   S-->>AG: 7'. results for Y
 ```
 
-A cache hit keeps search working during an outage; only never-seen places fail.
+A fresh cache hit keeps search working during an outage; only never-seen or stale places fail.
 
 ## Exceptions — E5 / E6 cache store trouble
 

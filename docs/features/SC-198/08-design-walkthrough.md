@@ -6,6 +6,7 @@
 | Date | Change | Phases re-run |
 |---|---|---|
 | 2026-11-08 | Initial walkthrough | — |
+| 2026-11-08 | D-6 decided: lazy 90-day TTL, refreshed in place (no scheduler) | 01, 02, 04, 06, 07 |
 
 ```mermaid
 flowchart LR
@@ -16,12 +17,12 @@ flowchart LR
 
 ## 1. Story and domain model
 **Shows:** one cache-only entity, `GeocodedAddress`, keyed by the SHA-256 of a normalized query; no aggregate changes.
-**Locks in:** only successful provider matches are stored; the cache never touches a listing’s state; the record is invisible to the domain.
+**Locks in:** only successful provider matches are stored; the cache never touches a listing’s state; the record is invisible to the domain; rows older than 90 days stop counting and are refreshed in place.
 **Need:** approve; confirm D-3 (normalization), D-5 (extra columns).
 
 ## 2. Use cases
 **Shows:** UC-01 search and UC-02 ingestion, both modified only at the geocoding step.
-**Locks in:** a warm lookup costs zero provider calls; a cold failure behaves exactly as today; no new actor goal.
+**Locks in:** a fresh lookup (≤ 90 days) costs zero provider calls; a cold failure behaves exactly as today; no new actor goal.
 **Need:** approve; confirm D-4, D-7.
 
 ## 3. Use case diagram
@@ -30,8 +31,8 @@ flowchart LR
 **Need:** approve.
 
 ## 4. Black-box sequences
-**Shows:** warm vs cold from the user’s and the curator’s side, including a warm search succeeding during a Photon outage.
-**Locks in:** no-match and provider failure store nothing; repeat ingestion costs one pre-flight call; pre-flight is always a real provider call.
+**Shows:** warm vs cold from the user’s and the curator’s side, including a fresh search succeeding during a Photon outage.
+**Locks in:** no-match and provider failure store nothing; repeat ingestion inside 90 days costs one pre-flight call; pre-flight is always a real provider call.
 **Need:** approve; confirm D-2 (pre-flight bypass).
 
 ## 5. System class diagram
@@ -41,12 +42,12 @@ flowchart LR
 
 ## 6. White-box sequences
 **Shows:** the real calls — `NormalizedQuery.of`, `findByQueryHash`, Photon, `save` — with two short transactions and the provider call outside both.
-**Locks in:** `ON CONFLICT DO NOTHING`; no raw address stored; store errors are WARN-only; each exception maps to a concrete error.
+**Locks in:** the read predicate `created_at >= now − 90 days`; an upsert that refreshes a stale row; no raw address stored; store errors are WARN-only; each exception maps to a concrete error.
 **Need:** approve; confirm D-6, D-7, D-8.
 
 ## 7. Complete class diagram (the design being approved)
 **Shows:** module map, final names, V22 schema, wiring delta, and the tests that prove each AC.
-**Locks in:** one migration and one table, no API/frontend change, no column touched elsewhere.
+**Locks in:** one migration and one table, no API/frontend change, no column touched elsewhere; `created_at` doubles as the 90-day freshness stamp.
 **Need:** approve, including D-5, D-9.
 
 ## Decision items
@@ -58,7 +59,7 @@ flowchart LR
 | D-3 | Normalization = Unicode NFKC → trim → collapse internal whitespace → lowercase `Locale.ROOT`; key = lowercase hex SHA-256 | Yes | pending |
 | D-4 | Cache successful matches only; never cache a no-match or a provider failure; nothing written on failure | Yes — AC-d | pending |
 | D-5 | Add `provider` and `provider_ref` beyond the story’s five columns; keep `normalized_query_hash` as the primary key; a provider swap purges old rows | Yes | pending |
-| D-6 | No TTL or eviction in this story; rows persist until an operator purges them | Yes for now — revisit on provider swap | pending |
+| D-6 | Cache lifetime: lazy 90-day TTL — a row older than 90 days is ignored and refreshed in place on the next successful lookup; no scheduler | Decided 2026-11-08 | decided — lazy TTL, 90 days |
 | D-7 | Fail open on cache store errors: read failure → treat as a miss; write failure → warn and return the provider result | Yes — the cache must never cause an outage | pending |
 | D-8 | Accept that two concurrent first-time lookups may both call Photon; the unique key keeps one row | Yes — a lock costs more than a duplicate call | pending |
 | D-9 | No REST/MCP/OpenAPI/frontend change; migration V22 reserved for this story; SC-209 BR-10 (“no cache in v1”) amended | Yes | pending |
@@ -66,7 +67,7 @@ flowchart LR
 ## Approval
 
 ```
-Approved by: <pending> · Date: · Design commit:
+Approved by: <pending> · Date: · Design commit: · Design PR: #80
 Decision items: D-1 … D-9 resolved as tabled
 ```
 

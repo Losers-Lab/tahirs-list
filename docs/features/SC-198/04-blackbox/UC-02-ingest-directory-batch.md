@@ -23,9 +23,9 @@ sequenceDiagram
     S->>S: 5. filter to metro allowlists
 
     loop each row's address
-      alt address already resolved (warm)
+      alt address resolved within 90 days (warm)
         S->>S: 6a. look up the normalized address
-      else address never resolved (cold)
+      else never resolved, or older than 90 days (cold)
         S->>PH: 6b. geocode address
         PH-->>S: 6c. coordinates + display name
         S->>S: 6d. store the match (even if later rejected)
@@ -49,7 +49,7 @@ sequenceDiagram
   actor PH as Photon
   participant S as Tahir's List
 
-  Note over DC,S: A1 — repeat run: every address warm, zero provider calls after pre-flight
+  Note over DC,S: A1 — repeat run: every address fresh (≤ 90 days), zero provider calls after pre-flight
   DC->>S: 1. run again
   S->>PH: 3. pre-flight (the only provider call)
   S->>DS: 4. fetch
@@ -76,6 +76,6 @@ sequenceDiagram
 
 ## Caption
 
-- **Visible change:** a repeat run costs one pre-flight call instead of one per row; a cold run behaves exactly as SC-211 specified.
+- **Visible change:** a repeat run inside 90 days costs one pre-flight call instead of one per row; a cold or stale row behaves exactly as SC-211 specified.
 - **Locks in:** the pre-flight is *always* a real provider call — a cached probe could hide an outage and let a run start with no usable geocoder.
 - **Unchanged:** guard, fetch, translation, metro filter, confirmation, reconciliation, artifacts, report.

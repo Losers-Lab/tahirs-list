@@ -36,7 +36,7 @@ classDiagram
   NormalizedQuery ..> GeocodedAddress : key
 ```
 
-`NormalizedQuery` is a pure value object: `of(text)` normalizes (NFKC → trim → collapse internal whitespace → lowercase `Locale.ROOT`) and returns the normalized text plus a lowercase hex SHA-256. `GeocodedAddress` is the row shape; it never gains behaviour beyond `toPlace()`, so a hit is indistinguishable from a fresh provider result.
+`NormalizedQuery` is a pure value object: `of(text)` normalizes (NFKC → trim → collapse internal whitespace → lowercase `Locale.ROOT`) and returns the normalized text plus a lowercase hex SHA-256. `GeocodedAddress` is the row shape; it never gains behaviour beyond `toPlace()`. A row is a hit only while fresh: `created_at` older than 90 days is treated as absent and refreshed on the next successful lookup, so a wrong or outdated match self-heals without a scheduler.
 
 ## Invariants
 
@@ -52,6 +52,7 @@ classDiagram
 | INV-8 | The cache key is computed once per call, so the lookup and the write always agree | `CachingGeocoderTest.lookupAndWriteUseSameKey` |
 | INV-9 | Cache is an optimization: a store read/write failure never fails a request | `CachingGeocoderTest.readFailureFallsBackToProvider` · `writeFailureStillReturnsPlace` |
 | INV-10 | The outbound provider call is never inside a database transaction | design constraint — verified in 06/UC-01 (not a unit test) |
+| INV-11 | A row older than the 90-day TTL is not served; the next successful lookup refreshes that same row, never adds another | `CachingGeocoderTest.expiredRowIsRefetchedAndRefreshed` · `ExposedGeocodedAddressStoreTest.saveRefreshesStaleRow` |
 
 ## States
 
@@ -60,7 +61,9 @@ classDiagram
 | Absent | geocode → provider match | Stored | Provider returned coordinates |
 | Absent | geocode → provider no-match | Absent | `null` result is not cached |
 | Absent | geocode → provider throws | Absent | No write attempted |
-| Stored | geocode → equivalent normalized text | Stored | Hash equal; no provider call |
+| Stored | geocode → equivalent normalized text, row fresh | Stored | Hash equal and `created_at` within 90 days |
+| Stored | 90 days pass | Stale | Ignored on read; the row stays until re-fetched |
+| Stale | geocode → provider match | Stored | Row refreshed in place; `created_at` moves forward |
 | Stored | provider swap / operator purge | Absent | Ops action (D-5, Q-5) |
 
 ## Glossary
@@ -75,3 +78,4 @@ classDiagram
 | Upstream provider | The geocoding service behind `GeocoderPort` (today Photon) |
 | Pre-flight probe | The one ingestion health query that must bypass the cache (SC-211 AC-9) |
 | Cache entry | One `geocoded_addresses` row: hash, point, label, provider reference, provider, created-at |
+| TTL · stale | 90 days — the age after which a row is ignored · a row past it, refreshed on the next successful lookup |

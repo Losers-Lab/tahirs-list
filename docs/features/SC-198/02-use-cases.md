@@ -33,6 +33,7 @@ flowchart LR
 | BR-6 | The ingestion pre-flight probes the uncached provider, so a cached probe can never mask an outage. |
 | BR-7 | Cache reads and writes are best-effort; a store error degrades to a normal provider call / a returned result. |
 | BR-8 | SC-209 BR-10 ("no cache in v1") is **superseded** by this feature; the rest of BR-10 still holds. |
+| BR-9 | A row older than the 90-day TTL is ignored and refreshed in place on the next successful lookup (D-6). |
 
 ## UC-01 — Search for Halal Restaurants (existing; cached place resolution)
 
@@ -47,7 +48,7 @@ flowchart LR
 3. Tahir's List validates radius, page and every filter value.
 4. If place text was supplied, Tahir's List resolves it to a search centre:
    1. normalizes the text and derives its hash;
-   2. reads `geocoded_addresses` by hash;
+   2. reads `geocoded_addresses` by hash, ignoring rows older than 90 days;
    3. on a hit, uses the stored point and label — **no provider call**;
    4. on a miss, calls Photon once; on a match, stores the row before continuing.
 5. Tahir's List finds index-qualified listings within the radius matching the filters.
@@ -57,7 +58,7 @@ flowchart LR
 **Alternate flows**
 
 - **A1 (from 2)** — coordinates supplied: steps 3, 5–7; step 4 is skipped entirely.
-- **A2 (from 4.2)** — warm hit: continues at 5; Photon is not contacted.
+- **A2 (from 4.2)** — warm hit (row within 90 days): continues at 5; Photon is not contacted.
 - **A3 (from 5)** — no listings match: empty page, count 0. Success (unchanged).
 - **A4 (from 5)** — page full: `nextOffset` returned (unchanged).
 
@@ -92,7 +93,7 @@ flowchart LR
 5. System filters rows to the metro allowlists.
 6. For each row, Tahir's List resolves the address:
    1. normalizes the address and derives its hash;
-   2. on a hit, uses the stored place — no provider call;
+   2. on a fresh hit (row within 90 days), uses the stored place — no provider call;
    3. on a miss, calls Photon once and stores a successful match (even if match-confirmation later rejects the row — the cache records the provider's answer, not a catalogue decision);
    4. applies match-confirmation; unconfirmed rows stay rejected.
 7. System reconciles same-venue rows and records intended verification / hand-cut.
@@ -107,6 +108,6 @@ flowchart LR
 | E2 | 6.3 | Photon down mid-run → abort before publishing candidates | No artifacts; earlier rows remain valid cache entries, not partial output |
 | E3 | 6.3 | Photon returns no match → row rejected with reason | No row for that address |
 
-- **Postconditions:** success — the SC-211 artifact set exists; one cache row per distinct successfully geocoded address. Failure — no artifacts; cache rows already written are each a complete provider result, never a partial one.
+- **Postconditions:** success — the SC-211 artifact set exists; one cache row per distinct successfully geocoded address, refreshed when it is older than 90 days. Failure — no artifacts; cache rows already written are each a complete provider result, never a partial one.
 - **Data:** read — cache rows, directory records · created — cache rows, run artifacts
 - **ACs:** AC-a…AC-d · SC-211 AC-2 and AC-9 unchanged · **Open:** Q-3 (ordering with SC-211's pipeline PR), D-2
