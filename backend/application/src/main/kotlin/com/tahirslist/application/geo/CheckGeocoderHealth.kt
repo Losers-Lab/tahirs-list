@@ -20,8 +20,8 @@ sealed interface GeocoderHealth {
  * it exercises the same provider, credentials, and adapter path as the real run.
  */
 class CheckGeocoderHealth(
-    private val geocoder: GeocoderPort,
-    private val probeAddress: String = DEFAULT_PROBE_ADDRESS,
+    val geocoder: GeocoderPort,
+    val probeAddress: String = DEFAULT_PROBE_ADDRESS,
 ) {
     suspend fun execute(): GeocoderHealth = try {
         val place = geocoder.geocode(probeAddress)

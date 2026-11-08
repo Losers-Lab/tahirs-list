@@ -14,6 +14,8 @@ import com.tahirslist.application.favorite.FavoriteListing
 import com.tahirslist.application.favorite.FavoritesRepository
 import com.tahirslist.application.favorite.ListFavorites
 import com.tahirslist.application.favorite.UnfavoriteListing
+import com.tahirslist.application.geo.CheckGeocoderHealth
+import com.tahirslist.application.geo.GeocodedAddressStore
 import com.tahirslist.application.geo.GeocoderPort
 import com.tahirslist.application.image.ImageFetcher
 import com.tahirslist.application.image.ImagePort
@@ -42,7 +44,6 @@ import com.tahirslist.bootstrap.config.AppConfig
 import com.tahirslist.bootstrap.image.HttpImageFetcher
 import com.tahirslist.bootstrap.image.SeedImageIngestRunner
 import com.tahirslist.bootstrap.image.SeedPhotoManifestParser
-import com.tahirslist.geocoding.PhotonGeocoder
 import com.tahirslist.mcp.Bucket4jMcpRateLimiter
 import com.tahirslist.mcp.McpConfig
 import com.tahirslist.mcp.McpOriginGuard
@@ -53,6 +54,7 @@ import com.tahirslist.persistence.account.ExposedAccountRepository
 import com.tahirslist.persistence.account.ExposedRefreshTokenStore
 import com.tahirslist.persistence.db.DatabaseFactory
 import com.tahirslist.persistence.favorite.ExposedFavoritesRepository
+import com.tahirslist.persistence.geo.ExposedGeocodedAddressStore
 import com.tahirslist.persistence.image.ExposedSeedPhotoListingResolver
 import com.tahirslist.persistence.listing.ExposedListingSearchQuery
 import com.tahirslist.persistence.listing.ExposedRestaurantListingRepository
@@ -74,6 +76,7 @@ import com.tahirslist.web.VerificationUseCases
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.security.KeyPair
 import java.security.interfaces.RSAPrivateKey
@@ -160,8 +163,17 @@ private fun infrastructureModule(config: AppConfig): Module = module {
     single<ImageFetcher> { HttpImageFetcher() }
     single { SeedPhotoManifestParser() }
 
-    // --- Geocoding (SC-209 is the first production consumer of the port) ---
-    single<GeocoderPort> { PhotonGeocoder(baseUrl = config.mcp.geocoderBaseUrl) }
+    // --- Geocoding (SC-198: one provider, one cache, two bindings) ---
+    single<GeocodedAddressStore> { ExposedGeocodedAddressStore(get()) }
+    single<GeocoderPort>(named(GeocodingQualifiers.UPSTREAM)) { GeocodingGraph.upstream(config) }
+    single<GeocoderPort> {
+        GeocodingGraph.cached(
+            upstream = get(named(GeocodingQualifiers.UPSTREAM)),
+            store = get(),
+            ttl = GeocodingGraph.ttl(config.geocodeCache.ttlDays),
+        )
+    }
+    single { GeocodingGraph.healthProbe(get(named(GeocodingQualifiers.UPSTREAM))) }
     val verification = config.verification
     if (verification != null) {
         single<VisionModelClient> { RestVisionModelClient(verification) }
