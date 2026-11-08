@@ -45,7 +45,8 @@ a minute.
 
 - No invented requirements — ACs come from Shortcut verbatim.
 - No implementation code before the founder approves the design.
-- Artifacts are real files in `docs/features/<STORY-ID>/`, committed and PR'd.
+- Artifacts are real files in `docs/features/<STORY-ID>/`, committed, pushed and
+  opened as a **design PR before** approval is requested.
 - Mermaid inside Markdown. One screen per diagram; split rather than shrink.
 - Containerized tooling only: `./scripts/backend-test.sh`, `./scripts/frontend-test.sh`.
 - Commits `[SC-###] ≤50 chars`, formatted, green only. PR body: `Author: <agent>`, `[agent]` comments.
@@ -81,22 +82,33 @@ Every artifact starts with:
 7. **`07-class-diagram-complete.md`** — layer map + three delta tables (persistence,
    API/OpenAPI, frontend), rows marked new/modified/unchanged. Names are final.
 
-## Step 8 — Walkthrough (STOP)
+## Step 8 — Design PR + walkthrough (STOP)
 
 Write `08-design-walkthrough.md`: one section per diagram, **three bullets** each —
-**Shows / Locks in / Need**. Then the decision table, then:
+**Shows / Locks in / Need**. Then the decision table.
 
-> **Design approval requested.** Reply `approved`, or name the diagram and the change.
+**Then ship it for review — don't just describe it.** Commit (`[SC-###]`), push the
+branch, and open a PR titled `[SC-###] Design: <feature>` with the walkthrough in
+the PR body (`Author: <agent>` attribution, `[agent]` comments). GitHub renders
+every Mermaid block; that PR is the review surface. A design that only exists in a
+local worktree has not been delivered for review.
 
-Do not write implementation code until the founder replies `approved`. Record
-approval with date, design commit SHA, and resolved decision items.
+Give the founder the PR link and ask:
+
+> **Design approval requested on PR #<n>.** Reply `approved` (or approve on the
+> PR), or name the diagram and the change.
+
+Do not write implementation code until the founder approves. Record approval with
+date, design commit (= PR head), PR number and resolved decision items — in
+`08-design-walkthrough.md` and as a PR comment.
 
 ## Step 9 — Work items
 
 `09-work-items.md` table: `WI | layer | covers UC steps | tests first | depends on
 | PR`. Backend first (migration → domain → application → persistence →
 controller/OpenAPI → security), frontend after the contract lands. Two-way
-coverage: every UC step has a WI, every Phase 7 class belongs to one.
+coverage: every UC step has a WI, every Phase 7 class belongs to one. Commit
+`09`–`10` to the same design branch/PR once the design is approved.
 
 ## Step 10 — TDD
 

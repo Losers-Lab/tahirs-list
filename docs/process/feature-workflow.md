@@ -3,8 +3,9 @@ type: process
 title: "Feature Workflow — diagrams first"
 description: "Ratified, advisory Tahir's List feature workflow. Diagrams carry the design; prose carries only exceptions and decisions. Seven design artifacts, one founder approval, TDD, PR review to convergence, deploy to dev.tahirslist.com."
 tags: [tahirs-list, process, workflow, uml, diagrams, tdd, pr-review, deploy, ratified]
-status: ratified
+status: proposed
 enforcement: advisory
+amended: 2026-11-08 — design review is a PR artifact (Phase 8)
 ratified:
   by: founder
   on: 2026-11-07
@@ -25,6 +26,11 @@ sources:
 > **Ratified 2026-11-07 · advisory.** Invoked deliberately (`/feature SC-131`),
 > never automatic. Not for typo, copy, colour, or chore changes. See
 > [README](./README.md) for the ratification format.
+>
+> **Proposed amendment 2026-11-08:** the design package is pushed and opened as
+> a **design PR** before approval is requested; the founder reviews the rendered
+> diagrams on GitHub and approves there (Phase 8). Stays `status: proposed`
+> until the founder approves the amendment PR.
 
 **The design is the diagrams.** Text exists to explain what a diagram cannot
 show: the use case narrative, the invariants, the open questions, the deltas.
@@ -50,14 +56,15 @@ flowchart LR
   S([Story]) --> DM["1 Domain model"] --> UC["2 Use cases"] --> UCD["3 Use case diagram"]
   UCD --> BB["4 Black-box sequences"] --> SCD["5 System class diagram"]
   SCD --> WB["6 White-box sequences"] --> CCD["7 Complete class diagram"]
-  CCD --> AP{Founder approves?}
+  CCD --> DPR["7b Push branch + open design PR"]
+  DPR --> AP{Founder approves on the PR?}
   AP -- change --> DM
   AP -- yes --> WI["8 Work items"] --> IM["9 TDD"] --> RV["10 Review loop"]
   RV --> MG["11 Merge"] --> DP["12 Deploy + verify"]
 ```
 
-Two human checkpoints only: **design approval** (7 → 8) and **deploy
-acceptance** (12). Everything between is the agent's job, self-checked.
+Two human checkpoints only: **design approval on the design PR** (7 → 8) and
+**deploy acceptance** (12). Everything between is the agent's job, self-checked.
 
 ## Rules of the road
 
@@ -117,6 +124,11 @@ docs/features/<STORY-ID>/
   06-whitebox/UC-xx-*.md   07-class-diagram-complete.md 08-design-walkthrough.md
   09-work-items.md         10-traceability.md
 ```
+
+**The package ships as a design PR before approval.** `00`–`08` are committed,
+pushed, and opened as one PR titled `[SC-###] Design: <feature>`; `09`–`10` join
+the same PR only after approval. The PR body carries the walkthrough, so the
+diagrams render where the founder reviews them.
 
 ```mermaid
 flowchart TD
@@ -309,7 +321,14 @@ flowchart TB
 Mark each row **new / modified / unchanged**. Names are final here. Naming
 arguments happen now, not in code review.
 
-## Phase 8 — Walkthrough and approval
+## Phase 8 — Design PR, walkthrough and approval
+
+**The design package ships as a PR before approval is asked for.** Commit
+`00`–`08` on the feature branch, push, and open a PR titled
+`[SC-###] Design: <feature>` with the walkthrough in the PR body. GitHub renders
+every Mermaid block, the diff is auditable, and the founder's `approved` is
+recorded both in `08-design-walkthrough.md` and as a PR comment. A design that
+exists only in a local worktree has not been delivered for review.
 
 `08-design-walkthrough.md` is **one section per diagram, three bullets each**:
 
@@ -324,14 +343,14 @@ Then the decision table, then the ask:
 
 | Founder says | Agent does |
 |---|---|
-| `approved` | record approval, go to Phase 9 |
+| `approved` | record approval on the PR and in 08 (date · design commit = PR head), go to Phase 9 |
 | a diagram change | re-run that phase, redraw downstream, re-ask |
 | a new requirement | stop — Shortcut first, then re-design |
 | nothing on a question | it stays open; no silent decision |
 
 ```markdown
 ## Approval
-Approved by: founder · Date: 2026-11-XX · Design commit: <sha>
+Approved by: founder · Date: 2026-11-XX · Design commit: <sha> · Design PR: #<n>
 Decision items: D-1 … D-n resolved as tabled
 ```
 
@@ -532,6 +551,7 @@ Use cases: UC-02 (04/UC-02, 06/UC-02)
 [ ] 06 white-box: 1:1, no invented classes, tx/authz/errors shown
 [ ] 07 complete: layer map + persistence/API/frontend deltas
 [ ] 08 walkthrough: 3 bullets per diagram + decisions + approval line
+[ ] design branch pushed + design PR opened with the walkthrough in the body
 [ ] 09 work items: two-way coverage, tests named
 [ ] 10 traceability: open and current
 ```
@@ -570,5 +590,5 @@ Design commit: <sha> · Date: <date>
 | D-1 | … | … | <pending> |
 
 ## Approval
-Approved by: <pending> · Date: · Design commit:
+Approved by: <pending> · Date: · Design commit: · Design PR:
 ```
