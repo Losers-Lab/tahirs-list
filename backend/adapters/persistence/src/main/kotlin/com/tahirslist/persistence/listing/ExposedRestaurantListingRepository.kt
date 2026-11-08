@@ -55,11 +55,11 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
     override suspend fun save(listing: RestaurantListing): RestaurantListing = suspendTransaction(db) {
         val id = queryRows(
             """
-            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination)
+            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, venue_key, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination)
             VALUES (
                 ?, ?, ?, ?, ?, ?,
                 ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             RETURNING id
             """.trimIndent(),
@@ -200,6 +200,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 owner_id,
                 brand_id,
                 provenance,
+                venue_key,
                 verification_status,
                 created_at
             FROM restaurant_listings
@@ -317,6 +318,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 owner_id,
                 brand_id,
                 provenance,
+                venue_key,
                 verification_status,
                 created_at
             FROM restaurant_listings
@@ -344,6 +346,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         RestaurantListings.ownerId bind listing.ownerId,
         RestaurantListings.brandId bind listing.brandId,
         RestaurantListings.provenance bind listing.provenance?.value,
+        RestaurantListings.venueKey bind listing.venueKey,
         RestaurantListings.verificationStatus bind listing.verificationStatus.name,
         RestaurantListings.price bind listing.price?.value,
         RestaurantListings.rating bind listing.rating?.value,
@@ -372,6 +375,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         ownerId = rs.getObject("owner_id", UUID::class.java)?.toKotlinUuid(),
         brandId = rs.getObject("brand_id", UUID::class.java)?.toKotlinUuid(),
         provenance = rs.getString("provenance")?.let { Provenance(it) },
+        venueKey = rs.getString("venue_key"),
         verificationStatus = VerificationStatus.valueOf(rs.getString("verification_status")),
         createdAt = rs.getTimestamp("created_at").toInstant().toKotlinInstant(),
     )
