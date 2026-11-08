@@ -8,7 +8,7 @@
 | 2026-11-07 | Initial walkthrough | — |
 | 2026-11-07 | Founder amendment: registries confer verification; hand-cut follows the certifier's declaration | 0–2, 4–8 |
 | 2026-11-07 | Format-only retrofit to the ratified diagram-first standard | none (content unchanged) |
-| 2026-11-08 | Access spike closed; three certifier libraries implemented, 66 tests green, live probe passed (D-12, D-13) | 0–8 |
+| 2026-11-08 | Access spike closed; three certifier libraries implemented, 66 new tests green, live probe passed (D-12, D-13) | 0–8 |
 | 2026-11-08 | Correction: a silent certifier declaration yields FALSE, not NULL; NULL only where there is no certifier claim | 0–2, 6–8 |
 | 2026-11-08 | Diagram retrofit: actors on the left, owned data store shown explicitly (ratified conventions from #74) | 3–6 |
 | 2026-11-08 | D-14: one Photon pre-flight query before any directory fetch; failure aborts with no artifacts | 0–2, 4–7 |
@@ -51,7 +51,7 @@ flowchart LR
 **Need:** approve; confirm D-4.
 
 ## 7. Complete class diagram (the design being approved)
-**Shows:** module map, exact class names, verified field matrix, V22/V23, no API/frontend delta, 66 tests.
+**Shows:** module map, exact class names, verified field matrix, V22/V23, no API/frontend delta, 66 new tests.
 **Locks in:** module boundaries, migration contents, provenance strings, test names.
 **Need:** approve, including D-5, D-6, D-8, D-11, D-12.
 

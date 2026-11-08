@@ -110,7 +110,7 @@ flowchart LR
 
 A full probe is **six requests** (three robots.txt + three data), and a repeat run is **zero**. An ingestion run adds exactly one Photon pre-flight query before any directory request (D-14); if it fails, the directories are never contacted.
 
-## Tests (66, all green)
+## Tests (66 new, all green)
 
 | Module | Tests | What they pin |
 |---|---:|---|
@@ -119,7 +119,7 @@ A full probe is **six requests** (three robots.txt + three data), and a repeat r
 | `certifier-hfsaa` | 10 | 13-row fixture, certificate ids, chapter filter, headers, rotated-key re-discovery, honest failure |
 | `certifier-hma` | 8 | 8-outlet fixture, Elementor anchors, address splitting, pagination, malformed JSON |
 | `:ingestion` | 8 | Tier-1 standard, not-hand-cut and silent declarations, manual-row null, HFSAA certificate/place id, HMA province + geocoding warning |
-| `:application` | 4 | `CheckGeocoderHealth`: probe resolves, no match, provider failure, cancellation not swallowed |
+| `:application` | 4 (new) | `CheckGeocoderHealth`: probe resolves, no match, provider failure, cancellation not swallowed |
 
 Run them all in the container:
 
