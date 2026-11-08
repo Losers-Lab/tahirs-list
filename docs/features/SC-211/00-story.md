@@ -47,7 +47,7 @@ flowchart LR
 | 2 | Tier-3: hand-curated, individually cited Zabihah sample; no scraping. |
 | 3 | Excluded from automation: Crave Halal, Muslim Foodies, AVA/Achada. |
 | 4 | Tier-1 rows: `VERIFIED` (the certifier is authoritative for halal), backed by a claim. |
-| 5 | Hand-cut is separate: `TRUE` only if the certifier declares hand-cut, `FALSE` if it declares it does not, `NULL` if silent. Tier is not a hand-cut proxy. |
+| 5 | Hand-cut is separate: `TRUE` only if the certifier declares hand-cut, `FALSE` otherwise (declared not hand-cut **or silent**). `NULL` only where there is no certifier claim (manual rows). Tier is not a hand-cut proxy. |
 | 6 | Tier-3 rows: `UNVERIFIED` + `is_hand_cut = NULL`. |
 | 7 | Load: committed artifacts → generated, idempotent Flyway migration. |
 | 8 | Metros: Dallas, NYC, Toronto; 15–25 rows each. |
@@ -57,7 +57,7 @@ flowchart LR
 
 ## Acceptance criteria (amended 2026-11-08; Shortcut sync pending re-auth)
 
-> AC-4/AC-5 were amended to remove the retired counter-category wording. The Shortcut story still carries the older text until its token is re-authorized.
+> AC-4/AC-5 were amended to remove the retired counter-category wording, and to make a silent certifier declaration yield FALSE rather than NULL. The Shortcut story still carries the older text until its token is re-authorized.
 
 > **AC-1** A containerized, re-runnable command (`scripts/ingest-sample.sh`)
 > fetches the Tier-1 directories for the three metros with polite throttling and
@@ -73,15 +73,15 @@ flowchart LR
 
 > **AC-4** A generated, idempotent Flyway migration loads the sample with
 > per-source provenance: Tier-1 rows as `VERIFIED`; `is_hand_cut` derived from
-> the certifier's own hand-cut declaration (hand-cut → TRUE, declares not
-> hand-cut → FALSE, silent → NULL); manual Zabihah rows as `UNVERIFIED` +
-> `NULL`; plus
+> the certifier's own hand-cut declaration (TRUE only when it declares
+> hand-cut; FALSE when it declares not hand-cut **or is silent**); manual
+> Zabihah rows as `UNVERIFIED` + `NULL`; plus
 > `external_certification_claims` rows citing source URL (+ certifier/expiry
 > where published); brands upserted by name.
 
 > **AC-5** Every `VERIFIED` row is backed by a Tier-1 claim. `is_hand_cut = TRUE`
-> requires a claim whose certifier declares hand-cut; a Tier-1 certifier
-> that does not declare hand-cut, or is silent, never yields TRUE. Manual Zabihah rows
+> requires a claim whose certifier declares hand-cut; every other Tier-1
+> declaration — including silence — yields FALSE. Manual Zabihah rows
 > are never marked verified or hand-cut.
 
 > **AC-6** Re-applying the migration adds no duplicates, and no existing V7 seed
@@ -110,7 +110,7 @@ flowchart LR
 | E-8 | Metro below 15 rows | Report the shortfall; never pad |
 | E-9 | Certification expires or is revoked | Expiry stored on the claim; revocation stays an open flag (D-10) |
 | E-10 | Tier-1 venue matches an existing row | Upgrade that row to `VERIFIED`; hand-cut per the claim's declaration; attach claims (AC-6) |
-| E-11 | Future Tier-1 certifier does not require hand-cut, or is silent on it | `VERIFIED` (halal), `is_hand_cut = FALSE` (declared not hand-cut) or `NULL` (silent) — never auto-TRUE |
+| E-11 | Future Tier-1 certifier does not require hand-cut, or is silent on it | `VERIFIED` (halal), `is_hand_cut = FALSE` in both cases — never auto-TRUE |
 | E-12 | HFSAA publishable key rotates | Re-discover from the public locator bundle, retry once; otherwise fail the source honestly |
 | E-13 | HMS row has an empty `data-city-name` | Derive the city from the address line; if absent, the row is geocoded or rejected — never invented |
 

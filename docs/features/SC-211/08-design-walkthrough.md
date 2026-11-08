@@ -8,7 +8,8 @@
 | 2026-11-07 | Initial walkthrough | — |
 | 2026-11-07 | Founder amendment: registries confer verification; hand-cut follows the certifier's declaration | 0–2, 4–8 |
 | 2026-11-07 | Format-only retrofit to the ratified diagram-first standard | none (content unchanged) |
-| 2026-11-08 | Access spike closed; three certifier libraries implemented, 57 tests green, live probe passed (D-12, D-13) | 0–8 |
+| 2026-11-08 | Access spike closed; three certifier libraries implemented, 62 tests green, live probe passed (D-12, D-13) | 0–8 |
+| 2026-11-08 | Correction: a silent certifier declaration yields FALSE, not NULL; NULL only where there is no certifier claim | 0–2, 6–8 |
 
 ```mermaid
 flowchart LR
@@ -19,7 +20,7 @@ flowchart LR
 
 ## 1. Story and domain model
 **Shows:** claim-backed registry verification, run/report, claims, hand-cut declaration.
-**Locks in:** `VERIFIED` has two routes; tier drives verification, the certifier's declaration drives hand-cut; manual rows never verify.
+**Locks in:** `VERIFIED` has two routes; tier drives verification, the certifier's declaration drives hand-cut (TRUE only on declared hand-cut, FALSE otherwise); manual rows never verify.
 **Need:** approve D-3; confirm D-9, D-10, D-11, D-12.
 
 ## 2. Use cases
@@ -71,7 +72,7 @@ flowchart LR
 | D-8 | Verified-badge attribution copy as a follow-up story | Yes | pending |
 | D-9 | Upgrade matched existing rows to `VERIFIED`; hand-cut per their claim's declaration | Yes | pending |
 | D-10 | Expiry stored; no auto-demotion; revocation stays open | Yes | pending |
-| D-11 | Per-directory hand-cut declaration drives hand-cut; tier drives only verification | Yes | pending |
+| D-11 | Per-directory hand-cut declaration drives hand-cut (TRUE only on declared hand-cut; FALSE for declared not or silent); tier drives only verification | Yes | pending |
 | D-12 | One independent library per certifier (own model) + explicit translators, in-repo | Yes | pending |
 | D-13 | Zabihah bulk access is licensed-only; manual cited batch until licensed | Yes | pending |
 

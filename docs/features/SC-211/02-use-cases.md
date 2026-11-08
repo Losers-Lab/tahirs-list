@@ -22,7 +22,7 @@ flowchart LR
 - **Goal:** produce a geocoded, reconciled candidate batch + honest run report for three metros
 - **Trigger:** curator starts the sample-ingestion command with a metro selection
 - **Preconditions:** design approved; network to sources + Photon; metros/caps configured
-- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut follows the certifier's own declaration (hand-cut → TRUE, not hand-cut → FALSE, silent → NULL); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model
+- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut TRUE only if the certifier declares hand-cut, FALSE otherwise (declared not or silent); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model
 
 **Main success scenario**
 
@@ -94,7 +94,7 @@ flowchart LR
 - **Goal:** turn an approved batch into searchable listings with the correct trust outcome, provenance, and claims — idempotently
 - **Trigger:** curator generates the catalogue update from the approved candidates and merges it
 - **Preconditions:** artifacts reviewed; V22 schema merged; database available
-- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut follows that claim's declaration (hand-cut → TRUE, not hand-cut → FALSE, silent → NULL) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands upsert before locations
+- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut TRUE only if that claim declares hand-cut, FALSE otherwise (declared not or silent) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands upsert before locations
 
 **Main success scenario**
 

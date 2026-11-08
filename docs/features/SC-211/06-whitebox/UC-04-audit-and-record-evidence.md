@@ -22,7 +22,7 @@ sequenceDiagram
 |---|---|
 | Fetched-row accounting | `UnaccountedRowException` (blocking) |
 | Verification backing (`VERIFIED` ⇒ Tier-1 claim + basis) | `UnbackedHandCutException` / `ProvenanceMismatchException` |
-| Hand-cut backing (`TRUE` ⇒ claim declares hand-cut; `FALSE` ⇒ claim declares it does not) | `UnbackedHandCutException` (blocking) |
+| Hand-cut backing (`TRUE` ⇒ claim declares hand-cut; `FALSE` ⇒ claim declares not, or is silent) | `UnbackedHandCutException` (blocking) |
 | Claim citation (URL + date) | `UncitedClaimException` (blocking) |
 | Duplicate suspicion vs existing rows | Non-blocking; listed in report |
 

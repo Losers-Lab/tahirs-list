@@ -51,7 +51,7 @@ sequenceDiagram
   CLI-->>DC: 10. counts + rejects
 ```
 
-**Consistency:** `ING-1` — candidates written only after every fetched row is classified; geocoder outage aborts before write. `ING-3` — `VERIFIED` + `CERTIFIER_REGISTRY` iff the winning claim is Tier-1; hand-cut is `TRUE`/`FALSE`/`NULL` from that claim's declaration, never from the tier alone. Files are atomic (temp + rename); report is the commit marker.
+**Consistency:** `ING-1` — candidates written only after every fetched row is classified; geocoder outage aborts before write. `ING-3` — `VERIFIED` + `CERTIFIER_REGISTRY` iff the winning claim is Tier-1; hand-cut is TRUE only when that claim declares hand-cut, FALSE otherwise (declared not or silent), never from the tier alone. Files are atomic (temp + rename); report is the commit marker.
 
 | Phase-4 flow | Error / outcome |
 |---|---|

@@ -1,7 +1,7 @@
 # Certifier libraries — verified API surface and field coverage
 
 **Author:** Hamza (backend/DB) · **Date:** 2026-11-08 · **Consumer:** SC-211
-**Status:** implemented, 57 tests green, one live probe passed
+**Status:** implemented, 62 tests green, one live probe passed
 **Scope:** the three Tier-1 libraries (`certifier-hms`, `certifier-hfsaa`, `certifier-hma`), the shared `certifier-core`, and the `:ingestion` translators
 
 ## What was built
@@ -110,15 +110,15 @@ flowchart LR
 
 A full probe is **six requests** (three robots.txt + three data), and a repeat run is **zero**.
 
-## Tests (57, all green)
+## Tests (62, all green)
 
 | Module | Tests | What they pin |
 |---|---:|---|
-| `certifier-core` | 22 | cache/TTL, ETag/304, retries, `Retry-After`, budget, per-host spacing, robots, snapshot redaction |
+| `certifier-core` | 25 | cache/TTL, ETag/304, retries, `Retry-After`, budget, per-host spacing, robots, snapshot redaction, hand-cut derivation |
 | `certifier-hms` | 11 | 20-record fixture, entity decoding, blank-city recovery, coordinate-less row, no-records failure |
 | `certifier-hfsaa` | 10 | 13-row fixture, certificate ids, chapter filter, headers, rotated-key re-discovery, honest failure |
 | `certifier-hma` | 8 | 8-outlet fixture, Elementor anchors, address splitting, pagination, malformed JSON |
-| `:ingestion` | 6 | Tier-1 standard, not-hand-cut pass-through, HFSAA certificate/place id, HMA province + geocoding warning |
+| `:ingestion` | 8 | Tier-1 standard, not-hand-cut and silent declarations, manual-row null, HFSAA certificate/place id, HMA province + geocoding warning |
 
 Run them all in the container:
 
@@ -158,7 +158,7 @@ PROBE OK
 
 ## Vocabulary rule
 
-The libraries expose exactly one cutting axis: `HandCutDeclaration` = `HAND_CUT`, `NOT_HAND_CUT`, or `UNSPECIFIED`. There is no counter-category anywhere in code, data, tests, or docs. Verification follows the certifier's tier; hand-cut follows that certifier's own declaration (see `AGENTS.md`, engineering ground rules).
+The libraries expose exactly one cutting axis: `HandCutDeclaration` = `HAND_CUT`, `NOT_HAND_CUT`, or `UNSPECIFIED`. The derived product boolean is TRUE only when the certifier declares hand-cut, and FALSE for every other Tier-1 declaration — including silence. `NULL` is reserved for rows with no certifier claim (manual rows). There is no counter-category anywhere in code, data, tests, or docs. Verification follows the certifier's tier; hand-cut follows that certifier's own declaration (see `AGENTS.md`, engineering ground rules).
 
 ## Next steps (after design approval)
 

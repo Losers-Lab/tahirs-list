@@ -88,8 +88,8 @@ flowchart TB
 | `scripts/certifier-live.sh` | **new** | Containerized `:ingestion:liveProbe` (ad-hoc live check) |
 | `scripts/generate_ingest_migration.py` | new | Containerized candidates → V23 |
 | `scripts/backend-test.sh` | unchanged | Picks up the new modules automatically |
-| Tests (57, all green) | new | Core: `CertifierHttpTest` (15), `RobotsPolicyTest` (7) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (4) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 6 translator tests |
-| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `marksTierOneCandidatesVerified`, `neverVerifiesManualOnlyRows`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `follows X-WP-TotalPages` |
+| Tests (62, all green) | new | Core: `CertifierHttpTest` (15), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (4) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests |
+| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `marksTierOneCandidatesVerified`, `neverVerifiesManualOnlyRows`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `follows X-WP-TotalPages` |
 
 ## Architecture and risks
 
@@ -103,5 +103,5 @@ flowchart TB
 | Dedupe merges coincident venues | Suspected duplicates reported (D-4) |
 | Badge copy says "committee" for registry rows | D-8 follow-up story |
 | Certifier expiry/revocation | Expiry stored; no auto-demotion (D-10) |
-| Future Tier-1 certifier does not require hand-cut | Hand-cut derives from its own declaration (FALSE/NULL), never from tier (D-11) |
+| Future Tier-1 certifier does not require hand-cut | Hand-cut derives from its own declaration (FALSE for declared not or silent), never from tier (D-11) |
 | ToS / attribution | Public registries, throttled, UA; Omar review; ODbL display open (Q-4) |

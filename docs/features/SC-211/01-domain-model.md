@@ -76,7 +76,7 @@ classDiagram
 |---|---|---|
 | INV-1 | Ingested listing is `VERIFIED` iff a recognized Tier-1 claim backs it; otherwise `UNVERIFIED` | `IngestSampleMigrationTest.loadsTierOneAsVerifiedWithClaims` |
 | INV-2 | Every ingested listing carries a closed-vocabulary provenance stamp | `ProvenanceTest.rejectsUnknownVocabulary` |
-| INV-3 | `isHandCut` is TRUE iff the backing claim declares hand-cut; FALSE iff it declares it does not; NULL when silent. Every `VERIFIED` row has a cited Tier-1 claim | `LoadIngestionBatchTest.handCutFollowsDeclaredStandard` · `refusesVerifiedWithoutClaim` |
+| INV-3 | `isHandCut` is TRUE iff the backing claim declares hand-cut; FALSE for every other Tier-1 declaration (declared not or silent); NULL only where there is no certifier claim. Every `VERIFIED` row has a cited Tier-1 claim | `LoadIngestionBatchTest.handCutFollowsDeclaredStandard` · `refusesVerifiedWithoutClaim` |
 | INV-4 | Every candidate location came from a confirmed geocoder match | `MatchConfirmationPolicyTest.rejectsWrongRegion` |
 | INV-5 | Claims are unique per (listing, source, record) and cite a source URL | `CertificationClaimTest.requiresCitation` |
 | INV-6 | Same venue → one candidate; highest tier wins provenance; all claims retained | `RunSampleIngestionTest.mergesTierPriority` |
@@ -115,6 +115,6 @@ classDiagram
 | Claim | A source's dated, cited certification and hand-cut assertion |
 | Match confirmation | Country/region agreement + name-token overlap evidence |
 | Provenance · verification basis | Listing's winning origin stamp · why `VERIFIED`: `COMMITTEE_REVIEW` or `CERTIFIER_REGISTRY` |
-| Hand-cut declaration · hand-cut | The certifier's own position (hand-cut · not hand-cut · silent) · product boolean, `NULL` = unknown/not claimed |
+| Hand-cut declaration · hand-cut | The certifier's own position (hand-cut · not hand-cut · silent) · product boolean: TRUE only on declared hand-cut, FALSE otherwise for Tier-1, `NULL` without a certifier claim |
 | Registry verification | `VERIFIED` conferred by a recognized Tier-1 entry + cited claim |
 | Batch · suspected duplicate | One reviewed run's candidates as a catalogue update · a candidate at an existing row's location |
