@@ -49,16 +49,22 @@ class SearchRestaurantsTool(
             log.info { "mcp tool=$TOOL_NAME outcome=rate_limited" }
             return toolError("Rate limit exceeded. Try again shortly.")
         }
+
+        // Only parsing failures are reflected to the caller. An IAE escaping the
+        // use case is an internal defect and stays behind the generic message.
+        val request = try {
+            parse(arguments)
+        } catch (e: InvalidSearchArgumentsException) {
+            return toolError(e.message)
+        } catch (e: IllegalArgumentException) {
+            // The shared parser and LatLng throw plain IAE with a caller-safe reason.
+            return toolError(e.message)
+        }
+
         val timed = measureTimedValue {
             try {
-                val request = parse(arguments)
                 val result = search.execute(request)
                 success(AgentResultMapper.search(result, config))
-            } catch (e: InvalidSearchArgumentsException) {
-                toolError(e.message)
-            } catch (e: IllegalArgumentException) {
-                // The shared parser and LatLng throw plain IAE with a caller-safe reason.
-                toolError(e.message)
             } catch (e: com.tahirslist.application.agent.PlaceNotResolvedException) {
                 toolError(e.message)
             } catch (e: GeocodingException) {
@@ -103,10 +109,11 @@ class SearchRestaurantsTool(
         val minPrice = ListingSearchRequestParser.price(args.optionalDouble("minPrice"), "minPrice")
         val maxPrice = ListingSearchRequestParser.price(args.optionalDouble("maxPrice"), "maxPrice")
         ListingSearchRequestParser.requirePriceRange(minPrice, maxPrice)
-        val cuisines = ListingSearchRequestParser.cuisines(args.optionalStringArray("cuisines"))
-        if (cuisines.size > MAX_CUISINES) {
+        val rawCuisines = args.optionalStringArray("cuisines")
+        if (rawCuisines != null && rawCuisines.size > MAX_CUISINES) {
             throw InvalidSearchArgumentsException("cuisines must contain at most $MAX_CUISINES values")
         }
+        val cuisines = ListingSearchRequestParser.cuisines(rawCuisines)
         val offset = ListingSearchRequestParser.offset(args.optionalInt("offset"))
         if (offset > MAX_OFFSET) {
             throw InvalidSearchArgumentsException("offset must be $MAX_OFFSET or fewer")

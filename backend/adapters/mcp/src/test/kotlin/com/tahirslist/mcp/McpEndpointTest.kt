@@ -86,6 +86,19 @@ class McpEndpointTest : FunSpec({
         }
     }
 
+    test("oversizedBodyIsRefused") {
+        testApplication {
+            application { installTestMcp() }
+
+            val huge = "a".repeat(70_000)
+            val response = client.mcpPost(
+                """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"x":"$huge"}}""",
+            )
+
+            response.status shouldBe HttpStatusCode.PayloadTooLarge
+        }
+    }
+
     test("unknownToolReturnsAnErrorResult") {
         testApplication {
             application { installTestMcp() }

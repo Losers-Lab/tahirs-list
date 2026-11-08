@@ -37,6 +37,15 @@ private const val FIXED_PARSE_ERROR: String =
 private const val MAX_LOGGED_HEADER_LENGTH = 128
 
 /**
+ * Anonymous surface: 64 KiB is far above any legitimate MCP message (two tools,
+ * one call, small arguments) and bounds a batch of cheap methods.
+ */
+private const val MAX_REQUEST_BODY_BYTES: Long = 64L * 1024
+
+/** Salted so the logged budget key cannot be reversed to an IP by guessing. */
+private val clientKeySalt: Int = java.security.SecureRandom().nextInt()
+
+/**
  * Per-request call budget. One HTTP request costs one token at the gate; the
  * first tool call is covered by it, and every additional call in a JSON-RPC
  * batch must consume another token. That closes the batch amplification hole
@@ -102,7 +111,7 @@ fun Application.installMcp(
 
             HttpMethod.Post -> {
                 if (!originGuard.allows(origin)) {
-                    log.info { "mcp refused origin=${sanitize(origin)} status=403" }
+                    log.debug { "mcp refused origin=${sanitize(origin)} status=403" }
                     call.respond(HttpStatusCode.Forbidden)
                     finish()
                     return@intercept
@@ -113,7 +122,7 @@ fun Application.installMcp(
                 }
                 val key = call.mcpClientKey(config)
                 if (!limiter.tryAcquire(key)) {
-                    log.info { "mcp refused clientKey=${clientKeyHash(key)} status=429" }
+                    log.debug { "mcp refused clientKey=${clientKeyHash(key)} status=429" }
                     call.response.header(HttpHeaders.RetryAfter, config.rateLimit.refillWindowSeconds)
                     call.respond(HttpStatusCode.TooManyRequests)
                     finish()
@@ -152,7 +161,12 @@ fun Application.installMcp(
             }
             post {
                 val transport = StreamableHttpServerTransport(
-                    StreamableHttpServerTransport.Configuration(enableJsonResponse = true),
+                    StreamableHttpServerTransport.Configuration(
+                        enableJsonResponse = true,
+                        // Anonymous endpoint: cap the body so a JSON-RPC batch of
+                        // cheap methods cannot materialise hundreds of MB.
+                        maxRequestBodySize = MAX_REQUEST_BODY_BYTES,
+                    ),
                 ).also { it.setSessionIdGenerator(null) }
                 val gate = McpRequestBudget(limiter, call.mcpClientKey(config))
                 val server: Server = TahirsListMcpServer(useCases, config, gate).createServer()
@@ -212,7 +226,7 @@ private fun String.isPlausibleIp(): Boolean =
 private fun sanitize(header: String?): String =
     header.orEmpty().filter { it.code in 0x20..0x7e }.take(MAX_LOGGED_HEADER_LENGTH)
 
-private fun clientKeyHash(key: String): String = key.hashCode().toUInt().toString(16)
+private fun clientKeyHash(key: String): String = (key + clientKeySalt).hashCode().toUInt().toString(16)
 
 /**
  * Hosts accepted by the DNS-rebinding guard: loopback, explicit
