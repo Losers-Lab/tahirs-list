@@ -1,5 +1,6 @@
 package com.tahirslist.web
 
+import com.tahirslist.application.agent.CertificateFacts
 import com.tahirslist.application.image.ImageVariant
 import com.tahirslist.application.listing.ListingSearchResult
 import com.tahirslist.application.verification.HalalCertificationReviewRepository
@@ -204,15 +205,16 @@ private suspend fun ApplicationCall.certificateDetails(
     listing: RestaurantListing,
     reviews: HalalCertificationReviewRepository,
 ): CertificatePayload? {
-    if (listing.verificationStatus != VerificationStatus.VERIFIED) return null
-    val review = reviews.findLatestApprovedByListing(listing.id) ?: return null
-    val decision = review.decision ?: return null
-    if (decision.outcome.name != "APPROVED") return null
-    if (review.certificateKey == null) return null
+    val latestApproved = if (listing.verificationStatus == VerificationStatus.VERIFIED) {
+        reviews.findLatestApprovedByListing(listing.id)
+    } else {
+        null
+    }
+    val facts = CertificateFacts.of(listing, latestApproved) ?: return null
     return CertificatePayload(
-        certifier = review.certifier,
-        reviewedOn = decision.decidedAt.toString(),
-        expiresOn = review.expiresOn?.toString(),
+        certifier = facts.certifier,
+        reviewedOn = facts.reviewedOn.toString(),
+        expiresOn = facts.expiresOn?.toString(),
         certificateUrl = certificateUrl(listing.id),
     )
 }

@@ -45,6 +45,7 @@ docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal \
   -e TESTCONTAINERS_RYUK_DISABLED=true \
+  -e LIVE_TESTS="${LIVE_TESTS:-0}" \
   --add-host host.docker.internal:host-gateway \
   eclipse-temurin:21-jdk \
   $GRADLE_TASKS
