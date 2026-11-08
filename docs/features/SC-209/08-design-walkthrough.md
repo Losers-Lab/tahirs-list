@@ -1,6 +1,6 @@
 # 08 — Design walkthrough: SC-209
 
-Design branch: `docs/SC-209-mcp-design` · Design commit: `424f777` · Design PR: [#73](https://github.com/Losers-Lab/tahirs-list/pull/73) · Walkthrough date: 2026-11-07
+Design branch: `docs/SC-209-mcp-design` · Design PR: [#73](https://github.com/Losers-Lab/tahirs-list/pull/73) · Design commit: recorded with the approval · Walkthrough date: 2026-11-07
 
 The walkthrough below follows the ratifying order: story and domain model, use
 cases, use case diagram, black-box sequences, system class diagram, white-box
