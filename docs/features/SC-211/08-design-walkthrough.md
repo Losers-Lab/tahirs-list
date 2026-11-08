@@ -9,6 +9,13 @@ Design commit: this branch · Date: 2026-11-07 · **Status: awaiting decision**
 | 2026-11-07 | Founder amendment: Tier-1 registries confer `VERIFIED` + hand-cut | 0–2, 4–8 |
 | 2026-11-07 | Format-only retrofit to the ratified diagram-first standard | none (content unchanged) |
 
+```mermaid
+flowchart LR
+  A[01] --> B[02] --> C[03] --> D[04] --> E[05] --> F[06] --> G[07] --> AP{Approve?}
+  AP -- change --> B
+  AP -- yes --> W[09 Work items]
+```
+
 ## 1. Story and domain model
 **Shows:** the pipeline's vocabulary — claim-backed registry verification, run/report, claims.
 **Locks in:** `VERIFIED` has two routes; a Tier-1 claim is the evidence; manual rows never verify.
