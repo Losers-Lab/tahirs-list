@@ -31,7 +31,7 @@ sequenceDiagram
   CLI-->>DC: 7. merged/rejected rows with reasons
 ```
 
-**Validation (adapter):** required name, address, city, region, country, URL, accessed-on, tier 3. `ING-4` — manual-only candidates are always `UNVERIFIED` + hand-cut `NULL`; a manual row can never set trust.
+**Validation (adapter):** required name, address, city, region, country, URL, accessed-on, tier 3. `ING-4` — manual-only candidates are always `UNVERIFIED` + hand-cut `NULL`; a manual row can never set trust. There is no Zabihah library: the curator reads the listings by hand (D-13), and only the cited file enters the pipeline.
 
 | Phase-4 flow | Error / outcome |
 |---|---|

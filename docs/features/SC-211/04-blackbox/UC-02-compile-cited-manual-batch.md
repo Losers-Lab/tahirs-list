@@ -60,3 +60,5 @@ sequenceDiagram
   participant TL as Tahir's List
   TL->>TL: `DUPLICATE_MERGED` — Tier-1 stays the listing
 ```
+
+There is no Zabihah library: the curator reads the listings by hand (D-13); only the cited file enters the pipeline.

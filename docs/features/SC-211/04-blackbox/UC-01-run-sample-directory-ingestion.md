@@ -8,47 +8,42 @@ sequenceDiagram
   autonumber
   actor DC as Data Curator
   participant TL as Tahir's List
-  participant HMS as HMS (external)
-  participant HF as HFSAA (external)
-  participant HM as HMA (external)
+  participant HMS as certifier-hms
+  participant HF as certifier-hfsaa
+  participant HM as certifier-hma
   participant PH as Photon (external)
   DC->>TL: 1. Run sample (Dallas, NYC, Toronto — caps)
-  TL->>HMS: 2. Request certified restaurants (throttled)
-  HMS-->>TL: Listing pages
-  TL->>HF: 3. Discover chapters + request New York
-  HF-->>TL: Certified locations
-  TL->>HM: 4. Request GTA list + detail pages
-  HM-->>TL: List + addresses
-  TL->>TL: 5. Filter to metro restaurants
-  TL->>PH: 6. Resolve "name, address, city, region"
+  TL->>HMS: 2. Certified listing — one cached request
+  HMS-->>TL: 370 restaurants + snapshot
+  TL->>HF: 3. Public locator RPC — one request
+  HF-->>TL: 313 entries (New York 26) + snapshot
+  TL->>HM: 4. Certified outlets — one REST request
+  HM-->>TL: 76 outlets + snapshot
+  TL->>TL: 5. Translators map each library model to a source listing
+  TL->>TL: 6. Filter to metro restaurants
+  TL->>PH: 7. Resolve "name, address, city, region"
   PH-->>TL: Place or no match
-  TL->>TL: 7. Reconcile venues, merge claims, set verification + hand-cut from standard
-  TL->>TL: 8. Write snapshots, candidates.json, report.md
-  TL-->>DC: 9. Counts per source/metro + rejects
+  TL->>TL: 8. Reconcile venues, merge claims, set verification + hand-cut per declaration
+  TL->>TL: 9. Write snapshots, candidates.json, report.md
+  TL-->>DC: 10. Counts per source/metro + rejects
 ```
-**A1 — several branches** · one source listing per entry.
+**A1 — several entries** · one source listing per entry.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: treat each branch/entry separately (step 4)
+  TL->>TL: one listing per directory record — no merging yet (step 5)
 ```
-**A2 — HMS fallback** · ShariahBoard table used and recorded.
+**A2 — HMS unavailable** · fail that source, keep the others.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: primary page unavailable → fallback table (step 2)
+  TL->>TL: `SOURCE_UNAVAILABLE` — cached snapshot if fresh (step 2)
 ```
 **A3 — below cap** · continue, report the shortfall.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: keep confirmed rows only — no padding (step 6)
-```
-**A4 — repeat run** · cached snapshots, no fetch.
-```mermaid
-sequenceDiagram
-  participant TL as Tahir's List
-  TL->>TL: read cache — mark cache-sourced
+  TL->>TL: keep confirmed rows only — no padding (step 7)
 ```
 **E1 — source unreachable** · `SOURCE_UNAVAILABLE`, run continues.
 ```mermaid
@@ -60,7 +55,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: abort before step 8 (`Aborted`)
+  TL->>TL: abort before step 9 (`Aborted`)
 ```
 **E3 — source format changed** · quarantine, run continues.
 ```mermaid
@@ -72,11 +67,23 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: zero candidates for the metro (step 5)
+  TL->>TL: zero candidates for the metro (step 6)
 ```
 **E5 — bad geocode** · reject, coordinates never taken.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
   TL->>TL: `WRONG_REGION` / `AMBIGUOUS_GEOCODER_MATCH`
+```
+**E6 — HFSAA key rotated** · re-discover once from the public bundle.
+```mermaid
+sequenceDiagram
+  participant TL as Tahir's List
+  TL->>TL: 401 → read public locator bundle → retry once
+```
+**E7 — HMS city blank** · derive from the address, or leave unknown.
+```mermaid
+sequenceDiagram
+  participant TL as Tahir's List
+  TL->>TL: parse city from the address line — never invent one
 ```

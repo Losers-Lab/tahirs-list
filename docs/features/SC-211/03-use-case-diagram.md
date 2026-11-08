@@ -13,12 +13,14 @@ flowchart LR
     UC3([UC-03 Load reviewed batch])
     UC4([UC-04 Audit run + evidence])
   end
-  HMS[HMS]; HFSAA[HFSAA]; HMA[HMA]; ZAB[Zabihah<br/>manual]; PH[Photon]
+  HMS[certifier-hms]; HFSAA[certifier-hfsaa]; HMA[certifier-hma]; ZAB[Zabihah<br/>manual]; PH[Photon]
   DC --> UC1; DC --> UC2; DC --> UC3; DC --> UC4
   UC1 --> HMS; UC1 --> HFSAA; UC1 --> HMA; UC1 --> PH
   UC2 --> ZAB; UC2 --> PH
   UC4 --> ZAB
 ```
+
+Each Tier-1 dependency is a standalone module with its own domain model; the `:ingestion` translators sit between it and the app (D-12).
 
 No `«include»`: the shared geocoding step is internal to UC-01/02, not an actor goal. UC-04 is independently triggered.
 

@@ -8,7 +8,9 @@ flowchart LR
   DC --> UC2["UC-02 Cited Tier-3 batch"]
   DC --> UC3["UC-03 Reviewed load"]
   DC --> UC4["UC-04 Audit + evidence"]
-  UC1 --> ART[("snapshots · candidates.json · report.md")]
+  LIB["certifier-hms · certifier-hfsaa · certifier-hma"] --> UC1
+  UC1 --> TR["ingestion translators"]
+  TR --> ART[("snapshots · candidates.json · report.md")]
   UC2 --> ART
   ART --> UC3 --> DB[("catalogue")]
   ART --> UC4
@@ -16,53 +18,55 @@ flowchart LR
 
 ## UC-01 — Run a sample directory ingestion
 
-- **Primary actor:** Data Curator · **Supporting:** HMS, HFSAA, HMA, Photon (external)
+- **Primary actor:** Data Curator · **Supporting:** certifier libraries (HMS, HFSAA, HMA), Photon (external)
 - **Goal:** produce a geocoded, reconciled candidate batch + honest run report for three metros
 - **Trigger:** curator starts the sample-ingestion command with a metro selection
 - **Preconditions:** design approved; network to sources + Photon; metros/caps configured
-- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut follows the declared standard (HAND → TRUE, MACHINE → FALSE, unspecified → NULL); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL`
+- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut follows the certifier's own declaration (hand-cut → TRUE, not hand-cut → FALSE, silent → NULL); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model
 
 **Main success scenario**
 
 1. Curator selects Dallas, NYC, Toronto and per-metro caps (15–25), then starts.
-2. System requests the HMS certified-restaurant directory (throttled).
-3. System discovers HFSAA chapter links and requests the New York chapter.
-4. System requests the HMA GTA list and the sampled detail pages.
-5. System filters fetched rows to restaurants inside the metro city allowlists.
-6. System geocodes each row via Photon; accepts only confirmed matches.
-7. System reconciles same-venue rows, merges claims, records the intended verification and hand-cut outcomes.
-8. System writes raw snapshots, `candidates.json` (outcome/basis), and `report.md`.
-9. System reports per-source/per-metro counts and rejected rows with reasons.
+2. System asks the HMS library for certified restaurants (one cached request; directory coordinates kept as evidence only).
+3. System asks the HFSAA library for New York locator entries (one public RPC).
+4. System asks the HMA library for the GTA list (one REST request; all content inline).
+5. Each library returns its own records; its translator maps them to the app's source listings.
+6. System filters fetched rows to restaurants inside the metro city allowlists.
+7. System geocodes each row via Photon; accepts only confirmed matches; directory coordinates never become the accepted location.
+8. System reconciles same-venue rows, merges claims, records the intended verification and hand-cut outcomes.
+9. System writes raw snapshots, `candidates.json` (outcome/basis), and `report.md`.
+10. System reports per-source/per-metro counts and rejected rows with reasons.
 
 **Flows**
 
 | ID | From | Condition → flow | Ends in |
 |---|---|---|---|
-| A1 | 4 | Several branches/entries → one source listing each | Step 7 reconciliation |
-| A2 | 2 | HMS unavailable → ShariahBoard table fallback, recorded | Step 3 |
-| A3 | 6 | Fewer rows than the cap → continue, report the shortfall | Step 8 |
-| A4 | — | Repeat run → cached snapshots, no fetch | Step 8, marked cache-sourced |
+| A1 | 4–5 | Several branches/entries → one source listing each; translator maps the library model | Step 8 reconciliation |
+| A2 | 2 | HMS unavailable → recorded source failure; cached snapshot replayed if fresh | Step 3 |
+| A3 | 7 | Fewer rows than the cap → continue, report the shortfall | Step 9 |
+| A4 | — | Repeat run → cached snapshots, no fetch | Step 9, marked cache-sourced |
+| A5 | 3 | HFSAA publishable key rotated → re-discover from the public bundle, retry once | Step 4 |
 | E1 | 2–4 | Source unreachable → `SOURCE_UNAVAILABLE`, run continues | Partial report |
-| E2 | 6 | Photon down → abort before publishing candidates | `Aborted`, no candidates file |
-| E3 | 2–4 | Parse failure → `SOURCE_PARSE_FAILED` quarantine | Source skipped; follow-up |
-| E4 | 5 | Zero metro matches → reported | No load for that metro |
-| E5 | 6 | Wrong-region/ambiguous match → row rejected with the match | Reject list |
+| E2 | 7 | Photon down → abort before publishing candidates | `Aborted`, no candidates file |
+| E3 | 2–5 | Parse failure → `SOURCE_PARSE_FAILED` quarantine | Source skipped; follow-up |
+| E4 | 6 | Zero metro matches → reported | No load for that metro |
+| E5 | 7 | Wrong-region/ambiguous match → row rejected with the match | Reject list |
 
 - **Postconditions:** success — artifacts exist, every fetched row classified, no DB writes; failure — no candidates artifact published as success.
-- **Data:** read — directory pages, geocoder results · created — artifact files only
-- **ACs:** AC-1, AC-2, AC-3, AC-5, AC-8 · **Open:** Q-1, Q-2, Q-6
+- **Data:** read — library responses, geocoder results · created — artifact files only
+- **ACs:** AC-1, AC-2, AC-3, AC-5, AC-8 · **Open:** Q-6, Q-7
 
 ## UC-02 — Compile a cited manual Tier-3 batch
 
-- **Primary actor:** Data Curator · **Supporting:** Zabihah public pages, founder research (secondary), Photon
+- **Primary actor:** Data Curator · **Supporting:** Zabihah listings (read by hand), founder research (secondary), Photon
 - **Goal:** hand-curate a cited Zabihah sample and merge it into the candidate batch by tier priority
 - **Trigger:** curator decides to include the Tier-3 sample
 - **Preconditions:** research reviewed; run artifact directory exists or is created
-- **Business rules:** BR-7 hand-curated only, no scraping · BR-8 every row has a URL + access date · BR-9 Tier-3 never sets `VERIFIED` or hand-cut · BR-10 merge follows UC-01 BR-4
+- **Business rules:** BR-7 hand-curated only, no scraping · BR-7a Zabihah bulk access is licensed-only (D-13); the pipeline never fetches it and never spoofs a permitted crawler · BR-8 every row has a URL + access date · BR-9 Tier-3 never sets `VERIFIED` or hand-cut · BR-10 merge follows UC-01 BR-4
 
 **Main success scenario**
 
-1. Curator consults a small set of public Zabihah listings and the founder research.
+1. Curator reads a small set of Zabihah listings in a browser and the founder research.
 2. Curator records each venue: name, address, city, region, country, URL, access date, tier 3.
 3. System validates the curated file against the manual-entry schema.
 4. System geocodes each valid row via Photon with match-confirmation.
@@ -81,8 +85,8 @@ flowchart LR
 | E3 | 5 | Duplicate of a Tier-1 candidate → merged | `DUPLICATE_MERGED` |
 
 - **Postconditions:** success — curated rows validated, geocoded, merged, reported; failure — invalid rows rejected, rest proceeds.
-- **Data:** read — pages/research · created/updated — curated input, `candidates.json`, `report.md`
-- **ACs:** AC-2, AC-3, AC-5, AC-8 · **Open:** Q-2, Q-6
+- **Data:** read — curator-entered rows, research · created/updated — curated input, `candidates.json`, `report.md`
+- **ACs:** AC-2, AC-3, AC-5, AC-8 · **Open:** Q-6, Q-7
 
 ## UC-03 — Load a reviewed ingestion batch into the catalog
 
@@ -90,7 +94,7 @@ flowchart LR
 - **Goal:** turn an approved batch into searchable listings with the correct trust outcome, provenance, and claims — idempotently
 - **Trigger:** curator generates the catalogue update from the approved candidates and merges it
 - **Preconditions:** artifacts reviewed; V22 schema merged; database available
-- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut follows that claim's declared standard (HAND/MACHINE/unspecified → TRUE/FALSE/NULL) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands upsert before locations
+- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut follows that claim's declaration (hand-cut → TRUE, not hand-cut → FALSE, silent → NULL) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands upsert before locations
 
 **Main success scenario**
 
@@ -99,7 +103,7 @@ flowchart LR
 3. Curator reviews the migration and diff, then merges it.
 4. System applies pending migrations at startup in one transaction.
 5. System reports applied counts (inserted, upgraded, skipped).
-6. Curator verifies search per metro, Verified display, and the hand-cut filter (HAND-standard rows only) on the live stack.
+6. Curator verifies search per metro, Verified display, and the hand-cut filter (declared hand-cut rows only) on the live stack.
 7. Curator records the batch and evidence in the traceability matrix.
 
 **Flows**
@@ -108,7 +112,7 @@ flowchart LR
 |---|---|---|---|
 | A1 | 2 | Some rows previously rejected → survivors only | Header references report |
 | A2 | 4 | Already applied → no-op | Counts zero |
-| A3 | 4 | Matched existing row → upgrade to `VERIFIED` + hand-cut | Claim attached, no duplicate |
+| A3 | 4 | Matched existing row → upgrade to `VERIFIED`; hand-cut per its claim's declaration | Claim attached, no duplicate |
 | E1 | 4 | Constraint violation → transaction rolls back | No partial load |
 | E2 | 4 | Schema missing → fail fast | V22 first |
 | E3 | 6 | Missing/wrong trust state → blocking | Not accepted until fixed |
@@ -123,7 +127,7 @@ flowchart LR
 - **Goal:** confirm the run is honest and complete, record evidence, track gaps as stories
 - **Trigger:** curator opens the run report
 - **Preconditions:** a run completed (UC-01/02); optionally loaded (UC-03)
-- **Business rules:** BR-16 every fetched row accounted for · BR-17 spot-check rows against citations · BR-18 gaps become stories, not TODOs · BR-19 `VERIFIED` without a Tier-1 claim, or hand-cut TRUE without a HAND-standard claim, is blocking
+- **Business rules:** BR-16 every fetched row accounted for · BR-17 spot-check rows against citations · BR-18 gaps become stories, not TODOs · BR-19 `VERIFIED` without a Tier-1 claim, or hand-cut TRUE without a declaration of hand-cut, is blocking
 
 **Main success scenario**
 
@@ -141,7 +145,7 @@ flowchart LR
 | A2 | 2 | Metro shortfall → record as a known gap with cause | Gap recorded |
 | E1 | 2 | Unaccounted fetched row → blocking | Run not accepted |
 | E2 | 3 | Spot-check mismatch → blocking | Quarantine + re-run |
-| E3 | 2 | `VERIFIED` without a Tier-1 claim, or hand-cut TRUE without HAND standard → blocking | Generator must refuse |
+| E3 | 2 | `VERIFIED` without a Tier-1 claim, or hand-cut TRUE without a hand-cut declaration → blocking | Generator must refuse |
 
 - **Postconditions:** success — report accepted, evidence recorded, gaps tracked; failure — no load until fixed.
 - **Data:** read — artifacts · created — traceability entries, follow-up stories

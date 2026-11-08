@@ -9,12 +9,12 @@ sequenceDiagram
   actor DC as Data Curator
   participant TL as Tahir's List
   DC->>TL: 1. Generate update from approved candidates
-  TL-->>DC: 2. Migration + diff (brands, verification, hand-cut per standard, upgrades, claims)
+  TL-->>DC: 2. Migration + diff (brands, verification, hand-cut per declaration, upgrades, claims)
   DC->>TL: 3. Review and merge
   TL->>TL: 4. Apply migrations at startup (one transaction)
   TL-->>DC: 5. Counts: inserted / upgraded / skipped
   DC->>TL: 6. Verify search, Verified display, hand-cut filter
-  TL-->>DC: 7. Tier-1 verified — hand-cut per standard — manual unverified
+  TL-->>DC: 7. Tier-1 verified — hand-cut per declaration — manual unverified
 ```
 
 **A1 — rejected rows excluded** · survivors only.
@@ -38,7 +38,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: `UPDATE` to `VERIFIED` — hand-cut per the claim's standard — attach claim
+  TL->>TL: `UPDATE` to `VERIFIED` — hand-cut per the claim's declaration — attach claim
 ```
 
 **E1 — constraint violation** · rollback, no partial load.
@@ -62,5 +62,5 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: wrong verification/hand-cut state for the claim's standard → investigate
+  TL->>TL: wrong verification/hand-cut state for the claim's declaration → investigate
 ```

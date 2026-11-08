@@ -52,5 +52,5 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: VERIFIED without a Tier-1 claim, or TRUE without HAND standard
+  TL->>TL: VERIFIED without a Tier-1 claim, or TRUE without a hand-cut declaration
 ```
