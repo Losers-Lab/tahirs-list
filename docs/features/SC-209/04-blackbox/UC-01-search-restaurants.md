@@ -26,7 +26,7 @@ sequenceDiagram
     participant AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Search with coordinates
-    TL->>TL: 3. Validate; 5. Find listings
+    TL->>TL: 3. Validate, then 5. Find listings
     TL-->>AG: 6. Ordered page + facts + links
 ```
 **A2** — no match is a successful empty page.

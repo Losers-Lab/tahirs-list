@@ -111,11 +111,11 @@ classDiagram
 
 ```mermaid
 classDiagram
-    class ListingSearchQuery { <<interface>> }
-    class RestaurantListingRepository { <<interface>> }
-    class HalalCertificationReviewRepository { <<interface>> }
-    class GeocoderPort { <<interface>> }
-    class AgentRateLimiter { <<interface>> }
+    class ListingSearchQuery <<interface>>
+    class RestaurantListingRepository <<interface>>
+    class HalalCertificationReviewRepository <<interface>>
+    class GeocoderPort <<interface>>
+    class AgentRateLimiter <<interface>>
 ```
 
 | Port | Operation | Adapter stub |

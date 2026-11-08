@@ -11,7 +11,7 @@ sequenceDiagram
     participant TL as Tahir's List
     U->>AG: 1. Ask for details about a restaurant
     AG->>TL: 2. Detail request with the listing id
-    TL->>TL: 3. Validate id; 4. Load listing
+    TL->>TL: 3. Validate id, then 4. Load listing
     TL->>TL: 5. Derive certificate facts if eligible
     TL-->>AG: 6. Full detail + image + certificate/link
     AG-->>U: 7. Present the detail
@@ -24,7 +24,7 @@ sequenceDiagram
     participant AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Detail request
-    TL->>TL: 4. Found; 5. No eligible certificate
+    TL->>TL: 4. Found, then 5. No eligible certificate
     TL-->>AG: 6. Detail without certificate or link
 ```
 
