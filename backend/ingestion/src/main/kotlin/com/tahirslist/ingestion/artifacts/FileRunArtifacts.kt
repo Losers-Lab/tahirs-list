@@ -82,13 +82,13 @@ class RunAlreadyLoadedException(val runId: String) : RuntimeException(
 class FileRunArtifacts(
     private val root: Path,
     private val clock: Clock = Clock.systemUTC(),
-) {
+) : ArtifactStore {
     private val json = Json {
         prettyPrint = true
         encodeDefaults = true
     }
 
-    fun begin(runId: String, onPending: PendingRunPolicy = PendingRunPolicy.ABORT): Path {
+    override fun begin(runId: String, onPending: PendingRunPolicy): Path {
         requireValidRunId(runId)
         val runsDir = root.resolve(RUNS)
         Files.createDirectories(runsDir)
@@ -112,16 +112,19 @@ class FileRunArtifacts(
         return directory
     }
 
+    /** Convenience for the default (abort) pending-run policy. */
+    fun begin(runId: String): Path = begin(runId, PendingRunPolicy.ABORT)
+
     /**
      * Writes the run's artifacts and, last, the manifest that marks the run
      * complete and awaiting review. A directory without `run.json` is
      * incomplete and is never reported as pending.
      */
-    fun complete(
+    override fun complete(
         runId: String,
         candidatesJson: String,
         reportMarkdown: String,
-        snapshots: Map<String, ByteArray> = emptyMap(),
+        snapshots: Map<String, ByteArray>,
     ): PendingRun {
         val directory = runDirectory(runId)
         require(Files.isDirectory(directory)) { "run $runId was not started" }
@@ -151,6 +154,10 @@ class FileRunArtifacts(
 
         return PendingRun(runId, directory, now, candidatesHash, reportHash)
     }
+
+    /** Convenience for a run with no snapshots to archive. */
+    fun complete(runId: String, candidatesJson: String, reportMarkdown: String): PendingRun =
+        complete(runId, candidatesJson, reportMarkdown, emptyMap())
 
     fun findPending(): List<PendingRun> =
         listRunDirectories()
