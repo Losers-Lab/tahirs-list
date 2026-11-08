@@ -24,6 +24,22 @@ the use case narrative, invariants, deltas, open questions. Everything else is a
 caption. Outside diagrams, tables, and use cases, an artifact must read in under
 a minute.
 
+## Diagram conventions
+
+- **Actors left.** Everything outside the system (user, agent client, Google
+  Places, Photon, Yelp, Gemini) is an actor on the left; a call to an actor points
+  left. Black-box keeps one "Tahir's List" lifeline and puts external services to
+  its left too.
+- **Use the symbols.** `actor X as …` for actors (stick figure), not
+  `participant`, which draws a rectangle and hides that the box is external.
+  Owned stores get `participant DB@{ "type": "database" } as …` (cylinder);
+  flowcharts use `[(...)]`.
+- **Owned data stores right.** PostgreSQL/PostGIS, MinIO/S3 after the internal
+  lifelines. White-box shows the actual SQL/object read/write — never stop at the
+  repository interface.
+- **No magic data.** For each external dependency, show adapter → external system
+  → adapter and the failure branch (no match vs outage).
+
 ## Agreements
 
 - No invented requirements — ACs come from Shortcut verbatim.
