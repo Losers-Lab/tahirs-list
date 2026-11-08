@@ -54,7 +54,7 @@ answer you already gave**.
 | Decision | Meaning | Effect in the load transaction |
 |---|---|---|
 | `same-venue` + `listingId` | The two listings are the same restaurant; keep the one you name and retire the other | Moves claims, cuisines, halal items, favourites and verification reviews to the keeper, recomputes the keeper's trust from the union (a folded-in Tier-1 claim restores `VERIFIED`), removes the duplicate from the search mirror, deletes the duplicate row, then writes the candidate into the keeper |
-| `attach-to` + `listingId` | The claim was attached to the wrong listing; it belongs to the listing the venue resolves to | Re-points exactly that claim (`(source, source_record_ref)` → new `listing_id`), then writes the candidate into that listing |
+| `attach-to` + `listingId` | The claim was attached to the wrong listing; it belongs to the listing the venue resolves to | Re-points exactly that claim (`(source, source_record_ref)` → new `listing_id`), recomputes both listings (the source may lose its only Tier-1 evidence and leave the index; the destination may gain it), then writes the candidate into the destination |
 | `bad-citation` (no `listingId`) | The citation is wrong and must not be written | Drops the claim from this batch. If it was the candidate's only claim the candidate is rejected (`MISSING_CITATION`); the existing claim row is left untouched as audit evidence |
 
 `attach-to` must name the listing the venue resolves to. Naming the claim's
