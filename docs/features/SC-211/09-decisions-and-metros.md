@@ -100,7 +100,9 @@ and their checksum (`resolutionsSha256`) is recorded in `loaded.json`.
 
 ## Metros
 
-`backend/ingestion/src/main/resources/metros.json` (or `--metros-file=<path>`):
+`backend/ingestion/src/main/resources/metros.json` (or `--metros-file=<path>`).
+The shipped catalogue currently covers **Dallas, Austin, NYC and Toronto** — four
+circles of data, no code. Adding another city is the same one-entry edit:
 
 ```json
 {

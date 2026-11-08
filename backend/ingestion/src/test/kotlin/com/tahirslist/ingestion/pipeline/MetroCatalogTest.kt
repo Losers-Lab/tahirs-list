@@ -14,9 +14,20 @@ class MetroCatalogTest : FunSpec({
     test("the shipped catalogue loads from the classpath and names its metros") {
         val catalog = MetroCatalog.default()
         catalog.all().map { it.name } shouldContain "Dallas"
+        catalog.all().map { it.name } shouldContain "Austin"
         catalog.all().map { it.name } shouldContain "NYC"
         catalog.all().map { it.name } shouldContain "Toronto"
         catalog.named("toronto")?.name shouldBe "Toronto"
+    }
+
+    test("Austin covers its metro area and not the next city over") {
+        val austin = MetroCatalog.default().named("Austin") ?: error("missing")
+        austin.contains(LatLng(30.2672, -97.7431)) shouldBe true // downtown
+        austin.contains(LatLng(30.5083, -97.6789)) shouldBe true // Round Rock ~27 km
+        austin.contains(LatLng(30.6333, -97.6779)) shouldBe true // Georgetown ~41 km
+        austin.contains(LatLng(29.8833, -97.9414)) shouldBe true // San Marcos ~48 km
+        austin.contains(LatLng(29.7604, -95.3698)) shouldBe false // Houston ~236 km
+        austin.contains(LatLng(29.4241, -98.4936)) shouldBe false // San Antonio ~119 km
     }
 
     test("membership is a radius, not a city list") {
