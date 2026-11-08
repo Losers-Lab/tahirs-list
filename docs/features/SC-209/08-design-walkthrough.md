@@ -74,7 +74,7 @@ flowchart LR
 Approved by: `<pending>` · Date: · Design commit:
 Decision items: `<pending>`
 
-Re-approval: design corrected — existing use cases reused; per-item halal, Photon geocoding and diagram conventions clarified; implementation content unchanged, d960e7f
+Re-approval: design corrected — existing use cases reused; per-item halal, Photon geocoding and diagram conventions clarified; implementation content unchanged, 2a1609d
 
 > **Re-approval requested.** Reply `approved` to confirm technical content is
 > unchanged (format-only), or name the diagram and the change.
