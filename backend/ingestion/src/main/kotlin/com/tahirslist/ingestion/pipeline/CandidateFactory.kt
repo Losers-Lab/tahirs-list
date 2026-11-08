@@ -1,5 +1,6 @@
 package com.tahirslist.ingestion.pipeline
 
+import com.tahirslist.application.geo.GeocodedPlace
 import com.tahirslist.application.geo.GeocoderPort
 import com.tahirslist.application.geo.GeocodingException
 import com.tahirslist.application.ingestion.IngestReject
@@ -38,6 +39,36 @@ class CandidateFactory(
     private val metros: MetroCatalog = MetroCatalog.default(),
 ) {
 
+    /**
+     * One geocoder result per address for the lifetime of this factory (one
+     * run). Metro selection needs the point of a row that carries no
+     * coordinates, and the build then needs the same point; geocoding it twice
+     * would be a wasted call and could even disagree between calls.
+     */
+    private val located = mutableMapOf<String, GeocodedPlace?>()
+
+    /**
+     * Resolve a row to a place without deciding trust or membership. Translation
+     * failures abort the run (a provider outage is not a row-level reject); a
+     * no-match is returned as null and becomes the caller's reject.
+     */
+    suspend fun locate(listing: SourceListing): GeocodedPlace? {
+        val query = queryText(listing)
+        if (located.containsKey(query)) return located[query]
+        val place = try {
+            geocoder.geocode(query)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: GeocodingException) {
+            throw GeocoderUnavailableException(
+                "geocoder failed while resolving '${listing.name}': ${e.message}",
+                e,
+            )
+        }
+        located[query] = place
+        return place
+    }
+
     /** Convenience for callers that hold only the metro's name. */
     suspend fun build(
         listing: SourceListing,
@@ -67,17 +98,7 @@ class CandidateFactory(
             region = listing.region,
             country = listing.country,
         )
-        val place = try {
-            geocoder.geocode(queryText(listing))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: GeocodingException) {
-            throw GeocoderUnavailableException(
-                "geocoder failed while resolving '${listing.name}': ${e.message}",
-                e,
-            )
-        }
-
+        val place = locate(listing)
         if (place == null) {
             return CandidateBuild.Rejected(
                 reject(RejectReason.NO_GEOCODER_MATCH, "no geocoder match for '${listing.name}'", listing),

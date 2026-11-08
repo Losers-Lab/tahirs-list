@@ -3,32 +3,17 @@
     {
       "name": "Dallas",
       "center": { "lat": 32.7767, "lng": -96.7970 },
-      "radiusKm": 80.0,
-      "aliases": [
-        "dallas", "richardson", "plano", "irving", "garland", "addison",
-        "carrollton", "frisco", "arlington", "grand prairie", "mesquite",
-        "lewisville", "denton", "mckinney", "allen"
-      ]
+      "radiusKm": 80.0
     },
     {
       "name": "NYC",
       "center": { "lat": 40.7128, "lng": -74.0060 },
-      "radiusKm": 45.0,
-      "aliases": [
-        "new york", "manhattan", "brooklyn", "queens", "bronx",
-        "staten island", "long island city", "jersey city", "astoria",
-        "flushing", "jackson heights"
-      ]
+      "radiusKm": 45.0
     },
     {
       "name": "Toronto",
       "center": { "lat": 43.6532, "lng": -79.3832 },
-      "radiusKm": 50.0,
-      "aliases": [
-        "toronto", "mississauga", "brampton", "markham", "richmond hill",
-        "vaughan", "scarborough", "etobicoke", "north york", "thornhill",
-        "oakville", "ajax", "pickering"
-      ]
+      "radiusKm": 50.0
     }
   ]
 }

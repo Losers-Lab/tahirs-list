@@ -42,16 +42,30 @@ class CompileManualBatch(
         val accepted = mutableListOf<IngestionCandidate>()
 
         for (curated in read.listings) {
-            val metro = metroFilter.metroFor(curated.listing) ?: run {
+            // Curated rows carry no coordinates: the geocoded point decides the
+            // metro, and the factory's cache reuses it for the candidate.
+            val place = factory.locate(curated.listing)
+            if (place == null) {
                 rejects += IngestReject(
-                    reason = RejectReason.MISSING_METRO,
-                    detail = "curated row in '${curated.listing.city}' is outside the configured metros",
+                    reason = RejectReason.NO_GEOCODER_MATCH,
+                    detail = "no geocoder match for '${curated.listing.name}'",
                     source = curated.listing.source.certifierId,
                     sourceRecordRef = curated.listing.source.recordId,
                     name = curated.listing.name,
                 )
-                null
-            } ?: continue
+                continue
+            }
+            val metro = metroFilter.forPoint(place.location)
+            if (metro == null) {
+                rejects += IngestReject(
+                    reason = RejectReason.MISSING_METRO,
+                    detail = "curated row at ${place.displayName} is outside every configured metro",
+                    source = curated.listing.source.certifierId,
+                    sourceRecordRef = curated.listing.source.recordId,
+                    name = curated.listing.name,
+                )
+                continue
+            }
 
             when (val build = factory.build(curated.listing, metro, curated.crossContamination)) {
                 is CandidateBuild.Built -> accepted += build.candidate.stamped(curated.accessedOn)

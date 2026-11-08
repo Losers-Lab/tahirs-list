@@ -9,6 +9,7 @@ import com.tahirslist.application.ingestion.IngestionCandidate
 import com.tahirslist.application.ingestion.RejectReason
 import com.tahirslist.application.ingestion.mergeCandidates
 import com.tahirslist.certifiers.core.CertifierException
+import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.certifiers.core.SourceBlockedException
 import com.tahirslist.certifiers.core.SourceParseException
 import com.tahirslist.certifiers.core.SourceTooLargeException
@@ -77,6 +78,7 @@ class RunSampleIngestion(
         val snapshots = linkedMapOf<String, ByteArray>()
         val fetched = linkedMapOf<Pair<String, String>, Int>()
         val rowsByMetro = linkedMapOf<String, LinkedHashMap<String, MutableList<SourceListing>>>()
+        val outsideBySource = linkedMapOf<String, Int>()
 
         for (feed in enabled) {
             val page = try {
@@ -94,13 +96,41 @@ class RunSampleIngestion(
                     snapshot.body.toByteArray(StandardCharsets.UTF_8)
             }
             for (listing in page.listings) {
-                val metro = metroFilter.metroFor(listing) ?: continue
+                // Membership is the circle. A row that carries coordinates is
+                // filtered without a geocoder call; a row that does not is
+                // geocoded once here, and the factory reuses that result.
+                val metro = when (val point = listing.point()) {
+                    null -> {
+                        val place = factory.locate(listing)
+                        if (place == null) {
+                            rejects += IngestReject(
+                                reason = RejectReason.NO_GEOCODER_MATCH,
+                                detail = "no geocoder match for '${listing.name}'",
+                                source = feed.sourceId,
+                                sourceRecordRef = listing.source.recordId,
+                                name = listing.name,
+                            )
+                        }
+                        place?.let { metroFilter.forPoint(it.location) }
+                    }
+                    else -> metroFilter.forPoint(point)
+                }
+                if (metro == null) {
+                    outsideBySource[feed.sourceId] = (outsideBySource[feed.sourceId] ?: 0) + 1
+                    continue
+                }
                 if (metros.none { it.name == metro.name }) continue
                 fetched[feed.sourceId to metro.name] = (fetched[feed.sourceId to metro.name] ?: 0) + 1
                 rowsByMetro.getOrPut(metro.name) { linkedMapOf() }
                     .getOrPut(feed.sourceId) { mutableListOf() }
                     .add(listing)
             }
+        }
+
+        // Rows outside every configured circle are not silently missing from the
+        // account of the run.
+        outsideBySource.forEach { (source, count) ->
+            gaps += "$source: $count row(s) outside every configured metro"
         }
 
         val accepted = mutableListOf<IngestionCandidate>()
@@ -217,3 +247,10 @@ class RunSampleIngestion(
 }
 
 private fun java.time.Instant.toKotlinInstant(): kotlin.time.Instant = kotlin.time.Instant.fromEpochMilliseconds(toEpochMilli())
+
+/** The directory's own point, when it has a usable one; never the accepted location. */
+private fun SourceListing.point(): LatLng? {
+    val lat = latitude ?: return null
+    val lng = longitude ?: return null
+    return runCatching { LatLng(lat, lng) }.getOrNull()
+}

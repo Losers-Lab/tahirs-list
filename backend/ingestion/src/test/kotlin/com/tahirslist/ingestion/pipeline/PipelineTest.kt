@@ -26,8 +26,8 @@ fun sourceListing(
     country: String? = "Canada",
     tier: SourceTier = SourceTier.TIER_1,
     handCut: HandCutDeclaration = HandCutDeclaration.HAND_CUT,
-    lat: Double? = 43.0,
-    lng: Double? = -79.0,
+    lat: Double? = 43.665206,
+    lng: Double? = -79.384523,
 ): SourceListing = SourceListing(
     source = SourceRef(certifierId = source, recordId = record, url = "https://example.test/$source/$record"),
     standard = DirectoryStandard(tier = tier, certifier = source, handCut = handCut),
@@ -66,17 +66,28 @@ fun place(displayName: String, lat: Double = 43.665206, lng: Double = -79.384523
 
 class MetroFilterTest : FunSpec({
 
-    test("a row is in the metro when its city matches, case and punctuation aside") {
+    test("membership is the circle, so a place name cannot include or exclude a row") {
         val filter = MetroFilter()
-        filter.metroFor(sourceListing(city = "Toronto"))?.name shouldBe "Toronto"
-        filter.metroFor(sourceListing(city = "  mississauga "))?.name shouldBe "Toronto"
-        filter.metroFor(sourceListing(city = "Dallas"))?.name shouldBe "Dallas"
-        filter.metroFor(sourceListing(city = "Brooklyn"))?.name shouldBe "NYC"
+        // A city the configuration never names, at a Toronto address.
+        filter.forPoint(LatLng(43.70, -79.40))?.name shouldBe "Toronto"
+        filter.forPoint(LatLng(32.78, -96.80))?.name shouldBe "Dallas"
+        filter.forPoint(LatLng(40.68, -73.94))?.name shouldBe "NYC"
+        // Toronto city centre, but more than 50 km away is still outside.
+        filter.forPoint(LatLng(44.10, -79.60)) shouldBe null
+        // The other side of the world.
+        filter.forPoint(LatLng(51.50, -0.12)) shouldBe null
     }
 
-    test("a row outside the configured metros is not guessed into one") {
-        MetroFilter().metroFor(sourceListing(city = "Vancouver")) shouldBe null
-        MetroFilter().metroFor(sourceListing(city = null)) shouldBe null
+    test("overlapping circles resolve to the nearest centre") {
+        val catalog = MetroCatalog(
+            listOf(
+                MetroDefinition("A", LatLng(0.0, 0.0), 200.0),
+                MetroDefinition("B", LatLng(0.0, 0.5), 200.0),
+            ),
+        )
+        val filter = MetroFilter(catalog)
+        filter.forPoint(LatLng(0.0, 0.1))?.name shouldBe "A"
+        filter.forPoint(LatLng(0.0, 0.4))?.name shouldBe "B"
     }
 
     test("selection names are case-insensitive and empty means all") {

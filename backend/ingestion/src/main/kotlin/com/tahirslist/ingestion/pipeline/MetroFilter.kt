@@ -1,7 +1,6 @@
 package com.tahirslist.ingestion.pipeline
 
 import com.tahirslist.domain.restaurant.LatLng
-import com.tahirslist.ingestion.SourceListing
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
@@ -15,48 +14,29 @@ import kotlinx.serialization.json.Json
 
 /**
  * A metro is a **circle**: a configured centre and radius. Membership is decided
- * by distance, so growing the catalogue never requires a code change — the
- * operator adds an entry to `metros.json` (or points `--metros-file` at another
- * catalogue).
+ * by distance and nothing else — no list of city names, no aliases, no string
+ * matching. Growing the catalogue is adding a circle to `metros.json` (or
+ * pointing `--metros-file` at another catalogue); it never touches code, and a
+ * row is never dropped because a place name is missing from a list.
  *
- * [aliases] are only a cheap **pre-geocode** prefilter: a directory row whose
- * city text matches an alias is allowed through to geocoding. The confirmed
- * location still decides membership, because a directory's own coordinates are
- * evidence, not the accepted location (BR-3). An alias never makes a row a
- * member on its own, and a row with neither a matching alias nor coordinates is
- * skipped without spending a geocoder call.
+ * Rows that carry coordinates are filtered without a geocoder call. Rows that do
+ * not are geocoded once, and that result decides their metro (and is reused when
+ * the candidate is built). The accepted location is always the geocoded one; a
+ * directory's own coordinates are only ever a cheap prefilter.
  */
 data class MetroDefinition(
     val name: String,
     val center: LatLng,
     val radiusKm: Double,
-    val aliases: Set<String> = emptySet(),
 ) {
     init {
         require(name.isNotBlank()) { "a metro must have a name" }
         require(radiusKm > 0.0) { "metro $name must have a positive radius" }
     }
 
-    private val normalizedAliases: List<String> = aliases
-        .map(::normalize)
-        .filter { it.isNotEmpty() }
-        .distinct()
-
     fun distanceKm(point: LatLng): Double = haversineKm(center, point)
 
     fun contains(point: LatLng): Boolean = distanceKm(point) <= radiusKm
-
-    /** The pre-geocode prefilter: an exact alias, never a substring of another word. */
-    fun matchesText(city: String?): Boolean {
-        val text = normalize(city ?: return false)
-        if (text.isEmpty()) return false
-        return normalizedAliases.any { alias -> text == alias || text.startsWith("$alias ") }
-    }
-
-    companion object {
-        fun normalize(value: String): String =
-            value.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
-    }
 }
 
 /** Great-circle distance in kilometres (haversine, mean Earth radius). */
@@ -130,7 +110,6 @@ class MetroCatalog(private val metros: List<MetroDefinition>) {
                         name = it.name,
                         center = LatLng(it.center.lat, it.center.lng),
                         radiusKm = it.radiusKm,
-                        aliases = it.aliases.toSet(),
                     )
                 },
             )
@@ -138,34 +117,16 @@ class MetroCatalog(private val metros: List<MetroDefinition>) {
     }
 }
 
-/**
- * Assigns a source row to a configured metro; null means "outside the
- * selection". The city alias is tried first (cheap, and city text is usually
- * right); the directory's own coordinates are only a fallback for rows whose
- * city is missing or unrecognised. The candidate factory then confirms the
- * geocoded point against the same circle.
- */
+/** Assigns a point to the configured metro that contains it. */
 class MetroFilter(private val catalog: MetroCatalog = MetroCatalog.default()) {
 
     val metros: List<MetroDefinition> get() = catalog.all()
-
-    fun metroFor(listing: SourceListing): MetroDefinition? {
-        listing.city?.let { city -> metros.firstOrNull { it.matchesText(city) } }?.let { return it }
-        val point = listing.point() ?: return null
-        return catalog.forPoint(point)
-    }
 
     fun forPoint(point: LatLng): MetroDefinition? = catalog.forPoint(point)
 
     fun named(name: String): MetroDefinition? = catalog.named(name)
 
     fun selected(names: Set<String>): List<MetroDefinition> = catalog.selected(names)
-
-    private fun SourceListing.point(): LatLng? {
-        val lat = latitude ?: return null
-        val lng = longitude ?: return null
-        return runCatching { LatLng(lat, lng) }.getOrNull()
-    }
 }
 
 @Serializable
@@ -176,7 +137,6 @@ private data class MetroEntry(
     val name: String,
     val center: CenterEntry,
     val radiusKm: Double,
-    val aliases: List<String> = emptyList(),
 )
 
 @Serializable

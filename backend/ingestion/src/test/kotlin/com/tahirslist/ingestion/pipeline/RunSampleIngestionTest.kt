@@ -86,7 +86,13 @@ class RunSampleIngestionTest : FunSpec({
             "hms",
             listOf(
                 sourceListing(record = "H-1", name = "Paramount Fine Foods", city = "Toronto"),
-                sourceListing(record = "H-2", name = "The Halal Guys", city = "Dallas"),
+                sourceListing(
+                    record = "H-2",
+                    name = "The Halal Guys",
+                    city = "Dallas",
+                    lat = 32.7767,
+                    lng = -96.7970,
+                ),
             ),
         )
         val hfsaa = FakeFeed(
@@ -176,6 +182,55 @@ class RunSampleIngestionTest : FunSpec({
 
         result.report.rejects.single().reason shouldBe RejectReason.NO_GEOCODER_MATCH
         result.report.candidates shouldBe emptyList()
+    }
+
+    test("a row with no coordinates is geocoded once to decide its metro, and the build reuses it") {
+        val geocoder = FakeGeocoder { place("Toronto, Ontario, Canada") }
+        val row = sourceListing(
+            source = "hma",
+            record = "M-1",
+            name = "Bamiyan Kabob",
+            lat = null,
+            lng = null,
+        )
+        val run = RunSampleIngestion(
+            feeds = listOf(FakeFeed("hma", listOf(row))),
+            health = CheckGeocoderHealth(geocoder),
+            artifacts = FakeArtifacts(),
+            factory = CandidateFactory(geocoder),
+        )
+
+        val result = run.execute(IngestSelection(runId = "run-1", metros = setOf("Toronto")))
+
+        result.report.candidates.single().metro shouldBe "Toronto"
+        // one pre-flight + one locate; the candidate build reuses the locate.
+        geocoder.queries.size shouldBe 2
+    }
+
+    test("a row outside every circle is skipped without a geocoder call and reported as a gap") {
+        val geocoder = FakeGeocoder { place("Toronto, Ontario, Canada") }
+        val run = RunSampleIngestion(
+            feeds = listOf(
+                FakeFeed(
+                    "hms",
+                    listOf(
+                        sourceListing(record = "H-1", name = "Inside"),
+                        // Vancouver: outside every configured circle.
+                        sourceListing(record = "H-2", name = "Outside", lat = 49.2827, lng = -123.1207),
+                    ),
+                ),
+            ),
+            health = CheckGeocoderHealth(geocoder),
+            artifacts = FakeArtifacts(),
+            factory = CandidateFactory(geocoder),
+        )
+
+        val result = run.execute(IngestSelection(runId = "run-1", metros = setOf("Toronto")))
+
+        result.report.candidates.single().name shouldBe "Inside"
+        // one pre-flight + the selected row; the outside row never reaches the geocoder.
+        geocoder.queries.size shouldBe 2
+        result.report.gaps.any { it.contains("outside every configured metro") } shouldBe true
     }
 
     test("a geocoder outage mid-run aborts before the manifest") {

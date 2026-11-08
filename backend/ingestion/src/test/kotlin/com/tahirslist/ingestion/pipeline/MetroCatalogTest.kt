@@ -38,8 +38,7 @@ class MetroCatalogTest : FunSpec({
                 {
                   "name": "Springfield",
                   "center": { "lat": 39.7817, "lng": -89.6501 },
-                  "radiusKm": 25.0,
-                  "aliases": ["springfield", "sherman"]
+                  "radiusKm": 25.0
                 }
               ]
             }
@@ -47,48 +46,28 @@ class MetroCatalogTest : FunSpec({
         )
 
         val filter = MetroFilter(MetroCatalog.load(file))
-        filter.metroFor(sourceListing(city = "Springfield"))?.name shouldBe "Springfield"
-        filter.metroFor(sourceListing(city = "  SHERMAN "))?.name shouldBe "Springfield"
-        filter.metroFor(sourceListing(city = "Chicago")) shouldBe null
-        filter.named("Springfield")?.contains(LatLng(39.80, -89.64)) shouldBe true
+        filter.forPoint(LatLng(39.80, -89.64))?.name shouldBe "Springfield"
+        filter.forPoint(LatLng(41.88, -87.63)) shouldBe null // Chicago, ~300 km
     }
 
-    test("an alias matches whole words, never a fragment of another city") {
-        val toronto = MetroCatalog.default().named("Toronto") ?: error("missing")
-        toronto.matchesText("Toronto") shouldBe true
-        toronto.matchesText("Toronto, Ontario") shouldBe true
-        toronto.matchesText("  north   york ") shouldBe true
-        toronto.matchesText("Torontonian") shouldBe false
-        toronto.matchesText("East York") shouldBe false
+    test("a circle rejects a point just outside its radius and accepts one inside") {
+        val metro = MetroDefinition("M", LatLng(0.0, 0.0), 10.0)
+        metro.contains(LatLng(0.0, 0.08)) shouldBe true // ~8.9 km
+        metro.contains(LatLng(0.0, 0.10)) shouldBe false // ~11.1 km
+        metro.contains(LatLng(0.0, 0.0)) shouldBe true
     }
 
-    test("a row without a known city falls back to its own coordinates, and only then") {
-        val filter = MetroFilter()
-
-        // Alias first: the placeholder coordinates are far outside and ignored.
-        filter.metroFor(sourceListing(city = "Toronto"))?.name shouldBe "Toronto"
-        // No alias: the coordinates decide.
-        filter.metroFor(sourceListing(city = "Nowhere", lat = 43.65, lng = -79.38))?.name shouldBe "Toronto"
-        filter.metroFor(sourceListing(city = "Nowhere", lat = 51.5, lng = -0.12)) shouldBe null
-        // Neither signal: never guessed.
-        filter.metroFor(sourceListing(city = null, lat = 51.5, lng = -0.12)) shouldBe null
-    }
-
-    test("overlapping circles resolve to the nearest centre, deterministically") {
-        val catalog = MetroCatalog(
-            listOf(
-                MetroDefinition("A", LatLng(0.0, 0.0), 200.0),
-                MetroDefinition("B", LatLng(0.0, 0.5), 200.0),
-            ),
-        )
-        catalog.forPoint(LatLng(0.0, 0.1))?.name shouldBe "A"
-        catalog.forPoint(LatLng(0.0, 0.4))?.name shouldBe "B"
-        catalog.forPoint(LatLng(10.0, 10.0)) shouldBe null
-    }
-
-    test("a catalogue with an unknown metro name is rejected at load time") {
+    test("a catalogue with an invalid circle is rejected at load time") {
         shouldThrow<IllegalArgumentException> {
-            MetroCatalog(listOf(MetroDefinition("A", LatLng(0.0, 0.0), 10.0), MetroDefinition("a", LatLng(1.0, 1.0), 10.0)))
+            MetroDefinition("A", LatLng(0.0, 0.0), 0.0)
+        }
+        shouldThrow<IllegalArgumentException> {
+            MetroCatalog(
+                listOf(
+                    MetroDefinition("A", LatLng(0.0, 0.0), 10.0),
+                    MetroDefinition("a", LatLng(1.0, 1.0), 10.0),
+                ),
+            )
         }
     }
 })

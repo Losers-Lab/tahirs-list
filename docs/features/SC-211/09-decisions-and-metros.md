@@ -53,7 +53,7 @@ answer you already gave**.
 
 | Decision | Meaning | Effect in the load transaction |
 |---|---|---|
-| `same-venue` + `listingId` | The two listings are the same restaurant; keep the one you name and retire the other | Moves claims, cuisines, halal items, favourites and verification reviews to the keeper, removes the duplicate from the search mirror, deletes the duplicate row, then writes the candidate into the keeper |
+| `same-venue` + `listingId` | The two listings are the same restaurant; keep the one you name and retire the other | Moves claims, cuisines, halal items, favourites and verification reviews to the keeper, recomputes the keeper's trust from the union (a folded-in Tier-1 claim restores `VERIFIED`), removes the duplicate from the search mirror, deletes the duplicate row, then writes the candidate into the keeper |
 | `attach-to` + `listingId` | The claim was attached to the wrong listing; it belongs to the listing the venue resolves to | Re-points exactly that claim (`(source, source_record_ref)` → new `listing_id`), then writes the candidate into that listing |
 | `bad-citation` (no `listingId`) | The citation is wrong and must not be written | Drops the claim from this batch. If it was the candidate's only claim the candidate is rejected (`MISSING_CITATION`); the existing claim row is left untouched as audit evidence |
 
@@ -66,7 +66,7 @@ venue.
 | Decision | Meaning | Effect |
 |---|---|---|
 | `same-venue` + `listingId` | Same restaurant as the listing you name | Upgrades that listing in place (no merge: there is nothing to retire) |
-| `distinct` (no `listingId`) | A different business at the same address/suite (e.g. a food court) | Inserts the candidate as a new listing |
+| `distinct` (no `listingId`) | A different business at the same address/suite (e.g. a food court) | Inserts the candidate as a new listing. Two businesses may share one point; identity is the claim/venue key, and only the seed corpus keeps a per-point unique index |
 
 ## Interactive or agent-driven
 
@@ -108,22 +108,27 @@ and their checksum (`resolutionsSha256`) is recorded in `loaded.json`.
     {
       "name": "Toronto",
       "center": { "lat": 43.6532, "lng": -79.3832 },
-      "radiusKm": 50.0,
-      "aliases": ["toronto", "mississauga", "brampton", "..."]
+      "radiusKm": 50.0
     }
   ]
 }
 ```
 
-- **Membership is the circle.** After geocoding, the confirmed location must be
-  within `radiusKm` of the centre; a row outside it is rejected
-  (`OUTSIDE_METRO`) with the distance, never silently reassigned.
-- **Aliases are only a pre-filter.** They avoid geocoding rows from another
-  city. Alias matching is whole-word (`Toronto, ON` matches; `Torontonian`
-  does not). An alias never admits a row by itself.
-- **Rows with coordinates but no matching alias** are allowed through as a
-  fallback and still radius-confirmed. A row with neither is skipped.
+- **Membership is the circle.** A point is in the metro when it is within
+  `radiusKm` of the centre. There is no list of city names, no aliases and no
+  string matching anywhere: a place that did not exist when the config was
+  written is covered as soon as it is inside a circle.
+- **Rows that carry coordinates** are filtered by distance without spending a
+  geocoder call. A row outside every circle is skipped and counted in the run's
+  gaps (`N row(s) outside every configured metro`), never silently dropped.
+- **Rows without coordinates** (HMA, curated manual rows) are geocoded once to
+  decide their metro; the candidate build reuses that result.
+- **The accepted location is still the geocoded one.** Directory coordinates
+  are only the cheap prefilter; the candidate's point always comes from the
+  geocoder, and the confirmed point is re-checked against the circle
+  (`OUTSIDE_METRO` with the distance if the source coordinates were wrong).
 - **Adding a metro is data.** Add an entry (and mount the file with
-  `--metros-file` if it is not the default) — no code change, no rebuild logic.
+  `--metros-file` if it is not the default) — no code change, no place-name
+  list to keep in sync.
 - `--metros` selects configured metros by name. A mistyped name fails the run
   instead of silently selecting nothing.
