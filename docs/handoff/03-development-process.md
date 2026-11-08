@@ -136,12 +136,15 @@ convention, PR authorship becomes unattributable.
 (Arham4), GitHub blocks a formal `APPROVED` review on your own PR. The team's
 workaround, encoded in the coordination gate prompt:
 
-> An open PR **is** merge-approved when an attributed reviewer comment (starting
-> `[omar]` or `[yusuf]`) states **"Verdict: APPROVE"** — treat that as a valid
-> approving review even if `reviewDecision` is empty or `COMMENTED`.
+> An open PR **is** merge-approved when **both** attributed reviewer comments
+> (one starting `[omar]`, one starting `[yusuf]`) state **"Verdict: APPROVE"** —
+> treat those as the valid approving reviews even if `reviewDecision` is empty or
+> `COMMENTED`. One reviewer's approval alone is not enough.
 
-Still required: the PR must be **MERGEABLE** (no conflict) and the build must be
-green. If a PR is conflicting, rebase or merge `main` in; do not block silently.
+Still required: the PR must be **MERGEABLE** (no conflict), the build must be
+green on the head, and the owner must have approved after the specialist rounds
+converged. If a PR is conflicting, rebase or merge `main` in; do not block
+silently.
 
 If you move to a proper multi-account setup, this workaround can be deleted. Until
 then, it is the only way to satisfy "no merge without approval" on a single account.

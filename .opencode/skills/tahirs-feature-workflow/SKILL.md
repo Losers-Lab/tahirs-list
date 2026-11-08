@@ -108,7 +108,8 @@ refactor. Formatter, `[SC-###]` commit, PR body with evidence. Update
 **Run the specialist rounds yourself.** Omar (security, static) and Yusuf (QA,
 dynamic) review the PR diff and post `[omar]` / `[yusuf]` findings on the PR.
 Do not ask the owner to review until both have converged — owner review is the
-final gate, not the first one.
+final gate, not the first one. The verdicts are the reviewers' own; write the
+fixes, not the verdicts.
 
 Self-review → security (static) → QA (dynamic). Blocking vs `nit:`/`optional:`.
 Fix, reply per thread, re-request.
@@ -118,7 +119,8 @@ suites green on head; `Verdict: APPROVE` from **both** Omar and Yusuf recorded o
 the PR; **two consecutive clean rounds**; diagrams updated; deferrals are
 Shortcut stories.
 
-Three rounds without convergence → escalate with a one-paragraph summary.
+Three rounds without convergence → escalate with a one-paragraph summary. That
+asks the owner for a decision, not a code review; merge still needs both verdicts.
 
 ## Step 12 — Owner review, merge, deploy
 

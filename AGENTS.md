@@ -181,8 +181,8 @@ rather than proceeding with unverified assumptions.
     `Fix bug`). Full: `[SC-131] Add JWT verification filter`.
   - Keep commits focused and logically separated; write clear messages.
 - **PR-based review flow (MANDATORY — founder directive, all agents and humans):**
-  - **Every** feature/fix goes: branch → push → **open a GitHub PR** → merge
-    to `main` only after merge. Direct pushes/merges to `main` from feature
+  - **Every** feature/fix goes: branch → push → **open a GitHub PR** → review
+    approval → merge to `main`. Direct pushes/merges to `main` from feature
     branches without a PR are not allowed.
   - **📛 PR & comment attribution (MANDATORY — founder directive):** commits
     intentionally attribute to the shared account (Arham4) — **do NOT change
@@ -196,14 +196,16 @@ rather than proceeding with unverified assumptions.
     GitHub (who made it / who commented) even though git author and PR titles
     keep their existing style.
   - **Reviews are PR artifacts:** reviewers (Omar for security/code review,
-    Yusuf for QA where applicable) post their findings **as PR review
-    comments** on the PR itself — not only in task-manager comments. The PR
-    diff + review must be auditable on GitHub.
+    Yusuf for QA) post their findings **as PR review comments** on the PR itself
+    — not only in task-manager comments. The PR diff + review must be auditable
+    on GitHub.
   - **Review order is fixed:** the agent runs the Omar/Yusuf rounds itself until
     they converge, then asks the owner to review. Never put an unconverged PR in
     front of the owner, and never treat owner approval as a substitute for the
-    specialist rounds. Both verdicts (`[omar]`, `[yusuf]`) must be on the PR
-    before the owner is asked.
+    specialist rounds. Both `Verdict: APPROVE` verdicts (`[omar]`, `[yusuf]`)
+    must be on the PR before the owner is asked. When rounds stall, escalate to
+    the owner **for a decision** (see the three-round rule in the process doc);
+    that escalation is not an owner code review.
   - **No merge without an approving review** recorded on the PR. Security-
     sensitive work (auth, trust, integrations) additionally requires Omar's
     explicit approval.
