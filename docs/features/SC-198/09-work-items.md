@@ -4,6 +4,8 @@
 
 Backend only — the cache has no API or UI surface. Each WI is one review-sized slice (all six ship in PR #81), tests first.
 
+> **State 2026-11-08:** WI-01…WI-05 implemented; the full containerized backend suite is green (649 passed, 0 failed). WI-06 evidence is in `10-traceability.md`.
+
 | WI | Layer | Covers | Tests first | Depends on | PR |
 |---|---|---|---|---|---|
 | **WI-01** | persistence | AC-a · table + checks | `GeocodedAddressesMigrationTest.uniqueQueryHash` · `rejectsOutOfRangePoint` | — | #81 |
