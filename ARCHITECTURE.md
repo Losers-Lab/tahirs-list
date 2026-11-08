@@ -42,7 +42,7 @@ remains **unresolved** (see Part 2).
 | **Distance semantics** | **Straight-line (haversine)** distance; radius in miles | Founder decision; backend API contract: center + radius query, distance per result. |
 | **Geo/search entry UX** | One persistent search bar (Google Maps autocomplete + Current-Location icon/≥44px target on mobile) pinning a search center | Fatima recommendation, accepted. |
 | **Filter bar system** | Hero chip row (cutting method — flagship — + top cuisines + distance) + a "+ Filters" sheet (mobile) / popover (desktop) for the tail (price, rating, full cuisine, distance-advanced); cuisine defaults OR with "Advanced" → Any(OR)/All(AND) toggle | Fatima recommendation, accepted; PRD OR default honored. |
-| **Verification trust language** | Layer 1: Verified green checkmark badge + posted certification asset (tooltip "Halal certification reviewed & approved by our committee"); Layer 2: neutral "Unverified" tag (never error-red); Layer 3: hand-cut/machine-cut via icon+text tag, colorblind-safe, never color-only | **Verified = green checkmark** (founder); "Unverified" copy + certification expiry display remain open product flags. |
+| **Verification trust language** | Layer 1: Verified green checkmark badge + posted certification asset (tooltip "Halal certification reviewed & approved by our committee"); Layer 2: neutral "Unverified" tag (never error-red); Layer 3: hand-cut via icon+text tag, colorblind-safe, never color-only | **Verified = green checkmark** (founder); "Unverified" copy + certification expiry display remain open product flags. |
 | **Design system / tokens** | Build a **fresh, clean design system from first principles** (mobile-first, trustworthy, accessible), anchored on the agreed verification-trust language; **Figma is not authoritative** | Founder: the existing Figma is an old generic draft and not sacrosanct. Figma-token extraction is **optional**; tokens defined fresh (colors w/ AA contrast, 4px spacing, radius, rem type scale, focus/ring a11y tokens, semantic tokens like `badge-verified`) and wired via Tailwind v4 `@theme`. Brand palette to be confirmed. |
 | **Backend language** | **Kotlin** | Founder decision; strong Java background, favourite language Kotlin. |
 | **Backend framework** | **Ktor 3.6+** (coroutines; **CIO** engine) | **Founder directive 2026-11-03**: supersedes Spring Boot 3.3. The hexagonal `:domain`/`:application` ports confined the swap to adapters + composition root. |
@@ -78,7 +78,7 @@ From the PRD's objective and high-level user stories:
 
 - Users search for halal restaurants by **location** (with current-location
   opt-in) and filter results by **hand-cut** (an extra on/off switch — there is
-  no machine-cut concept), **price**, **cuisine** (AND/OR chaining, default OR),
+  no counter-category), **price**, **cuisine** (AND/OR chaining, default OR),
   **rating**, and **distance**.
 - Restaurant listings carry halal-relevant attributes: an **alcohol-served**
   flag (whether the establishment serves alcohol) and, **in MVP scope**,

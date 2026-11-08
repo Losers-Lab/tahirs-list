@@ -1,11 +1,9 @@
 package com.tahirslist.web
 
 import com.tahirslist.application.image.StoredImage
-import com.tahirslist.application.listing.CuisineLogic
 import com.tahirslist.application.listing.ListingSearchFilters
+import com.tahirslist.application.listing.ListingSearchRequestParser
 import com.tahirslist.domain.restaurant.LatLng
-import com.tahirslist.domain.restaurant.Price
-import com.tahirslist.domain.restaurant.Rating
 import com.tahirslist.domain.restaurant.VerificationStatus
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -17,7 +15,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
-import java.math.BigDecimal
 
 /**
  * The listing surface:
@@ -40,24 +37,21 @@ fun Route.listingRoutes(listing: ListingUseCases) {
         // Missing / malformed centre or radius is a client error (400), never a
         // 500: the public search vocabulary is closed.
         val parsedCenter = parseCenter(call.request.queryParameters["center"])
-        val radius = call.request.queryParameters["radius"]?.toDoubleOrNull()
-            ?: throw IllegalArgumentException("radius is required")
-        require(radius > 0.0) { "radius must be positive" }
+        val radius = ListingSearchRequestParser.radius(
+            call.request.queryParameters["radius"]?.toDoubleOrNull()
+                ?: throw IllegalArgumentException("radius is required"),
+        )
 
         val filters = ListingSearchFilters(
             handCutOnly = parseHandCutOnly(call.request.queryParameters["handCutOnly"]),
             deliveryOnly = parseDeliveryOnly(call.request.queryParameters["deliveryOnly"]),
-            cuisines = parseCuisines(call.request.queryParameters.getAll("cuisine")),
-            cuisineLogic = parseCuisineLogic(call.request.queryParameters["cuisineLogic"]),
-            minPrice = parsePrice(call.doubleQueryParameter("minPrice"), "minPrice"),
-            maxPrice = parsePrice(call.doubleQueryParameter("maxPrice"), "maxPrice"),
-            minRating = parseRating(call.doubleQueryParameter("minRating")),
+            cuisines = ListingSearchRequestParser.cuisines(call.request.queryParameters.getAll("cuisine")),
+            cuisineLogic = ListingSearchRequestParser.cuisineLogic(call.request.queryParameters["cuisineLogic"]),
+            minPrice = ListingSearchRequestParser.price(call.doubleQueryParameter("minPrice"), "minPrice"),
+            maxPrice = ListingSearchRequestParser.price(call.doubleQueryParameter("maxPrice"), "maxPrice"),
+            minRating = ListingSearchRequestParser.rating(call.doubleQueryParameter("minRating")),
         )
-        val minBound = filters.minPrice
-        val maxBound = filters.maxPrice
-        require(minBound == null || maxBound == null || minBound <= maxBound) {
-            "minPrice must not exceed maxPrice"
-        }
+        ListingSearchRequestParser.requirePriceRange(filters.minPrice, filters.maxPrice)
 
         val results = listing.search.searchNearby(
             center = parsedCenter,
@@ -202,9 +196,6 @@ fun Route.listingRoutes(listing: ListingUseCases) {
 
 private const val PUBLIC_CACHE_CONTROL = "public, max-age=86400"
 
-/** Upper bound of the closed 0..5 rating scale (sc-45), mirrored from the domain. */
-private val RATING_MAX: Double = Rating.MAX.toDouble()
-
 private fun ApplicationCall.intQueryParameter(name: String, default: Int): Int {
     val raw = request.queryParameters[name] ?: return default
     return raw.toIntOrNull() ?: throw IllegalArgumentException("$name must be an integer")
@@ -245,51 +236,4 @@ private fun parseDeliveryOnly(raw: String?): Boolean = when (raw?.trim()?.lowerc
     null, "", "false" -> false
     "true" -> true
     else -> throw IllegalArgumentException("deliveryOnly must be true or false")
-}
-
-/**
- * Parses the `cuisine` filters (sc-44). Values are trimmed + lowercased to match
- * the lowercase-stored values and de-duplicated; blank / over-long → 400.
- */
-private fun parseCuisines(raw: List<String>?): List<String> {
-    if (raw.isNullOrEmpty()) return emptyList()
-    return raw.map {
-        val value = it.trim().lowercase()
-        require(value.isNotBlank()) { "cuisine must not be blank" }
-        require(value.length <= 64) { "cuisine must be 64 characters or fewer" }
-        value
-    }.distinct()
-}
-
-/**
- * Parses `cuisineLogic` (sc-44). Missing / blank / `OR` is the PRD default;
- * `AND` requires all selected cuisines. Any other value → 400.
- */
-private fun parseCuisineLogic(raw: String?): CuisineLogic = when (raw?.trim()?.uppercase()) {
-    null, "", "OR" -> CuisineLogic.OR
-    "AND" -> CuisineLogic.AND
-    else -> throw IllegalArgumentException("cuisineLogic must be AND|OR")
-}
-
-/**
- * Parses a price-bound filter (sc-43). Absent → null (unbounded). Negative or
- * above the domain ceiling → 400.
- */
-private fun parsePrice(raw: Double?, name: String): BigDecimal? {
-    if (raw == null) return null
-    require(raw >= 0.0) { "$name must not be negative" }
-    val value = BigDecimal.valueOf(raw)
-    require(value <= Price.MAX) { "$name must be ${Price.MAX} or fewer" }
-    return value
-}
-
-/**
- * Parses the `minRating` filter (sc-45). Absent → null (any rating); out-of-scale
- * (below 0 or above 5) → 400, keeping the public contract the closed 0..5 scale.
- */
-private fun parseRating(raw: Double?): BigDecimal? {
-    if (raw == null) return null
-    require(raw >= 0.0) { "minRating must not be negative" }
-    require(raw <= RATING_MAX) { "minRating must be 5.0 or fewer" }
-    return BigDecimal.valueOf(raw)
 }

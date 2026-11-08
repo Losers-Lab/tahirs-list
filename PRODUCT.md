@@ -63,7 +63,7 @@ add-listing form, owner edit form, committee verification queue.
 - CSP is narrow (`connect-src 'self'`, `img-src 'self'`) — new assets, fonts, and
   embeds must not assume external origins.
 - Access token in memory only; the refresh token never exists in JavaScript.
-- Hand-cut is a **boolean** claim. There is no machine-cut state; when the field is
+- Hand-cut is a **boolean** claim. There is no counter-category; when the field is
   false or unknown the indicator is omitted entirely.
 - "Unverified" is neutral ink, never red and never a warning triangle.
 - Danger red is reserved for genuine errors, and always pairs with an alert glyph.

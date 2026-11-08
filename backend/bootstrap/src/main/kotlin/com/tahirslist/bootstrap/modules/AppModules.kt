@@ -8,10 +8,13 @@ import com.tahirslist.application.account.PasswordHasher
 import com.tahirslist.application.account.RefreshSession
 import com.tahirslist.application.account.RefreshTokenStore
 import com.tahirslist.application.account.TokenIssuer
+import com.tahirslist.application.agent.GetListingForAgent
+import com.tahirslist.application.agent.SearchListingsForAgent
 import com.tahirslist.application.favorite.FavoriteListing
 import com.tahirslist.application.favorite.FavoritesRepository
 import com.tahirslist.application.favorite.ListFavorites
 import com.tahirslist.application.favorite.UnfavoriteListing
+import com.tahirslist.application.geo.GeocoderPort
 import com.tahirslist.application.image.ImageFetcher
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.InMemoryImagePort
@@ -39,6 +42,13 @@ import com.tahirslist.bootstrap.config.AppConfig
 import com.tahirslist.bootstrap.image.HttpImageFetcher
 import com.tahirslist.bootstrap.image.SeedImageIngestRunner
 import com.tahirslist.bootstrap.image.SeedPhotoManifestParser
+import com.tahirslist.geocoding.PhotonGeocoder
+import com.tahirslist.mcp.Bucket4jMcpRateLimiter
+import com.tahirslist.mcp.McpConfig
+import com.tahirslist.mcp.McpOriginGuard
+import com.tahirslist.mcp.McpRateLimitSettings
+import com.tahirslist.mcp.McpRateLimiter
+import com.tahirslist.mcp.McpUseCases
 import com.tahirslist.persistence.account.ExposedAccountRepository
 import com.tahirslist.persistence.account.ExposedRefreshTokenStore
 import com.tahirslist.persistence.db.DatabaseFactory
@@ -82,6 +92,7 @@ fun appModules(config: AppConfig): List<Module> = listOf(
     infrastructureModule(config),
     useCaseModule(config),
     webModule(config),
+    mcpModule(config),
 )
 
 private fun infrastructureModule(config: AppConfig): Module = module {
@@ -148,6 +159,9 @@ private fun infrastructureModule(config: AppConfig): Module = module {
     // --- Outbound HTTP / verification provider ---
     single<ImageFetcher> { HttpImageFetcher() }
     single { SeedPhotoManifestParser() }
+
+    // --- Geocoding (SC-209 is the first production consumer of the port) ---
+    single<GeocoderPort> { PhotonGeocoder(baseUrl = config.mcp.geocoderBaseUrl) }
     val verification = config.verification
     if (verification != null) {
         single<VisionModelClient> { RestVisionModelClient(verification) }
@@ -182,12 +196,24 @@ private fun useCaseModule(config: AppConfig): Module = module {
     single { VerificationCommittee(get(), get()) }
     single { IngestSeedHeroPhotos(get(), get(), get()) }
 
+    // Agent surface (SC-209)
+    single { SearchListingsForAgent(get(), get()) }
+    single { GetListingForAgent(get(), get()) }
+
     // Seed ingest runner (launched from Application when enabled)
     single { SeedImageIngestRunner(get(), get(), config.seedIngest.manifest) }
 }
 
 private fun webModule(config: AppConfig): Module = module {
-    single { Json { encodeDefaults = true } }
+    // MCP messages are polymorphic and rely on kotlinx's default discriminator
+    // being DISABLED (`ClassDiscriminatorMode.NONE`); REST DTOs are unaffected.
+    // Explicit nulls stay ON: the REST wire contract includes them.
+    single {
+        Json {
+            encodeDefaults = true
+            classDiscriminatorMode = kotlinx.serialization.json.ClassDiscriminatorMode.NONE
+        }
+    }
 
     single {
         JwtConfig(
@@ -223,4 +249,32 @@ private fun webModule(config: AppConfig): Module = module {
     }
     single { FavoriteUseCases(get(), get(), get()) }
     single { VerificationUseCases(get(), get()) }
+}
+
+private fun mcpModule(config: AppConfig): Module = module {
+    single {
+        McpConfig(
+            publicWebBaseUrl = config.mcp.publicWebBaseUrl,
+            publicApiBaseUrl = config.mcp.publicApiBaseUrl,
+            allowedOrigins = config.mcp.allowedOrigins,
+            allowedHosts = config.mcp.allowedHosts,
+            rateLimit = McpRateLimitSettings(
+                capacity = config.mcp.capacity,
+                refillTokens = config.mcp.refillTokens,
+                refillWindowSeconds = config.mcp.refillWindowSeconds,
+                maxKeys = config.mcp.maxKeys,
+                trustProxy = config.rateLimit.trustProxy,
+            ),
+        )
+    }
+    single<McpRateLimiter> {
+        Bucket4jMcpRateLimiter(
+            capacity = config.mcp.capacity,
+            refillTokensPerWindow = config.mcp.refillTokens,
+            refillWindow = config.mcp.refillWindowSeconds.seconds,
+            maxKeys = config.mcp.maxKeys.toLong(),
+        )
+    }
+    single { McpOriginGuard(config.mcp.allowedOrigins) }
+    single { McpUseCases(get(), get()) }
 }

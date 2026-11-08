@@ -43,9 +43,9 @@ implementation before its failing tests unless explicitly directed otherwise.
 
 ## Product at a glance
 
-Halal Food Finder helps Muslims find halal food, with a granular
-**hand-cut vs machine-cut** filter and a **formal verification process** for
-restaurants. Core pillars (from the PRD):
+Halal Food Finder helps Muslims find halal food, with a **hand-cut filter**
+(hand-cut, not hand-cut, or unknown — there is no counter-category) and a
+**formal verification process** for restaurants. Core pillars (from the PRD):
 
 - Searchable restaurant listings by location; filters for cutting method,
   price, cuisine (with AND/OR chaining), rating, and distance.
@@ -171,6 +171,16 @@ rather than proceeding with unverified assumptions.
 
 ## Engineering ground rules
 
+- **Hand-cut vocabulary rule (product-wide, all layers).** Tahir's List has
+  exactly one cutting attribute: **hand-cut**. A certifier-backed row is
+  `TRUE` only when the certifier declares hand-cut, and `FALSE` otherwise
+  (including when the certifier is silent); `NULL` is reserved for rows with no
+  certifier claim. Never introduce a counter-category, antonym, or
+  alternative-method label for hand-cut anywhere: UI copy, data vocabularies,
+  enum values, column names, test names, docs, commit messages, or PR text.
+  Verification and hand-cut are independent: a recognized certifier's tier
+  drives `VERIFIED`; that certifier's own declaration drives hand-cut. This
+  rule binds every future agent and every surface, not only ingestion.
 - **Work in small, reviewable increments.** Prefer clear tasks with explicit
   acceptance criteria tied to Shortcut stories.
 - **TDD for the backend** (per the Development Process doc). Keep tests runnable
@@ -192,8 +202,8 @@ rather than proceeding with unverified assumptions.
     `Fix bug`). Full: `[SC-131] Add JWT verification filter`.
   - Keep commits focused and logically separated; write clear messages.
 - **PR-based review flow (MANDATORY — founder directive, all agents and humans):**
-  - **Every** feature/fix goes: branch → push → **open a GitHub PR** → merge
-    to `main` only after merge. Direct pushes/merges to `main` from feature
+  - **Every** feature/fix goes: branch → push → **open a GitHub PR** → review
+    approval → merge to `main`. Direct pushes/merges to `main` from feature
     branches without a PR are not allowed.
   - **📛 PR & comment attribution (MANDATORY — founder directive):** commits
     intentionally attribute to the shared account (Arham4) — **do NOT change
@@ -207,9 +217,17 @@ rather than proceeding with unverified assumptions.
     GitHub (who made it / who commented) even though git author and PR titles
     keep their existing style.
   - **Reviews are PR artifacts:** reviewers (Omar for security/code review,
-    Yusuf for QA where applicable) post their findings **as PR review
-    comments** on the PR itself — not only in task-manager comments. The PR
-    diff + review must be auditable on GitHub.
+    Yusuf for QA) post their findings **as PR review comments** on the PR itself
+    — not only in task-manager comments. The PR diff + review must be auditable
+    on GitHub.
+  - **Review order is fixed:** the agent runs the Omar/Yusuf rounds itself until
+    they converge, then asks the owner to review. Never put an unconverged PR in
+    front of the owner, and never treat owner approval as a substitute for the
+    specialist rounds. Both `Verdict: APPROVE` verdicts (`[omar]`, `[yusuf]`)
+    must be on the PR before the owner is asked. When rounds stall, escalate to
+    the owner **for a decision** (see the three-round rule in the process doc);
+    that escalation is not an owner code review, so "never show the owner an
+    unconverged PR **for review**" still holds.
   - **No merge without an approving review** recorded on the PR. Security-
     sensitive work (auth, trust, integrations) additionally requires Omar's
     explicit approval.

@@ -20,4 +20,7 @@ dependencies {
     // The contract specs in src/testFixtures use Kotest (versions from the catalog).
     testFixturesImplementation(libs.kotest.runner.junit5)
     testFixturesImplementation(libs.kotest.assertions.core)
+    // Fixtures also build domain aggregates and application results.
+    testFixturesImplementation(project(":domain"))
+    testFixturesImplementation(libs.kotlinx.datetime)
 }

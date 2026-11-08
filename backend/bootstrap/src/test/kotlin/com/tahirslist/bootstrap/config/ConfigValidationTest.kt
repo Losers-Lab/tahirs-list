@@ -115,6 +115,34 @@ class ConfigValidationTest : FunSpec({
         }
     }
 
+    test("refuses prod with a localhost MCP URL") {
+        val ex = shouldThrow<IllegalStateException> {
+            requireValidProductionConfig(
+                config(
+                    user = "halal_app",
+                    password = "correct-horse-battery-staple",
+                    storage = storage(),
+                    mcp = prodMcp(web = "http://localhost:5173"),
+                ),
+            )
+        }
+        ex.message.orEmpty() shouldContain "APP_MCP_PUBLIC_WEB_BASE_URL"
+    }
+
+    test("refuses prod with a non-https MCP API URL") {
+        val ex = shouldThrow<IllegalStateException> {
+            requireValidProductionConfig(
+                config(
+                    user = "halal_app",
+                    password = "correct-horse-battery-staple",
+                    storage = storage(),
+                    mcp = prodMcp(api = "http://api.tahirslist.com"),
+                ),
+            )
+        }
+        ex.message.orEmpty() shouldContain "APP_MCP_PUBLIC_API_BASE_URL"
+    }
+
     test("treats a comma-separated profile list containing prod as production") {
         shouldThrow<IllegalStateException> {
             requireValidProductionConfig(config(profile = "dev, prod"))
@@ -127,6 +155,7 @@ private fun config(
     user: String = "halal",
     password: String = "halal",
     storage: StorageSettings? = null,
+    mcp: McpSettings = prodMcp(),
 ): AppConfig = AppConfig(
     profile = profile,
     database = DatabaseSettings(
@@ -140,6 +169,17 @@ private fun config(
     storage = storage,
     verification = null,
     seedIngest = SeedIngestSettings(),
+    mcp = mcp,
+)
+
+private fun prodMcp(
+    web: String = "https://tahirslist.com",
+    api: String = "https://api.tahirslist.com",
+    geocoder: String = "https://photon.komoot.io/api/",
+): McpSettings = McpSettings(
+    publicWebBaseUrl = web,
+    publicApiBaseUrl = api,
+    geocoderBaseUrl = geocoder,
 )
 
 private fun storage(
