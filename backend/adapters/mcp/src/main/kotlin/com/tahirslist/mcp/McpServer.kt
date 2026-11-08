@@ -37,10 +37,11 @@ private const val FIXED_PARSE_ERROR: String =
 private const val MAX_LOGGED_HEADER_LENGTH = 128
 
 /**
- * Anonymous surface: 64 KiB is far above any legitimate MCP message (two tools,
- * one call, small arguments) and bounds a batch of cheap methods.
+ * Anonymous surface. The largest legitimate body is well under 2 KiB (a place
+ * string of 256 chars plus 20 cuisines of 64); 16 KiB bounds a batch of cheap
+ * methods to ~1.6 MB of response instead of the ~430 MB the SDK default allowed.
  */
-private const val MAX_REQUEST_BODY_BYTES: Long = 64L * 1024
+private const val MAX_REQUEST_BODY_BYTES: Long = 16L * 1024
 
 /** Salted so the logged budget key cannot be reversed to an IP by guessing. */
 private val clientKeySalt: Int = java.security.SecureRandom().nextInt()
@@ -135,15 +136,18 @@ fun Application.installMcp(
     }
 
     // The SDK answers malformed bodies with a JSON-RPC error whose message is
-    // "Parse error: <parser exception text>". Its envelope starts with "error",
-    // not "jsonrpc", so match on the code and replace the whole body. Never echo
-    // parser/decoder detail from an anonymous endpoint.
+    // "Parse error: <parser exception text>". Never echo parser/decoder detail
+    // from an anonymous endpoint. Match the anchored envelope AND the 400 status
+    // so a listing string that happens to contain the code cannot rewrite a
+    // successful result. The status lives on the outgoing content here: the
+    // engine only commits `call.response.status()` in the Render phase.
     sendPipeline.intercept(ApplicationSendPipeline.Transform) {
         val outgoing = subject
         if (call.request.path() == path &&
             outgoing is TextContent &&
+            outgoing.status == HttpStatusCode.BadRequest &&
             outgoing.contentType.match(ContentType.Application.Json) &&
-            outgoing.text.contains("\"code\":-32700")
+            outgoing.text.isParseErrorEnvelope()
         ) {
             proceedWith(TextContent(FIXED_PARSE_ERROR, ContentType.Application.Json, HttpStatusCode.BadRequest))
         } else {
@@ -225,6 +229,18 @@ private fun String.isPlausibleIp(): Boolean =
 
 private fun sanitize(header: String?): String =
     header.orEmpty().filter { it.code in 0x20..0x7e }.take(MAX_LOGGED_HEADER_LENGTH)
+
+/**
+ * The SDK's parse-error envelopes are either
+ * `{"error":{"code":-32700,...},"jsonrpc":"2.0"}` or a `jsonrpc`-first variant.
+ * Anchoring to the start avoids matching a listing string that merely contains
+ * the code.
+ */
+private fun String.isParseErrorEnvelope(): Boolean {
+    val text = trimStart()
+    return text.startsWith("{\"error\":{\"code\":-32700") ||
+        text.startsWith("{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700")
+}
 
 private fun clientKeyHash(key: String): String = (key + clientKeySalt).hashCode().toUInt().toString(16)
 

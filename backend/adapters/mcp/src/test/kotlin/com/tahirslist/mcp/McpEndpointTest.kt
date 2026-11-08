@@ -86,6 +86,25 @@ class McpEndpointTest : FunSpec({
         }
     }
 
+    test("toolResultContainingParseErrorCodeIsNotRewritten") {
+        val query = com.tahirslist.application.agent.RecordingSearchQuery(
+            listOf(com.tahirslist.application.agent.sampleResult(name = """x"code":-32700""")),
+        )
+        testApplication {
+            application { installTestMcp(useCases = testUseCases(query)) }
+
+            val response = client.mcpPost(
+                toolCallRequest(
+                    name = "search_restaurants",
+                    arguments = """{"center":{"lat":1,"lng":2},"radiusMiles":5}""",
+                ),
+            )
+
+            response.status shouldBe HttpStatusCode.OK
+            response.jsonBody().result()["isError"]?.jsonPrimitive?.booleanOrNull shouldBe false
+        }
+    }
+
     test("oversizedBodyIsRefused") {
         testApplication {
             application { installTestMcp() }
@@ -94,8 +113,30 @@ class McpEndpointTest : FunSpec({
             val response = client.mcpPost(
                 """{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"x":"$huge"}}""",
             )
+            val body = response.bodyAsText()
 
             response.status shouldBe HttpStatusCode.PayloadTooLarge
+            // The 413 is a refusal, never a successful JSON-RPC result.
+            body shouldNotContain "\"result\""
+        }
+    }
+
+    test("largeButLegitimateBodyIsAccepted") {
+        testApplication {
+            application { installTestMcp() }
+
+            // ~10 KiB: comfortably inside the 16 KiB cap, far larger than any
+            // real message, and still a valid tool call (unknown args ignored).
+            val padding = "x".repeat(10_000)
+            val response = client.mcpPost(
+                toolCallRequest(
+                    name = "search_restaurants",
+                    arguments = """{"center":{"lat":1,"lng":2},"radiusMiles":5,"note":"$padding"}""",
+                ),
+            )
+
+            response.status shouldBe HttpStatusCode.OK
+            response.jsonBody().result()["isError"]?.jsonPrimitive?.booleanOrNull shouldBe false
         }
     }
 

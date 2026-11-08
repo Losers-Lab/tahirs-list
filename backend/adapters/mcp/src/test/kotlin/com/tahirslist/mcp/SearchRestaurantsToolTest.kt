@@ -195,6 +195,29 @@ class SearchRestaurantsToolTest : FunSpec({
             "https://tahirslist.com/restaurants/11111111-2222-3333-4444-555555555555"
     }
 
+    test("useCaseIllegalArgumentExceptionIsMasked") {
+        val throwing = object : com.tahirslist.application.listing.ListingSearchQuery {
+            override suspend fun searchNearby(
+                center: com.tahirslist.domain.restaurant.LatLng,
+                radiusMiles: Double,
+                filters: com.tahirslist.application.listing.ListingSearchFilters,
+                offset: Int,
+                limit: Int,
+            ): List<com.tahirslist.application.listing.ListingSearchResult> =
+                throw IllegalArgumentException("internal detail")
+        }
+        val tool = SearchRestaurantsTool(
+            SearchListingsForAgent(throwing, RecordingGeocoder(place())),
+            McpConfig(),
+        )
+
+        val result = tool.call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5}"""))
+
+        result.isError shouldBe true
+        result.message() shouldBe "The search could not be completed. Try again shortly."
+        result.message().contains("internal detail") shouldBe false
+    }
+
     test("contentCarriesTheStructuredJson") {
         val result = tool().call(args("""{"center":{"lat":1,"lng":2},"radiusMiles":5}"""))
 
