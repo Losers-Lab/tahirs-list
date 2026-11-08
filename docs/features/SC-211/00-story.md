@@ -54,6 +54,7 @@ flowchart LR
 | 9 | Photon-only geocoding; non-matching rows rejected — no invented coordinates. |
 | 10 | One independent library per certifier (`certifier-hms`, `certifier-hfsaa`, `certifier-hma`), each with its **own** domain model and a translator into the Tahir's List model; in-repo for now, no separate repository. |
 | 11 | Access is confirmed (2026-11-08 spike): 3 requests cover the whole Tier-1 sample. Zabihah bulk access is licensed-only — manual cited rows, never a scraper. |
+| 12 | Pre-flight: one Photon test query runs before any directory fetch; a failure aborts the run with no artifacts. |
 
 ## Acceptance criteria (amended 2026-11-08; Shortcut sync pending re-auth)
 
@@ -96,6 +97,10 @@ flowchart LR
 > **AC-8** The report honestly lists rejects/quarantines with reasons and known
 > gaps; design artifacts 00–10 complete.
 
+> **AC-9** Before any directory request, a single Photon pre-flight query (a
+> stable, well-known address) confirms the geocoder is reachable. A failure
+> aborts the run with no snapshots, candidates, or partial load.
+
 ## Edge cases
 
 | # | Edge case | Handling |
@@ -113,6 +118,7 @@ flowchart LR
 | E-11 | Future Tier-1 certifier does not require hand-cut, or is silent on it | `VERIFIED` (halal), `is_hand_cut = FALSE` in both cases — never auto-TRUE |
 | E-12 | HFSAA publishable key rotates | Re-discover from the public locator bundle, retry once; otherwise fail the source honestly |
 | E-13 | HMS row has an empty `data-city-name` | Derive the city from the address line; if absent, the row is geocoded or rejected — never invented |
+| E-14 | Photon is down at pre-flight | Abort before fetching any directory; report the outage; no artifacts |
 
 ## Open questions
 

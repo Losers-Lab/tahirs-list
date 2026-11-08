@@ -29,7 +29,7 @@ flowchart TB
 | Module | Status | Contents |
 |---|---|---|
 | `:domain` | modified | `Provenance` (+4 strings); new `CertificationClaim` (+`declaredHandCut`), `VerificationBasis`; `VerificationStatus`/`VerificationCommittee` KDoc |
-| `:application` | modified | `com.tahirslist.application.ingestion`: 4 use cases, ports, model, errors |
+| `:application` | modified | `com.tahirslist.application.ingestion`: 4 use cases, ports, model, errors; `com.tahirslist.application.geo.CheckGeocoderHealth` (pre-flight) |
 | `:certifier-core` | **new** | `CertifierHttp`, `FetchPolicy`, `HttpTransport`/`KtorHttpTransport`, `SnapshotStore`/`FileSnapshotStore`, `RobotsPolicy`, `SourceSnapshot`, `CertifierPage`, `CertifierProfile`, `HandCutDeclaration` |
 | `:certifier-hms` | **new** | `HmsDirectory`, `HmsParser`, `HmsEstablishment`, `HmsCategory`, `HmsCertificationStatus`, `HmsAddress`, `HmsLocation`, `HmsProfile` |
 | `:certifier-hfsaa` | **new** | `HfsaaLocator`, `HfsaaParser`, `HfsaaEntry`, `HfsaaEntryType`, `HfsaaProject`, `HfsaaProfile` |
@@ -88,8 +88,9 @@ flowchart TB
 | `scripts/certifier-live.sh` | **new** | Containerized `:ingestion:liveProbe` (ad-hoc live check) |
 | `scripts/generate_ingest_migration.py` | new | Containerized candidates → V23 |
 | `scripts/backend-test.sh` | unchanged | Picks up the new modules automatically |
-| Tests (62, all green) | new | Core: `CertifierHttpTest` (15), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (4) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests |
-| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `marksTierOneCandidatesVerified`, `neverVerifiesManualOnlyRows`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `follows X-WP-TotalPages` |
+| Pre-flight (D-14) | new | `CheckGeocoderHealth` runs one Photon query before any directory request; `Unavailable` aborts the run with no artifacts |
+| Tests (66, all green) | new | Core: `CertifierHttpTest` (15), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (4) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests · application: `CheckGeocoderHealthTest` (4) |
+| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `marksTierOneCandidatesVerified`, `neverVerifiesManualOnlyRows`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `follows X-WP-TotalPages`, `passes when the probe resolves`, `fails when the provider throws` |
 
 ## Architecture and risks
 
@@ -97,6 +98,7 @@ flowchart TB
 
 | Risk | Mitigation |
 |---|---|
+| Photon down at run start | One test query runs first; `Unavailable` aborts before any directory fetch, so no wasted download and no partial artifacts |
 | Source markup/JSON changes | Recorded-fixture tests + `SOURCE_PARSE_FAILED` quarantine |
 | HFSAA publishable key rotates | Key re-discovery from the public bundle, retry once (tested) |
 | HMS city blank on 10 rows | `deriveCity` from the address; null if not derivable (tested) |

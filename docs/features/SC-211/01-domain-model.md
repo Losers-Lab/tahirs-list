@@ -68,7 +68,7 @@ classDiagram
 | CertificationClaim (new) | Cited certifier observation; verification + hand-cut evidence | Observed → ReObserved |
 | IngestionRun (new) · IngestionCandidate (new) · SourceListing (new) | Audit unit · proposed listing · raw library record | Planned → … → Loaded; record immutable |
 | IngestReject (new) · IngestReport (new) | Excluded row (closed reason) · run accounting + gaps | Immutable; produced once |
-| DirectoryStandard · Provenance · SourceTier · SourceRef · VerificationBasis · MetroFilter · MatchConfirmation | Value objects | Immutable |
+| DirectoryStandard · Provenance · SourceTier · SourceRef · VerificationBasis · MetroFilter · MatchConfirmation · GeocoderHealth | Value objects | Immutable |
 
 ## Invariants
 
@@ -77,7 +77,7 @@ classDiagram
 | INV-1 | Ingested listing is `VERIFIED` iff a recognized Tier-1 claim backs it; otherwise `UNVERIFIED` | `IngestSampleMigrationTest.loadsTierOneAsVerifiedWithClaims` |
 | INV-2 | Every ingested listing carries a closed-vocabulary provenance stamp | `ProvenanceTest.rejectsUnknownVocabulary` |
 | INV-3 | `isHandCut` is TRUE iff the backing claim declares hand-cut; FALSE for every other Tier-1 declaration (declared not or silent); NULL only where there is no certifier claim. Every `VERIFIED` row has a cited Tier-1 claim | `LoadIngestionBatchTest.handCutFollowsDeclaredStandard` · `refusesVerifiedWithoutClaim` |
-| INV-4 | Every candidate location came from a confirmed geocoder match | `MatchConfirmationPolicyTest.rejectsWrongRegion` |
+| INV-4 | The geocoder pre-flight passes before any directory fetch, and every candidate location came from a confirmed geocoder match | `CheckGeocoderHealthTest` · `MatchConfirmationPolicyTest.rejectsWrongRegion` |
 | INV-5 | Claims are unique per (listing, source, record) and cite a source URL | `CertificationClaimTest.requiresCitation` |
 | INV-6 | Same venue → one candidate; highest tier wins provenance; all claims retained | `RunSampleIngestionTest.mergesTierPriority` |
 | INV-7 | Loading is idempotent (no duplicate listing or claim) | `IngestSampleMigrationTest.isIdempotent` |
@@ -91,7 +91,8 @@ classDiagram
 
 | From | Event | To | Guard |
 |---|---|---|---|
-| Planned | Run started | Fetching | — |
+| Planned | Pre-flight passed | Fetching | Geocoder reachable |
+| Planned | Pre-flight failed | Aborted | No directories fetched |
 | Fetching | Sources fetched (or failures recorded) | Normalizing | — |
 | Normalizing | Metro/category filtered | Geocoding | — |
 | Geocoding | All matched or rejected | Reconciling | — |

@@ -1,7 +1,7 @@
 # Certifier libraries — verified API surface and field coverage
 
 **Author:** Hamza (backend/DB) · **Date:** 2026-11-08 · **Consumer:** SC-211
-**Status:** implemented, 62 tests green, one live probe passed
+**Status:** implemented, 66 tests green, one live probe passed
 **Scope:** the three Tier-1 libraries (`certifier-hms`, `certifier-hfsaa`, `certifier-hma`), the shared `certifier-core`, and the `:ingestion` translators
 
 ## What was built
@@ -108,9 +108,9 @@ flowchart LR
 
 `CertifierHttp` enforces, in order: fresh snapshot → zero network; robots.txt before any real fetch; one request at a time per host; 1 req/second minimum; exponential backoff with `Retry-After`; three attempts; a hard 10-request run budget; a 24 h on-disk snapshot cache; and an identifying User-Agent (`TahirsListBot/0.1 (+repo URL)`).
 
-A full probe is **six requests** (three robots.txt + three data), and a repeat run is **zero**.
+A full probe is **six requests** (three robots.txt + three data), and a repeat run is **zero**. An ingestion run adds exactly one Photon pre-flight query before any directory request (D-14); if it fails, the directories are never contacted.
 
-## Tests (62, all green)
+## Tests (66, all green)
 
 | Module | Tests | What they pin |
 |---|---:|---|
@@ -119,6 +119,7 @@ A full probe is **six requests** (three robots.txt + three data), and a repeat r
 | `certifier-hfsaa` | 10 | 13-row fixture, certificate ids, chapter filter, headers, rotated-key re-discovery, honest failure |
 | `certifier-hma` | 8 | 8-outlet fixture, Elementor anchors, address splitting, pagination, malformed JSON |
 | `:ingestion` | 8 | Tier-1 standard, not-hand-cut and silent declarations, manual-row null, HFSAA certificate/place id, HMA province + geocoding warning |
+| `:application` | 4 | `CheckGeocoderHealth`: probe resolves, no match, provider failure, cancellation not swallowed |
 
 Run them all in the container:
 

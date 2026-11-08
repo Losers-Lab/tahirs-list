@@ -20,6 +20,8 @@ flowchart LR
   T2 --> SL
   T3 --> SL
   C1 --> P2[GeocoderPort]
+  C1 --> P6[CheckGeocoderHealth]
+  P6 --> P2
   C1 --> P3[ArtifactWriter]
   C2 --> P4[CuratedBatchSource]
   C3 --> P5[CatalogBatchWriter]
@@ -93,6 +95,10 @@ classDiagram
     <<control>>
     +execute(sources, metros, caps, cachePolicy) IngestReport
   }
+  class CheckGeocoderHealth {
+    <<control>>
+    +execute() GeocoderHealth
+  }
   class CompileManualBatch {
     <<control>>
     +execute(batchFile, existingCandidates) IngestReport
@@ -153,6 +159,8 @@ classDiagram
   RunSampleIngestion --> HmsDirectory
   RunSampleIngestion --> HfsaaLocator
   RunSampleIngestion --> HmaCertifiedOutlets
+  RunSampleIngestion --> CheckGeocoderHealth
+  CheckGeocoderHealth --> GeocoderPort
   RunSampleIngestion --> GeocoderPort
   RunSampleIngestion --> ArtifactWriter
   HmsDirectory --> SourceTranslator
@@ -181,6 +189,7 @@ classDiagram
 | `SourceTranslator<T>` | library model -> `SourceListing` | `HmsTranslator`, `HfsaaTranslator`, `HmaTranslator` |
 | `CuratedBatchSource` | read the cited manual file | `CuratedBatchFileAdapter` |
 | `GeocoderPort` (existing) | confirm a venue's coordinates | `PhotonGeocoder` |
+| `CheckGeocoderHealth` | one pre-flight query before any fetch | application control |
 | `ArtifactWriter` | persist snapshots/candidates/report | `FileArtifactWriter` |
 | `CatalogBatchWriter` | emit the reviewed catalogue update | `SqlMigrationBatchWriter` |
 | `CatalogueDatabase` | owned catalogue store | PostgreSQL + PostGIS |
@@ -190,12 +199,13 @@ classDiagram
 | UC step | Operation |
 |---|---|
 | UC-01.1 | `IngestionConsole.runSample` → `RunSampleIngestion.execute` |
-| UC-01.2–4 | `HmsDirectory.certifiedListing` · `HfsaaLocator.entries` · `HmaCertifiedOutlets.outlets` |
-| UC-01.5 | `HmsTranslator.translate` · `HfsaaTranslator.translate` · `HmaTranslator.translate` |
-| UC-01.6 | `MetroFilter.accepts` |
-| UC-01.7 | `GeocoderPort.geocode` + `MatchConfirmationPolicy.confirm` |
-| UC-01.8 | `IngestionCandidate.mergeWith` + `intendedStatus`/`verificationBasis`/`handCutFor(declaration)` |
-| UC-01.9–10 | `ArtifactWriter.write*`; `IngestReport` |
+| UC-01.2 | `CheckGeocoderHealth.execute` (pre-flight; abort on failure) |
+| UC-01.3–5 | `HmsDirectory.certifiedListing` · `HfsaaLocator.entries` · `HmaCertifiedOutlets.outlets` |
+| UC-01.6 | `HmsTranslator.translate` · `HfsaaTranslator.translate` · `HmaTranslator.translate` |
+| UC-01.7 | `MetroFilter.accepts` |
+| UC-01.8 | `GeocoderPort.geocode` + `MatchConfirmationPolicy.confirm` |
+| UC-01.9 | `IngestionCandidate.mergeWith` + `intendedStatus`/`verificationBasis`/`handCutFor(declaration)` |
+| UC-01.10–11 | `ArtifactWriter.write*`; `IngestReport` |
 | UC-02.1–5 | `CompileManualBatch` → `CuratedBatchSource.read` → `GeocoderPort.geocode` → `mergeWith` |
 | UC-02.6–7 | `ArtifactWriter.writeCandidates/writeReport` |
 | UC-03.1–5 | `LoadIngestionBatch.generate` → `CatalogBatchWriter.generate` → `CatalogUpdateReview` |

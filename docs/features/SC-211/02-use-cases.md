@@ -22,39 +22,41 @@ flowchart LR
 - **Goal:** produce a geocoded, reconciled candidate batch + honest run report for three metros
 - **Trigger:** curator starts the sample-ingestion command with a metro selection
 - **Preconditions:** design approved; network to sources + Photon; metros/caps configured
-- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut TRUE only if the certifier declares hand-cut, FALSE otherwise (declared not or silent); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model
+- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut TRUE only if the certifier declares hand-cut, FALSE otherwise (declared not or silent); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model · BR-6c a single Photon pre-flight query must pass before any directory request
 
 **Main success scenario**
 
 1. Curator selects Dallas, NYC, Toronto and per-metro caps (15–25), then starts.
-2. System asks the HMS library for certified restaurants (one cached request; directory coordinates kept as evidence only).
-3. System asks the HFSAA library for New York locator entries (one public RPC).
-4. System asks the HMA library for the GTA list (one REST request; all content inline).
-5. Each library returns its own records; its translator maps them to the app's source listings.
-6. System filters fetched rows to restaurants inside the metro city allowlists.
-7. System geocodes each row via Photon; accepts only confirmed matches; directory coordinates never become the accepted location.
-8. System reconciles same-venue rows, merges claims, records the intended verification and hand-cut outcomes.
-9. System writes raw snapshots, `candidates.json` (outcome/basis), and `report.md`.
-10. System reports per-source/per-metro counts and rejected rows with reasons.
+2. System runs one Photon pre-flight query against a stable address; only on success does it proceed.
+3. System asks the HMS library for certified restaurants (one cached request; directory coordinates kept as evidence only).
+4. System asks the HFSAA library for New York locator entries (one public RPC).
+5. System asks the HMA library for the GTA list (one REST request; all content inline).
+6. Each library returns its own records; its translator maps them to the app's source listings.
+7. System filters fetched rows to restaurants inside the metro city allowlists.
+8. System geocodes each row via Photon; accepts only confirmed matches; directory coordinates never become the accepted location.
+9. System reconciles same-venue rows, merges claims, records the intended verification and hand-cut outcomes.
+10. System writes raw snapshots, `candidates.json` (outcome/basis), and `report.md`.
+11. System reports per-source/per-metro counts and rejected rows with reasons.
 
 **Flows**
 
 | ID | From | Condition → flow | Ends in |
 |---|---|---|---|
-| A1 | 4–5 | Several branches/entries → one source listing each; translator maps the library model | Step 8 reconciliation |
-| A2 | 2 | HMS unavailable → recorded source failure; cached snapshot replayed if fresh | Step 3 |
-| A3 | 7 | Fewer rows than the cap → continue, report the shortfall | Step 9 |
-| A4 | — | Repeat run → cached snapshots, no fetch | Step 9, marked cache-sourced |
-| A5 | 3 | HFSAA publishable key rotated → re-discover from the public bundle, retry once | Step 4 |
-| E1 | 2–4 | Source unreachable → `SOURCE_UNAVAILABLE`, run continues | Partial report |
-| E2 | 7 | Photon down → abort before publishing candidates | `Aborted`, no candidates file |
-| E3 | 2–5 | Parse failure → `SOURCE_PARSE_FAILED` quarantine | Source skipped; follow-up |
-| E4 | 6 | Zero metro matches → reported | No load for that metro |
-| E5 | 7 | Wrong-region/ambiguous match → row rejected with the match | Reject list |
+| A1 | 5–6 | Several branches/entries → one source listing each; translator maps the library model | Step 9 reconciliation |
+| A2 | 3 | HMS unavailable → recorded source failure; cached snapshot replayed if fresh | Step 4 |
+| A3 | 8 | Fewer rows than the cap → continue, report the shortfall | Step 10 |
+| A4 | — | Repeat run → cached snapshots, no fetch | Step 10, marked cache-sourced |
+| A5 | 4 | HFSAA publishable key rotated → re-discover from the public bundle, retry once | Step 5 |
+| P1 | 2 | Photon pre-flight fails → abort before any directory request | `Aborted`, no artifacts |
+| E1 | 3–5 | Source unreachable → `SOURCE_UNAVAILABLE`, run continues | Partial report |
+| E2 | 8 | Photon down mid-run → abort before publishing candidates | `Aborted`, no candidates file |
+| E3 | 3–6 | Parse failure → `SOURCE_PARSE_FAILED` quarantine | Source skipped; follow-up |
+| E4 | 7 | Zero metro matches → reported | No load for that metro |
+| E5 | 8 | Wrong-region/ambiguous match → row rejected with the match | Reject list |
 
-- **Postconditions:** success — artifacts exist, every fetched row classified, no DB writes; failure — no candidates artifact published as success.
+- **Postconditions:** success — artifacts exist, every fetched row classified, no DB writes; failure — no candidates artifact published as success; pre-flight failure — nothing fetched, nothing written.
 - **Data:** read — library responses, geocoder results · created — artifact files only
-- **ACs:** AC-1, AC-2, AC-3, AC-5, AC-8 · **Open:** Q-6, Q-7
+- **ACs:** AC-1, AC-2, AC-3, AC-5, AC-8, AC-9 · **Open:** Q-6, Q-7
 
 ## UC-02 — Compile a cited manual Tier-3 batch
 

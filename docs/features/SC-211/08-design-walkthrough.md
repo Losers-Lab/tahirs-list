@@ -8,9 +8,10 @@
 | 2026-11-07 | Initial walkthrough | — |
 | 2026-11-07 | Founder amendment: registries confer verification; hand-cut follows the certifier's declaration | 0–2, 4–8 |
 | 2026-11-07 | Format-only retrofit to the ratified diagram-first standard | none (content unchanged) |
-| 2026-11-08 | Access spike closed; three certifier libraries implemented, 62 tests green, live probe passed (D-12, D-13) | 0–8 |
+| 2026-11-08 | Access spike closed; three certifier libraries implemented, 66 tests green, live probe passed (D-12, D-13) | 0–8 |
 | 2026-11-08 | Correction: a silent certifier declaration yields FALSE, not NULL; NULL only where there is no certifier claim | 0–2, 6–8 |
 | 2026-11-08 | Diagram retrofit: actors on the left, owned data store shown explicitly (ratified conventions from #74) | 3–6 |
+| 2026-11-08 | D-14: one Photon pre-flight query before any directory fetch; failure aborts with no artifacts | 0–2, 4–7 |
 
 ```mermaid
 flowchart LR
@@ -35,8 +36,8 @@ flowchart LR
 **Need:** approve; confirm D-1.
 
 ## 4. Black-box sequences
-**Shows:** what the curator sees — one request per library, partial runs, key rotation, aborts, idempotent re-load.
-**Locks in:** Tier-1 shows Verified; manual rows do not; failures are explicit; no invented locations.
+**Shows:** what the curator sees — a pre-flight check, one request per library, partial runs, key rotation, aborts, idempotent re-load.
+**Locks in:** Photon is proven reachable before any directory fetch; Tier-1 shows Verified; manual rows do not; failures are explicit; no invented locations.
 **Need:** approve.
 
 ## 5. System class diagram
@@ -45,12 +46,12 @@ flowchart LR
 **Need:** approve; confirm D-12.
 
 ## 6. White-box sequences
-**Shows:** the serving path; cache → robots → 1 req/s; real live counts; one transaction for V23.
-**Locks in:** dedupe/upgrade semantics; hand-cut never derived from tier; fail-fast migration; blocking audit checks.
+**Shows:** the serving path; pre-flight → cache → robots → 1 req/s; real live counts; one transaction for V23.
+**Locks in:** geocoder availability is checked before any fetch; dedupe/upgrade semantics; hand-cut never derived from tier; fail-fast migration; blocking audit checks.
 **Need:** approve; confirm D-4.
 
 ## 7. Complete class diagram (the design being approved)
-**Shows:** module map, exact class names, verified field matrix, V22/V23, no API/frontend delta, 57 tests.
+**Shows:** module map, exact class names, verified field matrix, V22/V23, no API/frontend delta, 66 tests.
 **Locks in:** module boundaries, migration contents, provenance strings, test names.
 **Need:** approve, including D-5, D-6, D-8, D-11, D-12.
 
@@ -76,6 +77,7 @@ flowchart LR
 | D-11 | Per-directory hand-cut declaration drives hand-cut (TRUE only on declared hand-cut; FALSE for declared not or silent); tier drives only verification | Yes | pending |
 | D-12 | One independent library per certifier (own model) + explicit translators, in-repo | Yes | pending |
 | D-13 | Zabihah bulk access is licensed-only; manual cited batch until licensed | Yes | pending |
+| D-14 | One Photon pre-flight query runs before any directory fetch; failure aborts with no artifacts | Yes | pending |
 
 ## Approval
 
@@ -83,7 +85,7 @@ flowchart LR
 
 ```
 Approved by: <pending> · Date: · Design commit:
-Decision items: D-1 … D-13 resolved as tabled
+Decision items: D-1 … D-14 resolved as tabled
 ```
 
 Re-approval: libraries implemented and live-verified, 2026-11-08.
