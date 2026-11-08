@@ -13,6 +13,7 @@
 | 2026-11-08 | Diagram retrofit: actors on the left, owned data store shown explicitly (ratified conventions from #74) | 3–6 |
 | 2026-11-08 | D-14: one Photon pre-flight query before any directory fetch; failure aborts with no artifacts | 0–2, 4–7 |
 | 2026-11-08 | Security review: HTTPS + per-certifier host allow-list, capped re-checked redirects, size cap, fail-closed robots, cache digest; claims store the three-state declaration | 0–2, 6–7 |
+| 2026-11-08 | D-15: load through the runtime `LoadIngestionBatch` + `RestaurantListingRepository`; generated V23 data migration retired. D-16: Tier-1 certification implies index qualification | 0–8 |
 
 ```mermaid
 flowchart LR
@@ -47,13 +48,13 @@ flowchart LR
 **Need:** approve; confirm D-12.
 
 ## 6. White-box sequences
-**Shows:** the serving path; pre-flight → cache → robots → 1 req/s; real live counts; one transaction for V23.
-**Locks in:** geocoder availability is checked before any fetch; dedupe/upgrade semantics; hand-cut never derived from tier; fail-fast migration; blocking audit checks.
+**Shows:** the serving path; pre-flight → cache → robots → 1 req/s; real live counts; one runtime transaction for the load.
+**Locks in:** geocoder availability is checked before any fetch; dedupe/upgrade semantics; hand-cut never derived from tier; the load shares the Add Listing write path; blocking audit checks.
 **Need:** approve; confirm D-4.
 
 ## 7. Complete class diagram (the design being approved)
-**Shows:** module map, exact class names, verified field matrix, V22/V23, no API/frontend delta, 85 new tests.
-**Locks in:** module boundaries, migration contents, provenance strings, test names.
+**Shows:** module map, exact class names, verified field matrix, V22 schema (no V23), shared write path, 85 existing tests + load tests.
+**Locks in:** module boundaries, runtime load contract, provenance strings, test names.
 **Need:** approve, including D-5, D-6, D-8, D-11, D-12.
 
 ## 8. Verified access
@@ -81,6 +82,8 @@ flowchart LR
 | D-12 | One independent library per certifier (own model) + explicit translators, in-repo | Yes | pending |
 | D-13 | Zabihah bulk access is licensed-only; manual cited batch until licensed | Yes | pending |
 | D-14 | One Photon pre-flight query runs before any directory fetch; failure aborts with no artifacts | Yes | pending |
+| D-15 | Load through the runtime `LoadIngestionBatch` + `RestaurantListingRepository` in one transaction; no generated data migration | Yes | decided 2026-11-08 |
+| D-16 | Tier-1 certification implies index qualification (`NO_CROSS_CONTAMINATION`); manual/web rows keep explicit/`UNCERTAIN` | Yes | decided 2026-11-08 |
 
 ## Approval
 
@@ -88,7 +91,7 @@ flowchart LR
 
 ```
 Approved by: <pending> · Date: · Design commit:
-Decision items: D-1 … D-14 resolved as tabled
+Decision items: D-1 … D-16 resolved as tabled
 ```
 
 Re-approval: libraries implemented and live-verified, 2026-11-08.

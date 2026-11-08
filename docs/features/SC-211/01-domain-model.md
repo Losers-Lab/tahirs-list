@@ -70,22 +70,26 @@ classDiagram
 | IngestReject (new) · IngestReport (new) | Excluded row (closed reason) · run accounting + gaps | Immutable; produced once |
 | DirectoryStandard · Provenance · SourceTier · SourceRef · VerificationBasis · MetroFilter · MatchConfirmation · GeocoderHealth | Value objects | Immutable |
 
+**Shared write path (D-15):** `RestaurantListing.imported(...)` is the only new aggregate factory. It allows a null owner/cuisine, a brand, provenance, and a `VERIFIED` status only when a `VerificationBasis` is supplied. `LoadIngestionBatch` builds aggregates from reviewed candidates and calls the same `RestaurantListingRepository` used by Add Listing; it never emits SQL. The persistence adapter owns one transactional write routine for insert/update + child rows + claims + search mirror.
+
 ## Invariants
 
 | # | Invariant | Becomes test |
 |---|---|---|
-| INV-1 | Ingested listing is `VERIFIED` iff a recognized Tier-1 claim backs it; otherwise `UNVERIFIED` | `IngestSampleMigrationTest.loadsTierOneAsVerifiedWithClaims` |
+| INV-1 | Ingested listing is `VERIFIED` iff a recognized Tier-1 claim backs it; otherwise `UNVERIFIED` | `LoadIngestionBatchTest.loadsTierOneAsVerifiedWithClaims` |
 | INV-2 | Every ingested listing carries a closed-vocabulary provenance stamp | `ProvenanceTest.rejectsUnknownVocabulary` |
 | INV-3 | `isHandCut` is TRUE iff the backing claim declares hand-cut; FALSE for every other Tier-1 declaration (declared not or silent); NULL only where there is no certifier claim. Every `VERIFIED` row has a cited Tier-1 claim | `LoadIngestionBatchTest.handCutFollowsDeclaredStandard` · `refusesVerifiedWithoutClaim` |
 | INV-4 | The run's first step is the geocoder pre-flight; `RunSampleIngestion` (pipeline PR) must call it before any source, and every candidate location came from a confirmed geocoder match | `CheckGeocoderHealthTest` · Phase 6 `ING-1` · `MatchConfirmationPolicyTest.rejectsWrongRegion` |
 | INV-5 | Claims are unique per (listing, source, record) and cite a source URL | `CertificationClaimTest.requiresCitation` |
 | INV-6 | Same venue → one candidate; highest tier wins provenance; all claims retained | `RunSampleIngestionTest.mergesTierPriority` |
-| INV-7 | Loading is idempotent (no duplicate listing or claim) | `IngestSampleMigrationTest.isIdempotent` |
+| INV-7 | Loading is idempotent (no duplicate listing or claim) | `LoadIngestionBatchTest.isIdempotent` |
 | INV-8 | Expiry/first-seen/last-seen never changes status or hand-cut in this feature | — (open flag D-10) |
 | INV-9 | A run never emits outside its metros or above the per-metro cap | `RunSampleIngestionTest.filtersToMetroAndCap` |
 | INV-10 | Every fetched row is a candidate or a reject with a reason | `AuditIngestionRunTest.flagsUnaccountedRow` |
-| INV-11 | A Tier-1 match upgrades the existing row; never duplicates or skips | `IngestSampleMigrationTest.upgradesMatchedSeedRow` |
+| INV-11 | A Tier-1 match upgrades the existing row; never duplicates or skips | `LoadIngestionBatchTest.upgradesMatchedSeedRow` · `doesNotDuplicateSeedRows` |
 | INV-12 | The committee path is untouched; registry-verified is distinguishable | `VerificationCommitteeTest` (existing) |
+| INV-13 | Ingestion writes through the same aggregate and repository as Add Listing; it does not emit SQL or bypass the index gate | `LoadIngestionBatchTest.usesSharedWritePath` · `ExposedRestaurantListingRepositoryTest` |
+| INV-14 | A Tier-1 ingested row is index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value, default `UNCERTAIN` | `LoadIngestionBatchTest.certifiedRowsAreIndexQualified` |
 
 ## States
 

@@ -10,7 +10,7 @@ flowchart TB
   API --> BOOT[":bootstrap — + SampleIngestMain / ingestSample"]
   BOOT --> APP[":application — + ingestion use cases, ports, model"]
   APP --> DOM[":domain — Provenance + CertificationClaim + VerificationBasis"]
-  APP --> PER[":persistence — V22 schema · V23 generated data"]
+  APP --> PER[":persistence - V22 schema · runtime batch apply"]
   BOOT -.-> ING[":ingestion — translators (new)"]
   ING --> CORE[":certifier-core — polite HTTP · cache · robots"]
   ING --> HMSM[":certifier-hms"]
@@ -29,14 +29,14 @@ flowchart TB
 | Module | Status | Contents |
 |---|---|---|
 | `:domain` | modified | `Provenance` (+4 strings); new `CertificationClaim` (+`declaredHandCut`, persisted as `hand_cut_declaration`), `VerificationBasis`; `VerificationStatus`/`VerificationCommittee` KDoc |
-| `:application` | modified | `com.tahirslist.application.ingestion`: 4 use cases, ports, model, errors; `com.tahirslist.application.geo.CheckGeocoderHealth` (pre-flight) |
+| `:application` | modified | `com.tahirslist.application.ingestion`: 4 use cases, ports, model, errors; `LoadIngestionBatch.preview/execute`; `ListingWrite`; `com.tahirslist.application.geo.CheckGeocoderHealth` (pre-flight) |
 | `:certifier-core` | **new** | `CertifierHttp`, `FetchPolicy` (HTTPS + per-certifier host allow-list, capped redirects, response-size cap), `HttpTransport`/`KtorHttpTransport`, `SnapshotStore`/`FileSnapshotStore`, `RobotsPolicy`, `SourceSnapshot`, `CertifierPage`, `CertifierProfile`, `HandCutDeclaration` |
 | `:certifier-hms` | **new** | `HmsDirectory`, `HmsParser`, `HmsEstablishment`, `HmsCategory`, `HmsCertificationStatus`, `HmsAddress`, `HmsLocation`, `HmsProfile` |
 | `:certifier-hfsaa` | **new** | `HfsaaLocator`, `HfsaaParser`, `HfsaaEntry`, `HfsaaEntryType`, `HfsaaProject`, `HfsaaProfile` |
 | `:certifier-hma` | **new** | `HmaCertifiedOutlets`, `HmaParser`, `HmaCertifiedOutlet`, `HmaAddress`, `HmaProfile` |
 | `:ingestion` | **new** | `SourceListing`, `SourceRef`, `SourceTier`, `DirectoryStandard`, `SourceTranslator`, `HmsTranslator`, `HfsaaTranslator`, `HmaTranslator`, `LiveProbe` |
-| `:persistence` | modified | V22, V23 (generated), `ExternalCertificationClaims`, migration tests |
-| `:bootstrap` | modified | `SampleIngestMain` + `ingestSample` JavaExec task |
+| `:persistence` | modified | V22 only; `ExternalCertificationClaims`; `ExposedBrandRepository`; `RestaurantListingRepository.applyBatch` (one transaction, shared with Add Listing) |
+| `:bootstrap` | modified | `SampleIngestMain` + `ingestSample`; `LoadIngestBatchMain` + `loadIngestBatch` |
 | `:web-api` · `:geocoding` · frontend | unchanged | No API/frontend change; `PhotonGeocoder` reused |
 
 ## Verified API surface (live probe, 2026-11-08)
@@ -65,8 +65,10 @@ flowchart TB
 
 | Element | Status | Detail |
 |---|---|---|
-| `V22__sc_211_ingestion_schema.sql` | new | provenance CHECK (+4 values); `external_certification_claims` table (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, `hand_cut_declaration TEXT NOT NULL` with CHECK `(HAND_CUT, NOT_HAND_CUT, UNSPECIFIED)` — the three-state declaration is the audit evidence; the listing's derived `is_hand_cut` boolean stays on `restaurant_listings` — first/last_seen, created_at; unique (listing_id, source, source_record_ref)); index on listing_id; drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` |
-| `V23__sc_211_ingest_sample.sql` | new, generated | brands upsert → listings insert with verification + hand-cut outcome → matched-row `UPDATE` to `VERIFIED` with hand-cut from the claim's declaration → claims → `listing_search` insert/update |
+| `V22__sc_211_ingestion_schema.sql` | new | provenance CHECK (+4 values); `external_certification_claims` table (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, `hand_cut_declaration TEXT NOT NULL` with CHECK `(HAND_CUT, NOT_HAND_CUT, UNSPECIFIED)`, first/last_seen, created_at; unique (listing_id, source, source_record_ref)); index on listing_id; drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` |
+| `RestaurantListingRepository.applyBatch` | new | One transaction for a batch: brands, listings (insert/update), cuisines, halal items, claims, search mirror. Shared by Add Listing and ingestion |
+| `BrandRepository` | new | `resolve` (preview) + `resolveOrCreate` (execute) by name |
+| `V23__sc_211_ingest_sample.sql` | **retired** | No generated data migration: `LoadIngestionBatch` writes through `RestaurantListingRepository.applyBatch` in one transaction (D-15) |
 | `Tables.kt` | modified | add `ExternalCertificationClaims` catalogue object |
 | Verification CHECK | unchanged | V15 already admits `VERIFIED` |
 
@@ -86,11 +88,12 @@ flowchart TB
 | `FetchPolicy` defaults | new | UA `TahirsListBot/0.1`, HTTPS-only + per-certifier host allow-list, 1 req/s/host, 3 attempts, 10 wire requests/run, 24 h cache, robots on (fail-closed), max 3 redirects (each re-checked), 16 MB response cap |
 | `scripts/ingest-sample.sh` | new | Containerized `:bootstrap:ingestSample` |
 | `scripts/certifier-live.sh` | **new** | Containerized `:ingestion:liveProbe` (ad-hoc live check) |
-| `scripts/generate_ingest_migration.py` | new | Containerized candidates → V23 |
+| `scripts/load-ingest-batch.sh` | new | Containerized `:bootstrap:loadIngestBatch` (preview then execute) |
+| `scripts/generate_ingest_migration.py` | **retired** | No generated data migration (D-15) |
 | `scripts/backend-test.sh` | unchanged | Picks up the new modules automatically |
 | Pre-flight (D-14) | new | `CheckGeocoderHealth` runs one Photon query before any directory request; `Unavailable` aborts the run with no artifacts |
-| Tests (85 new, all green) | new | Core: `CertifierHttpTest` (28), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3), `FileSnapshotStoreTest` (4) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (6) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests · application: `CheckGeocoderHealthTest` (4, new) |
-| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `marksTierOneCandidatesVerified`, `neverVerifiesManualOnlyRows`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `does not re-discover a key after a 403`, `follows X-WP-TotalPages`, `refuses a host outside the certifier allow-list`, `refuses a redirect to a host outside the allow-list`, `counts each redirect hop against the request budget`, `rejects a response over the size cap`, `fails closed when robots.txt denies access`, `treats a tampered body as a cache miss`, `passes when the probe resolves`, `fails when the provider throws` |
+| Tests (85 existing + load tests) | new | Core: `CertifierHttpTest` (28), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3), `FileSnapshotStoreTest` (4) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (6) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests · application: `CheckGeocoderHealthTest` (4). The runtime-load PR adds `LoadIngestionBatchTest`, `CertificationClaimTest`, `RestaurantListingImportedTest`, and `ExposedRestaurantListingRepositoryTest` batch cases |
+| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `usesSharedWritePath`, `certifiedRowsAreIndexQualified`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `does not re-discover a key after a 403`, `follows X-WP-TotalPages`, `refuses a host outside the certifier allow-list`, `refuses a redirect to a host outside the allow-list`, `counts each redirect hop against the request budget`, `rejects a response over the size cap`, `fails closed when robots.txt denies access`, `treats a tampered body as a cache miss`, `passes when the probe resolves`, `fails when the provider throws` |
 
 ## Architecture and risks
 
@@ -104,6 +107,9 @@ flowchart TB
 | HFSAA publishable key rotates | Key re-discovery from the public bundle, retry once (tested) |
 | HMS city blank on 10 rows | `deriveCity` from the address; null if not derivable (tested) |
 | Dedupe merges coincident venues | Suspected duplicates reported (D-4) |
+| Web/ingestion logic drift | Ingestion uses the same aggregate and `RestaurantListingRepository.applyBatch` as Add Listing (D-15); no generated SQL, no Python renderer |
+| Ingested rows excluded from search | Tier-1 certification implies `NO_CROSS_CONTAMINATION` (D-16); manual/web rows stay explicit/`UNCERTAIN` |
+| Batch fails partway | One transaction covers brands, listings, children, claims and mirror; any failure rolls back |
 | Badge copy says "committee" for registry rows | D-8 follow-up story |
 | Certifier expiry/revocation | Expiry stored; no auto-demotion (D-10) |
 | Future Tier-1 certifier does not require hand-cut | Hand-cut derives from its own declaration (FALSE for declared not or silent), never from tier (D-11) |

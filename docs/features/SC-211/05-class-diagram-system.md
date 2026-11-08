@@ -24,8 +24,10 @@ flowchart LR
   P6 --> P2
   C1 --> P3[ArtifactWriter]
   C2 --> P4[CuratedBatchSource]
-  C3 --> P5[CatalogBatchWriter]
+  C3 --> P5[RestaurantListingRepository]
+  C3 --> P7[BrandRepository]
   P5 --> DB[("PostgreSQL + PostGIS")]
+  P7 --> DB
   C4 --> R[IngestReport]
   CORE[CertifierHttp] -.-> L1
   CORE -.-> L2
@@ -105,7 +107,8 @@ classDiagram
   }
   class LoadIngestionBatch {
     <<control>>
-    +generate(candidates, runId) CatalogUpdateReview
+    +preview(candidates, runId) CatalogUpdateReview
+    +execute(review) BatchLoadResult
   }
   class AuditIngestionRun {
     <<control>>
@@ -144,6 +147,16 @@ classDiagram
     <<interface>>
     +generate(candidates, runId) CatalogBatch
   }
+  class RestaurantListingRepository {
+    <<interface>>
+    +findByNormalizedLocation(lat, lng) RestaurantListing?
+    +applyBatch(writes) BatchLoadResult
+  }
+  class BrandRepository {
+    <<interface>>
+    +resolve(name) Brand?
+    +resolveOrCreate(name) Brand
+  }
   class ListingSearchQuery {
     <<interface>>
     +search(metro, filters)
@@ -171,9 +184,11 @@ classDiagram
   HmaCertifiedOutlets ..> CertifierHttp
   CompileManualBatch --> CuratedBatchSource
   CompileManualBatch --> GeocoderPort
-  LoadIngestionBatch --> CatalogBatchWriter
+  LoadIngestionBatch --> RestaurantListingRepository
+  LoadIngestionBatch --> BrandRepository
   LoadIngestionBatch --> CatalogueDatabase
-  CatalogBatchWriter --> CatalogueDatabase
+  RestaurantListingRepository --> CatalogueDatabase
+  BrandRepository --> CatalogueDatabase
   ListingSearchQuery --> CatalogueDatabase
   AuditIngestionRun ..> IngestReport
 ```
@@ -191,7 +206,9 @@ classDiagram
 | `GeocoderPort` (existing) | confirm a venue's coordinates | `PhotonGeocoder` |
 | `CheckGeocoderHealth` | one pre-flight query before any fetch | application control |
 | `ArtifactWriter` | persist snapshots/candidates/report | `FileArtifactWriter` |
-| `CatalogBatchWriter` | emit the reviewed catalogue update | `SqlMigrationBatchWriter` |
+| `CatalogBatchWriter` | **retired** — no generated data migration (D-15) | n/a |
+| `RestaurantListingRepository` (existing, extended) | single listing write path: match + batch apply | `ExposedRestaurantListingRepository` |
+| `BrandRepository` | resolve/create brands before locations | `ExposedBrandRepository` |
 | `CatalogueDatabase` | owned catalogue store | PostgreSQL + PostGIS |
 
 ## Operation coverage
@@ -208,10 +225,11 @@ classDiagram
 | UC-01.10–11 | `ArtifactWriter.write*`; `IngestReport` |
 | UC-02.1–5 | `CompileManualBatch` → `CuratedBatchSource.read` → `GeocoderPort.geocode` → `mergeWith` |
 | UC-02.6–7 | `ArtifactWriter.writeCandidates/writeReport` |
-| UC-03.1–5 | `LoadIngestionBatch.generate` → `CatalogBatchWriter.generate` → `CatalogUpdateReview` |
-| UC-03.6 | existing `ListingSearchQuery` → `CatalogueDatabase` |
+| UC-03.1–3 | `LoadIngestionBatch.preview` → `RestaurantListingRepository.findByNormalizedLocation` · `BrandRepository.resolve` → `CatalogUpdateReview` |
+| UC-03.4–6 | `LoadIngestionBatch.execute` → `RestaurantListingRepository.applyBatch` (one transaction) → `BatchLoadResult` |
+| UC-03.7 | existing `ListingSearchQuery` → `CatalogueDatabase` |
 | UC-04.1–5 | `IngestionReportDocument.*`; `AuditIngestionRun.execute` |
 
-**Existing collaborators:** `Migrations` (UC-03.4) · `ListingSearchQuery`/`ExposedListingSearchQuery` (UC-03.6) · `RestaurantListingRepository` (reference only).
+**Existing collaborators:** `RestaurantListingRepository`/`ExposedRestaurantListingRepository` (UC-03 write path) · `BrandRepository` (UC-03) · `ListingSearchQuery`/`ExposedListingSearchQuery` (UC-03.7).
 
-**Revisions:** 2026-11-07 initial · 2026-11-08 verified libraries replace the single `HalalDirectorySource` port; `HandCutDeclaration` replaces the old standard vocabulary (D-12) · 2026-11-08 diagram conventions: external actors left, `CatalogueDatabase` explicit on the right.
+**Revisions:** 2026-11-07 initial · 2026-11-08 verified libraries replace the single `HalalDirectorySource` port; `HandCutDeclaration` replaces the old standard vocabulary (D-12) · 2026-11-08 diagram conventions: external actors left, `CatalogueDatabase` explicit on the right · 2026-11-08 runtime load replaces the generated batch writer (D-15), Tier-1 index qualification (D-16).

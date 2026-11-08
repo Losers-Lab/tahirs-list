@@ -64,12 +64,12 @@ flowchart LR
 - **Goal:** hand-curate a cited Zabihah sample and merge it into the candidate batch by tier priority
 - **Trigger:** curator decides to include the Tier-3 sample
 - **Preconditions:** research reviewed; run artifact directory exists or is created
-- **Business rules:** BR-7 hand-curated only, no scraping · BR-7a Zabihah bulk access is licensed-only (D-13); the pipeline never fetches it and never spoofs a permitted crawler · BR-8 every row has a URL + access date · BR-9 Tier-3 never sets `VERIFIED` or hand-cut · BR-10 merge follows UC-01 BR-4
+- **Business rules:** BR-7 hand-curated only, no scraping · BR-7a Zabihah bulk access is licensed-only (D-13); the pipeline never fetches it and never spoofs a permitted crawler · BR-8 every row has a URL + access date · BR-9 Tier-3 never sets `VERIFIED` or hand-cut; cross-contamination is explicit in the curated file (default `UNCERTAIN`; only `NO_CROSS_CONTAMINATION` is index-qualified) · BR-10 merge follows UC-01 BR-4
 
 **Main success scenario**
 
 1. Curator reads a small set of Zabihah listings in a browser and the founder research.
-2. Curator records each venue: name, address, city, region, country, URL, access date, tier 3.
+2. Curator records each venue: name, address, city, region, country, URL, access date, tier 3, and cross-contamination evidence (or unknown).
 3. System validates the curated file against the manual-entry schema.
 4. System geocodes each valid row via Photon with match-confirmation.
 5. System merges with Tier-1 candidates (Tier-1 keeps provenance + `VERIFIED`; Tier-3 claim added).
@@ -93,34 +93,37 @@ flowchart LR
 ## UC-03 — Load a reviewed ingestion batch into the catalog
 
 - **Primary actor:** Data Curator · **Supporting:** none external; existing search API for verification
-- **Goal:** turn an approved batch into searchable listings with the correct trust outcome, provenance, and claims — idempotently
-- **Trigger:** curator generates the catalogue update from the approved candidates and merges it
-- **Preconditions:** artifacts reviewed; V22 schema merged; database available
-- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut TRUE only if that claim declares hand-cut, FALSE otherwise (declared not or silent) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands upsert before locations
+- **Goal:** turn a reviewed batch into searchable listings with the correct trust outcome, provenance, and claims — idempotently
+- **Trigger:** curator asks `LoadIngestionBatch` to preview the approved candidates, reviews the diff, then executes the load
+- **Preconditions:** artifacts reviewed; V22 schema merged; database available; the runtime write path (`RestaurantListingRepository`) is deployed
+- **Business rules:** BR-11 `VERIFIED` iff a Tier-1 claim backs the row; hand-cut TRUE only if that claim declares hand-cut, FALSE otherwise (declared not or silent) · BR-12 idempotent · BR-13 one transaction per batch · BR-14 matched rows upgrade, never duplicate/skip · BR-15 brands resolved by name before locations · BR-16 the load uses the same aggregate and repository as Add Listing, never generated SQL · BR-17 Tier-1 certified rows are index-qualified (`NO_CROSS_CONTAMINATION`); manual/web rows keep their explicit value (default `UNCERTAIN`)
 
 **Main success scenario**
 
-1. Curator asks for the catalogue update from the approved `candidates.json`.
-2. System generates the Flyway migration (brands, listings with verification + hand-cut outcomes, upgrades, claims, projection) + diff summary.
-3. Curator reviews the migration and diff, then merges it.
-4. System applies pending migrations at startup in one transaction.
-5. System reports applied counts (inserted, upgraded, skipped).
-6. Curator verifies search per metro, Verified display, and the hand-cut filter (declared hand-cut rows only) on the live stack.
-7. Curator records the batch and evidence in the traceability matrix.
+1. Curator asks `LoadIngestionBatch` for a preview of the approved `candidates.json`.
+2. System validates every candidate (claim citation, tier, hand-cut declaration, metro, location), resolves brands, and matches existing rows by normalized location.
+3. System returns a diff summary: inserts, upgrades, skipped, rejected (with reasons) — no writes.
+4. Curator reviews the diff and executes the load.
+5. System opens one transaction: brands resolved, listings inserted/updated with verification + hand-cut outcomes, children written, claims attached, search mirror updated under the index gate.
+6. System commits and reports counts (inserted, upgraded, skipped, rejected).
+7. Curator verifies search per metro, Verified display, and the hand-cut filter (declared hand-cut rows only) on the live stack.
+8. Curator records the batch and evidence in the traceability matrix.
 
 **Flows**
 
 | ID | From | Condition → flow | Ends in |
 |---|---|---|---|
 | A1 | 2 | Some rows previously rejected → survivors only | Header references report |
-| A2 | 4 | Already applied → no-op | Counts zero |
-| A3 | 4 | Matched existing row → upgrade to `VERIFIED`; hand-cut per its claim's declaration | Claim attached, no duplicate |
-| E1 | 4 | Constraint violation → transaction rolls back | No partial load |
-| E2 | 4 | Schema missing → fail fast | V22 first |
-| E3 | 6 | Missing/wrong trust state → blocking | Not accepted until fixed |
+| A2 | 5 | Already loaded → no-op | Counts zero |
+| A3 | 5 | Matched existing row → upgrade to `VERIFIED`; hand-cut per its claim's declaration | Claim attached, no duplicate |
+| A4 | 3 | Preview finds a blocking trust error → no execute offered | Rejected with reason |
+| E1 | 5 | Constraint/DB failure → transaction rolls back | No partial load |
+| E2 | 2 | V22 schema missing → fail fast | Nothing written |
+| E3 | 7 | Missing/wrong trust state → blocking | Not accepted until fixed |
+| E4 | 2 | Duplicate candidates within the batch → merged by venue | One write plan |
 
 - **Postconditions:** success — new/upgraded listings with correct trust + claims, searchable, idempotent; failure — no partial load.
-- **Data:** created — listings, upgrades, claims, projection, migration · read — search results
+- **Data:** created — listings, upgrades, claims, search projection · read — existing listings, brands, search results
 - **ACs:** AC-4, AC-5, AC-6, AC-7 · **Open:** none blocking (D-4 design decision)
 
 ## UC-04 — Audit an ingestion run and record evidence

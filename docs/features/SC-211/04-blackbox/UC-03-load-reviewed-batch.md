@@ -1,7 +1,7 @@
 # SC-211 — Phase 4: Black-box — UC-03 Load a reviewed ingestion batch
 
 > **Purpose:** actor-visible behaviour of the catalogue load · **Derived from:** 02 UC-03 · **Delta:** new
-> **Security:** the only catalogue write; Tier-1 verified on certifier authority; manual rows unverified; reviewed before merge.
+> **Security:** the only catalogue write; Tier-1 verified on certifier authority; manual rows unverified; reviewed before load; one transaction.
 
 ```mermaid
 sequenceDiagram
@@ -9,16 +9,18 @@ sequenceDiagram
   actor DC as Data Curator
   participant TL as Tahir's List
   participant DB@{ "type": "database" } as PostgreSQL + PostGIS
-  DC->>TL: 1. Generate update from approved candidates
-  TL-->>DC: 2. Migration + diff (brands, verification, hand-cut per declaration, upgrades, claims)
-  DC->>TL: 3. Review and merge
-  TL->>DB: 4. Apply V22/V23 in one transaction
-  DB-->>TL: applied counts
-  TL-->>DC: 5. Counts: inserted / upgraded / skipped
-  DC->>TL: 6. Verify search, Verified display, hand-cut filter
+  DC->>TL: 1. Preview the approved candidates
+  TL->>DB: 2. Read existing rows + brands
+  DB-->>TL: current catalogue
+  TL-->>DC: 3. Diff: inserts / upgrades / skipped / rejects (no writes)
+  DC->>TL: 4. Execute the reviewed load
+  TL->>DB: 5. One transaction: brands, listings, children, claims, search mirror
+  DB-->>TL: committed counts
+  TL-->>DC: 6. Counts: inserted / upgraded / skipped / rejected
+  DC->>TL: 7. Verify search, Verified display, hand-cut filter
   TL->>DB: SELECT listings for the metro + hand-cut
   DB-->>TL: rows
-  TL-->>DC: 7. Tier-1 verified — hand-cut per declaration — manual unverified
+  TL-->>DC: 8. Tier-1 verified — hand-cut per declaration — manual unverified
 ```
 
 **A1 — rejected rows excluded** · survivors only.
@@ -29,11 +31,14 @@ sequenceDiagram
   TL->>TL: emit survivors — header references the report
 ```
 
-**A2 — re-apply** · idempotent no-op.
+**A2 — re-run** · idempotent no-op.
 
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
+  participant DB@{ "type": "database" } as PostgreSQL + PostGIS
+  TL->>DB: match by normalized location + claim key
+  DB-->>TL: existing rows and claims
   TL->>TL: zero new rows — idempotency proven
 ```
 
@@ -47,7 +52,15 @@ sequenceDiagram
   DB-->>TL: upgraded, no duplicate
 ```
 
-**E1 — constraint violation** · rollback, no partial load.
+**A4 — blocking preview error** · no execute offered.
+
+```mermaid
+sequenceDiagram
+  participant TL as Tahir's List
+  TL->>TL: unbacked VERIFIED or TRUE hand-cut → reject with reason
+```
+
+**E1 — constraint/DB failure** · rollback, no partial load.
 
 ```mermaid
 sequenceDiagram
@@ -64,7 +77,7 @@ sequenceDiagram
   participant TL as Tahir's List
   participant DB@{ "type": "database" } as PostgreSQL + PostGIS
   TL->>DB: check V22
-  DB-->>TL: missing → startup fails
+  DB-->>TL: missing → load refuses
 ```
 
 **E3 — missing/wrong trust state** · blocking.
