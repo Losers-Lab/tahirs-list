@@ -85,10 +85,24 @@ on the left. Our lifelines follow in call order, so a call to an actor points
 **left**. A black-box diagram keeps one "Tahir's List" lifeline and puts every
 external service to its left as well.
 
+**Draw the symbol, not just the position.** Declare actors with Mermaid's `actor`
+keyword so they render as stick figures; `participant` renders a plain rectangle
+and hides that the box is outside our control.
+
+```mermaid
+sequenceDiagram
+    actor AG as AI agent
+    participant DB@{ "type": "database" } as PostgreSQL/PostGIS
+    AG->>DB: query
+    DB-->>AG: rows
+```
+
 **Our data stores sit on the far right.** PostgreSQL/PostGIS, MinIO/S3 and other
-owned infrastructure come after the internal lifelines. A white-box sequence must
-show the actual read/write against the store (SQL or object call); it may not stop
-at the repository interface. Data never arrives by magic.
+owned infrastructure come after the internal lifelines. Give them the database
+symbol (`participant DB@{ "type": "database" }`; flowcharts use the `[(...)]`
+shape) — not a rectangle, which reads as another service. A white-box sequence
+must show the actual read/write against the store (SQL or object call); it may not
+stop at the repository interface. Data never arrives by magic.
 
 **White-box shows the concrete adapter and its outbound call.** For every
 external dependency, draw adapter → external system → adapter, with the failure

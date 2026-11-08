@@ -30,6 +30,10 @@ a minute.
   Places, Photon, Yelp, Gemini) is an actor on the left; a call to an actor points
   left. Black-box keeps one "Tahir's List" lifeline and puts external services to
   its left too.
+- **Use the symbols.** `actor X as …` for actors (stick figure), not
+  `participant`, which draws a rectangle and hides that the box is external.
+  Owned stores get `participant DB@{ "type": "database" } as …` (cylinder);
+  flowcharts use `[(...)]`.
 - **Owned data stores right.** PostgreSQL/PostGIS, MinIO/S3 after the internal
   lifelines. White-box shows the actual SQL/object read/write — never stop at the
   repository interface.
