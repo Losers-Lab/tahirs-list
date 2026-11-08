@@ -20,7 +20,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: source marked failed; counts exclude it
+  TL->>TL: source marked failed â€” counts exclude it
 ```
 
 **A2 — metro shortfall** · known gap with cause.
@@ -28,7 +28,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: below target; reason recorded
+  TL->>TL: below target â€” reason recorded
 ```
 
 **E1 — unaccounted row** · blocking.

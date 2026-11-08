@@ -25,7 +25,7 @@ sequenceDiagram
   MIG-->>REV: appliedCounts()
   CLI-->>DC: 5. inserted / upgraded / skipped
   DC->>SEARCH: 6. search metro + handCut filter + verified display
-  SEARCH-->>DC: 7. Tier-1 verified; manual unverified; claims intact
+  SEARCH-->>DC: 7. Tier-1 verified â€” manual unverified â€” claims intact
 ```
 
 **Idempotency:** brands `ON CONFLICT (name)`; listings conflict on normalized location (ingested provenance); matched rows upgraded with `UPDATE … WHERE verification_status = 'UNVERIFIED'`; claims unique per (listing, source, record); projection `ON CONFLICT (id)`.

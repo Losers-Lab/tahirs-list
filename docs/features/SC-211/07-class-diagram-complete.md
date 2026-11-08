@@ -7,7 +7,7 @@
 ```mermaid
 flowchart TB
   FE["Frontend — SvelteKit (unchanged)"] --> API["OpenAPI 3.1 (unchanged)"]
-  API --> BOOT[":bootstrap — server unchanged; + SampleIngestMain / ingestSample"]
+  API --> BOOT[":bootstrap — server unchanged · + SampleIngestMain / ingestSample"]
   BOOT --> APP[":application — + ingestion use cases, ports, model"]
   APP --> DOM[":domain — Provenance + CertificationClaim + VerificationBasis"]
   APP --> PER[":persistence — V22 schema · V23 generated data"]

@@ -14,7 +14,7 @@ sequenceDiagram
   TL->>TL: 4. Apply migrations at startup (one transaction)
   TL-->>DC: 5. Counts: inserted / upgraded / skipped
   DC->>TL: 6. Verify search, Verified display, hand-cut filter
-  TL-->>DC: 7. Tier-1 verified; manual unverified; claims intact
+  TL-->>DC: 7. Tier-1 verified â€” manual unverified â€” claims intact
 ```
 
 **A1 — rejected rows excluded** · survivors only.
@@ -22,7 +22,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: emit survivors; header references the report
+  TL->>TL: emit survivors â€” header references the report
 ```
 
 **A2 — re-apply** · idempotent no-op.
@@ -30,7 +30,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: zero new rows; idempotency proven
+  TL->>TL: zero new rows â€” idempotency proven
 ```
 
 **A3 — matched existing row** · upgrade, never duplicate.
@@ -38,7 +38,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: `UPDATE` to `VERIFIED` + hand-cut; attach claim
+  TL->>TL: `UPDATE` to `VERIFIED` + hand-cut â€” attach claim
 ```
 
 **E1 — constraint violation** · rollback, no partial load.
@@ -46,7 +46,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: transaction rolls back; startup fails
+  TL->>TL: transaction rolls back â€” startup fails
 ```
 
 **E2 — schema missing** · fail fast.
