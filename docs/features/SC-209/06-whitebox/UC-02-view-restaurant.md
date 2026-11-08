@@ -5,7 +5,7 @@
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant EP as McpHttpEndpoint
     participant GATE as AgentRequestGate
     participant RL as Bucket4jAgentRateLimiter
@@ -18,7 +18,7 @@ sequenceDiagram
     participant REVSQL as ExposedHalalCertificationReviewRepository
     participant POLICY as CertificateFactsPolicy
     participant MAP as AgentResultMapper
-    participant DB as PostgreSQL/PostGIS
+    participant DB@{ "type": "database" } as PostgreSQL/PostGIS
     AG->>EP: 2. tools/call get_restaurant {id}
     Note over EP: no authn/authz — public read-only
     EP->>GATE: 2a. allow(clientKey)

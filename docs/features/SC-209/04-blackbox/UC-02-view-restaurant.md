@@ -7,7 +7,7 @@
 ```mermaid
 sequenceDiagram
     actor U as User
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     U->>AG: 1. Ask for details about a restaurant
     AG->>TL: 2. Detail request with the listing id
@@ -21,7 +21,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Detail request
     TL->>TL: 4. Found, then 5. No eligible certificate
@@ -32,7 +32,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Detail request
     TL-->>AG: 6. Partial scope + halal items + status
@@ -42,7 +42,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Unknown id
     TL-->>AG: Tool error: restaurant not found
@@ -52,7 +52,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Malformed id
     TL->>TL: 3. Format check fails

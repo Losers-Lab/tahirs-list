@@ -5,8 +5,8 @@
 
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
-    participant EXT as Photon API
+    actor AG as AI agent
+    actor EXT as Photon API
     participant EP as McpHttpEndpoint
     participant GATE as AgentRequestGate
     participant RL as Bucket4jAgentRateLimiter
@@ -18,7 +18,7 @@ sequenceDiagram
     participant Q as ListingSearchQuery
     participant SQL as ExposedListingSearchQuery
     participant MAP as AgentResultMapper
-    participant DB as PostgreSQL/PostGIS
+    participant DB@{ "type": "database" } as PostgreSQL/PostGIS
     AG->>EP: 2. tools/call search_restaurants
     Note over EP: no authn/authz — public read-only
     EP->>GATE: 2a. allow(clientKey)

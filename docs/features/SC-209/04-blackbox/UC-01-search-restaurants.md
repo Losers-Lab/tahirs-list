@@ -6,8 +6,8 @@
 ```mermaid
 sequenceDiagram
     actor U as User
-    participant AG as AI agent
-    participant GEO as Geocoding provider
+    actor AG as AI agent
+    actor GEO as Geocoding provider
     participant TL as Tahir's List
     U->>AG: 1. Ask for restaurants near a place, with filters
     AG->>TL: 2. Search (place or coordinates, radius, filters)
@@ -23,7 +23,7 @@ sequenceDiagram
 **A1** — coordinates skip the external lookup.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Search with coordinates
     TL->>TL: 3. Validate, then 5. Find listings
@@ -32,7 +32,7 @@ sequenceDiagram
 **A2** — no match is a successful empty page.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2–4. Valid request
     TL->>TL: 5. Nothing matches
@@ -41,7 +41,7 @@ sequenceDiagram
 **A3** — a full page carries a next-offset hint.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Search (page size N)
     TL-->>AG: 6. N results + nextOffset
@@ -53,7 +53,7 @@ sequenceDiagram
 **E1** — invalid input returns an actionable tool error.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
+    actor AG as AI agent
     participant TL as Tahir's List
     AG->>TL: 2. Invalid value
     TL-->>AG: Tool error with the specific reason
@@ -61,8 +61,8 @@ sequenceDiagram
 **E2** — an unresolvable place returns guidance.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
-    participant GEO as Geocoding provider
+    actor AG as AI agent
+    actor GEO as Geocoding provider
     participant TL as Tahir's List
     AG->>TL: 2. Search by place
     TL->>GEO: 4. Resolve
@@ -72,8 +72,8 @@ sequenceDiagram
 **E3** — a provider outage recommends coordinates.
 ```mermaid
 sequenceDiagram
-    participant AG as AI agent
-    participant GEO as Geocoding provider
+    actor AG as AI agent
+    actor GEO as Geocoding provider
     participant TL as Tahir's List
     AG->>TL: 2. Search by place
     TL->>GEO: 4. Resolve
