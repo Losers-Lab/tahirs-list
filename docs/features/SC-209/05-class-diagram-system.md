@@ -118,13 +118,13 @@ classDiagram
     class AgentRateLimiter <<interface>>
 ```
 
-| Port | Operation | Adapter stub |
-|---|---|---|
-| `ListingSearchQuery` | `searchNearby(centre, radius, filters, offset, limit)` | `ExposedListingSearchQuery` |
-| `RestaurantListingRepository` | `findById(id)` | `ExposedRestaurantListingRepository` |
-| `HalalCertificationReviewRepository` | `findLatestApprovedByListing(id)` | `ExposedHalalCertificationReviewRepository` |
-| `GeocoderPort` | `geocode(address)` | `PhotonGeocoder` |
-| `AgentRateLimiter` | `tryAcquire(key)` | `Bucket4jAgentRateLimiter` |
+| Port | Operation | Adapter stub | Store / external |
+|---|---|---|---|
+| `ListingSearchQuery` | `searchNearby(centre, radius, filters, offset, limit)` | `ExposedListingSearchQuery` | PostgreSQL/PostGIS |
+| `RestaurantListingRepository` | `findById(id)` | `ExposedRestaurantListingRepository` | PostgreSQL/PostGIS |
+| `HalalCertificationReviewRepository` | `findLatestApprovedByListing(id)` | `ExposedHalalCertificationReviewRepository` | PostgreSQL/PostGIS |
+| `GeocoderPort` | `geocode(address)` | `PhotonGeocoder` | Photon API (HTTP) |
+| `AgentRateLimiter` | `tryAcquire(key)` | `Bucket4jAgentRateLimiter` | in-process |
 
 UC-01 and UC-02 are existing goals; this feature serves them through the MCP channel.
 

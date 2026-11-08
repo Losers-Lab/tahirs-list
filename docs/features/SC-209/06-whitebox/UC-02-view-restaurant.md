@@ -15,8 +15,10 @@ sequenceDiagram
     participant REPO as RestaurantListingRepository
     participant SQL as ExposedRestaurantListingRepository
     participant REV as HalalCertificationReviewRepository
+    participant REVSQL as ExposedHalalCertificationReviewRepository
     participant POLICY as CertificateFactsPolicy
     participant MAP as AgentResultMapper
+    participant DB as PostgreSQL/PostGIS
     AG->>EP: 2. tools/call get_restaurant {id}
     Note over EP: no authn/authz — public read-only
     EP->>GATE: 2a. allow(clientKey)
@@ -29,9 +31,16 @@ sequenceDiagram
     CTRL->>REPO: findById(id)
     REPO->>SQL: findById(id)
     Note over SQL: read-only transaction
-    SQL-->>CTRL: RestaurantListing
+    SQL->>DB: SELECT listing by id
+    DB-->>SQL: listing row
+    SQL-->>REPO: RestaurantListing
+    REPO-->>CTRL: RestaurantListing
     alt verified
         CTRL->>REV: 5. findLatestApprovedByListing(id)
+        REV->>REVSQL: findLatestApprovedByListing(id)
+        REVSQL->>DB: SELECT latest approved review
+        DB-->>REVSQL: review row?
+        REVSQL-->>REV: review?
         REV-->>CTRL: review?
         CTRL->>POLICY: derive(listing, review)
         POLICY-->>CTRL: CertificateFacts?

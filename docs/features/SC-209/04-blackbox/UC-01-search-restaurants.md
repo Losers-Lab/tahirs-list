@@ -7,8 +7,8 @@
 sequenceDiagram
     actor U as User
     participant AG as AI agent
-    participant TL as Tahir's List
     participant GEO as Geocoding provider
+    participant TL as Tahir's List
     U->>AG: 1. Ask for restaurants near a place, with filters
     AG->>TL: 2. Search (place or coordinates, radius, filters)
     TL->>TL: 3. Validate
@@ -62,8 +62,8 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant AG as AI agent
-    participant TL as Tahir's List
     participant GEO as Geocoding provider
+    participant TL as Tahir's List
     AG->>TL: 2. Search by place
     TL->>GEO: 4. Resolve
     GEO-->>TL: 4a. No match
@@ -73,8 +73,8 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant AG as AI agent
-    participant TL as Tahir's List
     participant GEO as Geocoding provider
+    participant TL as Tahir's List
     AG->>TL: 2. Search by place
     TL->>GEO: 4. Resolve
     GEO-->>TL: 4a. Provider failure

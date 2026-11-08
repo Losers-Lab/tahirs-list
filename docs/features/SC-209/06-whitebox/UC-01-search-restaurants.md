@@ -6,6 +6,7 @@
 ```mermaid
 sequenceDiagram
     participant AG as AI agent
+    participant EXT as Photon API
     participant EP as McpHttpEndpoint
     participant GATE as AgentRequestGate
     participant RL as Bucket4jAgentRateLimiter
@@ -14,10 +15,10 @@ sequenceDiagram
     participant CTRL as SearchListingsForAgent
     participant GEO as GeocoderPort
     participant PHOTON as PhotonGeocoder
-    participant EXT as Photon API
     participant Q as ListingSearchQuery
     participant SQL as ExposedListingSearchQuery
     participant MAP as AgentResultMapper
+    participant DB as PostgreSQL/PostGIS
     AG->>EP: 2. tools/call search_restaurants
     Note over EP: no authn/authz — public read-only
     EP->>GATE: 2a. allow(clientKey)
@@ -40,7 +41,10 @@ sequenceDiagram
     CTRL->>Q: 5. searchNearby(centre, radius, filters, offset, limit)
     Q->>SQL: searchNearby(...)
     Note over SQL: read-only transaction
-    SQL-->>CTRL: ListingSearchResult[]
+    SQL->>DB: ST_DWithin + ST_DistanceSphere query
+    DB-->>SQL: listing_search rows
+    SQL-->>Q: ListingSearchResult[]
+    Q-->>CTRL: ListingSearchResult[]
     CTRL-->>TOOL: AgentSearchResult
     TOOL->>MAP: 6. toCards(result)
     MAP-->>TOOL: StructuredSearchResult

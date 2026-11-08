@@ -10,8 +10,8 @@ flowchart TB
     BOOT --> MCP
     MCP --> APP[":application — new controls + shared helpers"]
     BOOT --> APP
-    APP --> DOM[":domain — unchanged"]
-    APP --> PER[":persistence — unchanged · no migration"]
+    APP --> DOM[":domain — unchanged"] & PER[":persistence — unchanged · no migration"]
+    PER --> DB[("PostgreSQL/PostGIS")]
     APP -.-> EXT["Adapters — geocoding · storage · verification"]
 ```
 
