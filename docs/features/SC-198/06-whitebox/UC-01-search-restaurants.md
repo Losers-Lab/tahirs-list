@@ -85,13 +85,13 @@ sequenceDiagram
   Note over A,DB: E5 — cache read fails
   CG->>ST: findByQueryHash
   ST--xCG: ExposedSQLException
-  Note over CG: WARN "geocode cache read failed"; treat as a miss
+  Note over CG: WARN "geocode cache read failed" — treat as a miss
   CG->>PG: geocode(text) → result returned
 
   Note over A,DB: E6 — cache write fails
   CG->>ST: save(entry)
   ST--xCG: ExposedSQLException
-  Note over CG: WARN "geocode cache write failed"; result already in hand
+  Note over CG: WARN "geocode cache write failed" — result already in hand
   CG-->>A: place
 ```
 

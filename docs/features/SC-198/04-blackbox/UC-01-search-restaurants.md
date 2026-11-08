@@ -73,7 +73,7 @@ sequenceDiagram
   AG->>S: 2. search(place X, radius, filters)
   S->>PH: 4b. geocode X
   PH--xS: 4c. timeout / non-200
-  S-->>AG: E3. "lookup unavailable; supply coordinates"
+  S-->>AG: E3. "lookup unavailable — supply coordinates"
   Note over S: nothing stored for X
   AG->>S: 2'. search(place Y, radius, filters)
   Note over S: 4a. Y already cached

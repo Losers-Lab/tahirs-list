@@ -60,7 +60,7 @@ sequenceDiagram
   DC->>S: 1. run
   S->>PH: 3. pre-flight
   PH--xS: unavailable
-  S-->>DC: aborted; no snapshots, no candidates, no cache write
+  S-->>DC: aborted — no snapshots, no candidates, no cache write
 
   Note over DC,S: E2 — Photon dies mid-run
   S->>PH: 6b. geocode row N
@@ -71,7 +71,7 @@ sequenceDiagram
   Note over DC,S: E3 — cold, no match
   S->>PH: 6b. geocode
   PH-->>S: no match
-  S->>S: row rejected with reason; nothing stored
+  S->>S: row rejected with reason — nothing stored
 ```
 
 ## Caption

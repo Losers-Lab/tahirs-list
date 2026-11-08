@@ -99,7 +99,7 @@ sequenceDiagram
   Note over DC,ST: E5/E6 — cache store trouble
   CG->>ST: findByQueryHash
   ST--xCG: SQLException
-  Note over CG: WARN; treat as a miss, call the provider
+  Note over CG: WARN — treat as a miss, call the provider
 ```
 
 ## What this diagram pins
