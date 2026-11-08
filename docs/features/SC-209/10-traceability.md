@@ -2,7 +2,7 @@
 
 # 10 — Traceability: SC-209
 
-Implementation branch: `feat/SC-209-mcp-server` · PR: _filled when opened_
+Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/Losers-Lab/tahirs-list/pull/76)
 
 ## Work items
 
