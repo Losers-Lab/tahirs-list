@@ -1,12 +1,13 @@
 # Design walkthrough — SC-198 geocoded_addresses cache
 
 > **Purpose:** the founder review surface · **Derived from:** 00–07 · **Delta:** one migration, one decorator, two modified use cases
-> Design commit: this branch · Date: 2026-11-08 · **Status: awaiting decision**
+> Design commit: `91fc71b` · Date: 2026-11-08 · **Status: approved**
 
 | Date | Change | Phases re-run |
 |---|---|---|
 | 2026-11-08 | Initial walkthrough | — |
 | 2026-11-08 | D-6 decided: lazy 90-day TTL, refreshed in place (no scheduler) | 01, 02, 04, 06, 07 |
+| 2026-11-08 | **Approved** by founder; D-1…D-9 resolved as tabled | 08 |
 
 ```mermaid
 flowchart LR
@@ -54,23 +55,24 @@ flowchart LR
 
 | # | Question | Recommendation | Decision |
 |---|---|---|---|
-| D-1 | Cache as a `CachingGeocoder` decorator bound at the composition root (rather than caching inside each use case or inside `PhotonGeocoder`) | Yes — one place, provider-agnostic | pending |
-| D-2 | Wire `CheckGeocoderHealth` to the **uncached** upstream binding so the pre-flight cannot be answered by the cache | Yes — otherwise a cached probe masks an outage | pending |
-| D-3 | Normalization = Unicode NFKC → trim → collapse internal whitespace → lowercase `Locale.ROOT`; key = lowercase hex SHA-256 | Yes | pending |
-| D-4 | Cache successful matches only; never cache a no-match or a provider failure; nothing written on failure | Yes — AC-d | pending |
-| D-5 | Add `provider` and `provider_ref` beyond the story’s five columns; keep `normalized_query_hash` as the primary key; a provider swap purges old rows | Yes | pending |
+| D-1 | Cache as a `CachingGeocoder` decorator bound at the composition root (rather than caching inside each use case or inside `PhotonGeocoder`) | Yes — one place, provider-agnostic | decided 2026-11-08 |
+| D-2 | Wire `CheckGeocoderHealth` to the **uncached** upstream binding so the pre-flight cannot be answered by the cache | Yes — otherwise a cached probe masks an outage | decided 2026-11-08 |
+| D-3 | Normalization = Unicode NFKC → trim → collapse internal whitespace → lowercase `Locale.ROOT`; key = lowercase hex SHA-256 | Yes | decided 2026-11-08 |
+| D-4 | Cache successful matches only; never cache a no-match or a provider failure; nothing written on failure | Yes — AC-d | decided 2026-11-08 |
+| D-5 | Add `provider` and `provider_ref` beyond the story’s five columns; keep `normalized_query_hash` as the primary key; a provider swap purges old rows | Yes | decided 2026-11-08 |
 | D-6 | Cache lifetime: lazy 90-day TTL — a row older than 90 days is ignored and refreshed in place on the next successful lookup; no scheduler | Decided 2026-11-08 | decided — lazy TTL, 90 days |
-| D-7 | Fail open on cache store errors: read failure → treat as a miss; write failure → warn and return the provider result | Yes — the cache must never cause an outage | pending |
-| D-8 | Accept that two concurrent first-time lookups may both call Photon; the unique key keeps one row | Yes — a lock costs more than a duplicate call | pending |
-| D-9 | No REST/MCP/OpenAPI/frontend change; migration V22 reserved for this story; SC-209 BR-10 (“no cache in v1”) amended | Yes | pending |
+| D-7 | Fail open on cache store errors: read failure → treat as a miss; write failure → warn and return the provider result | Yes — the cache must never cause an outage | decided 2026-11-08 |
+| D-8 | Accept that two concurrent first-time lookups may both call Photon; the unique key keeps one row | Yes — a lock costs more than a duplicate call | decided 2026-11-08 |
+| D-9 | No REST/MCP/OpenAPI/frontend change; migration V22 reserved for this story; SC-209 BR-10 (“no cache in v1”) amended | Yes | decided 2026-11-08 |
 
 ## Approval
 
 ```
-Approved by: <pending> · Date: · Design commit: · Design PR: #80
+Approved by: founder · Date: 2026-11-08 · Design commit: 91fc71b · Design PR: #80
 Decision items: D-1 … D-9 resolved as tabled
 ```
 
-> **Design approval requested.** Reply `approved`, or name the diagram and the change.
+Approved. Work items (09) and traceability (10) append to this PR; implementation starts on
+`feat/SC-198-cache-impl` from `main` once this PR merges.
 
 Artifacts 09 (work items) and 10 (traceability) are written only after this line exists.
