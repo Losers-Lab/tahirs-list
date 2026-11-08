@@ -157,8 +157,9 @@ afterwards to keep context lean.
   there as structured notes (typed observations + relations), never into this
   repo's `docs/`; keep per-feature workflow artifacts in `docs/features/SC-*`
   here. Validate bundle conformance with `basic-memory okf check` before
-  claiming a KB change is complete; KB file edits still go through this repo's
-  PR flow in the KB repository.
+  claiming a KB change is complete. KB edits are written in place with the
+  Basic Memory tools (`bm_write` / `bm_edit`) — no branch, PR, or review round
+  for a KB note; the PR flow governs this repo's code and docs, not the KB.
 - **`shadcn-svelte`** (on while implementing SvelteKit UI slices): use it to
   add/verify shadcn-svelte components rather than hand-rolling equivalents. The
   legacy Next.js app was removed in the SvelteKit migration (recover it from
