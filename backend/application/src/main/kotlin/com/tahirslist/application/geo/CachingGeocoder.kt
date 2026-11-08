@@ -71,5 +71,15 @@ class CachingGeocoder(
 
     /** `ttl = Duration.INFINITE` (config `0`) means a row never goes stale. */
     private fun notBefore(now: Instant): Instant =
-        if (ttl == Duration.INFINITE) Instant.DISTANT_PAST else now - ttl
+        if (ttl == Duration.INFINITE) PERMANENT_CUTOFF else now - ttl
+
+    private companion object {
+        /**
+         * Epoch 0, deliberately not [Instant.DISTANT_PAST]: PostgreSQL cannot
+         * bind a TIMESTAMPTZ before 4713 BC, so DISTANT_PAST would make every
+         * "permanent" read fail — and D-7 would quietly turn that mode into
+         * "never cached", paying the provider on every call.
+         */
+        val PERMANENT_CUTOFF: Instant = Instant.fromEpochSeconds(0)
+    }
 }

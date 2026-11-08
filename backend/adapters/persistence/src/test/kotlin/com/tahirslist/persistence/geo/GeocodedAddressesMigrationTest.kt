@@ -42,7 +42,7 @@ class GeocodedAddressesMigrationTest : FunSpec({
         }
     }
 
-    test("rejects a duplicate key, an out-of-range latitude and a missing provider") {
+    test("rejects a duplicate key and out-of-range coordinates") {
         runTest {
             postgis.execute(
                 """

@@ -6,6 +6,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
@@ -33,8 +34,10 @@ private class FakeStore(
     private val failWrite: Boolean = false,
 ) : GeocodedAddressStore {
     val saved = mutableListOf<GeocodedAddress>()
+    var lastNotBefore: Instant? = null
 
     override suspend fun findByQueryHash(hash: String, notBefore: Instant): GeocodedAddress? {
+        lastNotBefore = notBefore
         if (failRead) error("database down")
         val entry = entries[hash] ?: return null
         return if (entry.createdAt >= notBefore) entry else null
@@ -84,10 +87,12 @@ class CachingGeocoderTest : FunSpec({
             val geocoder = cached(provider, store)
 
             geocoder.geocode("Main St") shouldBe TORONTO
-            geocoder.geocode("Main St") shouldBe TORONTO
+            geocoder.geocode("  MAIN   ST  ") shouldBe TORONTO
 
             provider.calls shouldBe 1
             store.saved.size shouldBe 1
+            store.saved.single().queryHash shouldBe NormalizedQuery.of("main st").hash
+            store.lastNotBefore shouldBe NOW - 90.days
         }
     }
 
@@ -145,6 +150,25 @@ class CachingGeocoderTest : FunSpec({
 
             provider.calls shouldBe 1
             store.saved.single().queryHash shouldBe NormalizedQuery.of("main st").hash
+        }
+    }
+
+    test("permanentTtlKeepsVeryOldRowsFresh") {
+        runTest {
+            val provider = FakeProvider { error("provider must not be called") }
+            val store = FakeStore().apply {
+                seed(row(createdAt = Instant.parse("2000-01-01T00:00:00Z")))
+            }
+            val geocoder = CachingGeocoder(
+                delegate = provider,
+                store = store,
+                clock = FixedClock(NOW),
+                ttl = Duration.INFINITE,
+            )
+
+            geocoder.geocode("Main St") shouldBe TORONTO
+            provider.calls shouldBe 0
+            store.lastNotBefore shouldBe Instant.fromEpochSeconds(0)
         }
     }
 

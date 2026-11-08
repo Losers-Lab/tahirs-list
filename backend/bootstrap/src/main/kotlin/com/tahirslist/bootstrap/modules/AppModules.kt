@@ -14,9 +14,6 @@ import com.tahirslist.application.favorite.FavoriteListing
 import com.tahirslist.application.favorite.FavoritesRepository
 import com.tahirslist.application.favorite.ListFavorites
 import com.tahirslist.application.favorite.UnfavoriteListing
-import com.tahirslist.application.geo.CheckGeocoderHealth
-import com.tahirslist.application.geo.GeocodedAddressStore
-import com.tahirslist.application.geo.GeocoderPort
 import com.tahirslist.application.image.ImageFetcher
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.InMemoryImagePort
@@ -54,7 +51,6 @@ import com.tahirslist.persistence.account.ExposedAccountRepository
 import com.tahirslist.persistence.account.ExposedRefreshTokenStore
 import com.tahirslist.persistence.db.DatabaseFactory
 import com.tahirslist.persistence.favorite.ExposedFavoritesRepository
-import com.tahirslist.persistence.geo.ExposedGeocodedAddressStore
 import com.tahirslist.persistence.image.ExposedSeedPhotoListingResolver
 import com.tahirslist.persistence.listing.ExposedListingSearchQuery
 import com.tahirslist.persistence.listing.ExposedRestaurantListingRepository
@@ -76,7 +72,6 @@ import com.tahirslist.web.VerificationUseCases
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
-import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.security.KeyPair
 import java.security.interfaces.RSAPrivateKey
@@ -93,6 +88,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 fun appModules(config: AppConfig): List<Module> = listOf(
     infrastructureModule(config),
+    geocodingModule(config),
     useCaseModule(config),
     webModule(config),
     mcpModule(config),
@@ -163,17 +159,7 @@ private fun infrastructureModule(config: AppConfig): Module = module {
     single<ImageFetcher> { HttpImageFetcher() }
     single { SeedPhotoManifestParser() }
 
-    // --- Geocoding (SC-198: one provider, one cache, two bindings) ---
-    single<GeocodedAddressStore> { ExposedGeocodedAddressStore(get()) }
-    single<GeocoderPort>(named(GeocodingQualifiers.UPSTREAM)) { GeocodingGraph.upstream(config) }
-    single<GeocoderPort> {
-        GeocodingGraph.cached(
-            upstream = get(named(GeocodingQualifiers.UPSTREAM)),
-            store = get(),
-            ttl = GeocodingGraph.ttl(config.geocodeCache.ttlDays),
-        )
-    }
-    single { GeocodingGraph.healthProbe(get(named(GeocodingQualifiers.UPSTREAM))) }
+    // --- Geocoding wiring lives in geocodingModule(...) ---
     val verification = config.verification
     if (verification != null) {
         single<VisionModelClient> { RestVisionModelClient(verification) }

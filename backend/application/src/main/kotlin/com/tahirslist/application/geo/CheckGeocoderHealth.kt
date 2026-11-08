@@ -21,7 +21,7 @@ sealed interface GeocoderHealth {
  */
 class CheckGeocoderHealth(
     val geocoder: GeocoderPort,
-    val probeAddress: String = DEFAULT_PROBE_ADDRESS,
+    private val probeAddress: String = DEFAULT_PROBE_ADDRESS,
 ) {
     suspend fun execute(): GeocoderHealth = try {
         val place = geocoder.geocode(probeAddress)

@@ -6,8 +6,12 @@ import com.tahirslist.application.geo.GeocodedAddressStore
 import com.tahirslist.application.geo.GeocoderPort
 import com.tahirslist.bootstrap.config.AppConfig
 import com.tahirslist.geocoding.PhotonGeocoder
+import com.tahirslist.persistence.geo.ExposedGeocodedAddressStore
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
+import org.koin.core.module.Module
+import org.koin.core.qualifier.named
+import org.koin.dsl.module
 
 /** Koin qualifier for the uncached provider binding (D-2). */
 object GeocodingQualifiers {
@@ -17,10 +21,14 @@ object GeocodingQualifiers {
 /**
  * The geocoding composition decisions in one testable place (SC-198, D-1/D-2).
  *
- * `AppModules` binds exactly these: the default [GeocoderPort] is the caching
- * decorator, the upstream binding is the raw provider, and the ingestion
- * pre-flight receives the upstream one so a warm cache can never report a
- * healthy geocoder while Photon is down. [GeocodingWiringTest] proves each.
+ * The default [GeocoderPort] is the caching decorator, the named upstream
+ * binding is the raw provider, and the ingestion pre-flight receives the
+ * upstream one so a warm cache can never report a healthy geocoder while the
+ * provider is down.
+ *
+ * [upstreamFactory] and [storeOverride] on [geocodingModule] exist so
+ * `GeocodingWiringTest` can start this exact module with fakes; production
+ * always uses the defaults.
  */
 internal object GeocodingGraph {
 
@@ -38,4 +46,30 @@ internal object GeocodingGraph {
 
     fun healthProbe(upstream: GeocoderPort): CheckGeocoderHealth =
         CheckGeocoderHealth(geocoder = upstream)
+}
+
+/**
+ * The Koin module `appModules` installs. Pulled out (and parameterised) so the
+ * wiring itself is testable — `GeocodingWiringTest` starts this module, not a
+ * copy of its bindings.
+ */
+internal fun geocodingModule(
+    config: AppConfig,
+    upstreamFactory: () -> GeocoderPort = { GeocodingGraph.upstream(config) },
+    storeOverride: GeocodedAddressStore? = null,
+): Module = module {
+    if (storeOverride != null) {
+        single<GeocodedAddressStore> { storeOverride }
+    } else {
+        single<GeocodedAddressStore> { ExposedGeocodedAddressStore(get()) }
+    }
+    single<GeocoderPort>(named(GeocodingQualifiers.UPSTREAM)) { upstreamFactory() }
+    single<GeocoderPort> {
+        GeocodingGraph.cached(
+            upstream = get(named(GeocodingQualifiers.UPSTREAM)),
+            store = get(),
+            ttl = GeocodingGraph.ttl(config.geocodeCache.ttlDays),
+        )
+    }
+    single { GeocodingGraph.healthProbe(get(named(GeocodingQualifiers.UPSTREAM))) }
 }

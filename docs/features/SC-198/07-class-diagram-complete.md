@@ -45,7 +45,7 @@ CREATE TABLE geocoded_addresses (
 );
 ```
 
-The primary key *is* the idempotency: `INSERT … ON CONFLICT (normalized_query_hash) DO UPDATE` keeps one row per key and rewrites a stale one. Reads are `… WHERE normalized_query_hash = ? AND created_at >= ?` with a cutoff of `now − 90 days` (D-6): a stale row is simply not a hit, so no scheduler or sweep job is needed. The TTL is a config value (`GEOCODE_CACHE_TTL_DAYS`, default 90; `0` = permanent).
+The primary key *is* the idempotency: `INSERT … ON CONFLICT (normalized_query_hash) DO UPDATE` keeps one row per key and rewrites a stale one. Reads are `… WHERE normalized_query_hash = ? AND created_at >= ?` with a cutoff of `now − 90 days` (D-6): a stale row is simply not a hit, so no scheduler or sweep job is needed. The TTL is a config value (`APP_GEOCODE_CACHE_TTL_DAYS`, default 90); `0` means permanent and uses an epoch-0 cutoff (PostgreSQL cannot bind `Instant.DISTANT_PAST`).
 
 ## API delta
 

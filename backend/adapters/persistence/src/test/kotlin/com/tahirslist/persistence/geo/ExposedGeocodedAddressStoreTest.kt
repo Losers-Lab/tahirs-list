@@ -62,6 +62,15 @@ class ExposedGeocodedAddressStoreTest : FunSpec({
         }
     }
 
+    test("permanentCutoffIsInRangeAndServesOldRows") {
+        runTest {
+            val old = entry(hash = "f".repeat(64), createdAt = Instant.parse("2000-01-01T00:00:00Z"))
+            store.save(old)
+
+            store.findByQueryHash(old.queryHash, Instant.fromEpochSeconds(0)) shouldBe old
+        }
+    }
+
     test("saveRefreshesStaleRow") {
         runTest {
             val hash = "e".repeat(64)
