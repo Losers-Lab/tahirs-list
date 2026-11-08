@@ -110,6 +110,10 @@ classDiagram
     +preview(candidates, runId) CatalogUpdateReview
     +execute(review) BatchLoadResult
   }
+  class CandidateValidator {
+    <<control>>
+    +validateTrustAndLocation(selection) ValidationResult
+  }
   class AuditIngestionRun {
     <<control>>
     +execute(report) AuditEvidence
@@ -191,6 +195,7 @@ classDiagram
   CompileManualBatch --> GeocoderPort
   LoadIngestionBatch --> RestaurantListingRepository
   LoadIngestionBatch --> BrandRepository
+  LoadIngestionBatch --> CandidateValidator
   LoadIngestionBatch --> CatalogueDatabase
   RestaurantListingRepository --> CatalogueDatabase
   BrandRepository --> CatalogueDatabase
@@ -210,6 +215,7 @@ classDiagram
 | `CuratedBatchSource` | read the cited manual file | `CuratedBatchFileAdapter` |
 | `GeocoderPort` (existing) | confirm a venue's coordinates | `PhotonGeocoder` |
 | `CheckGeocoderHealth` | one pre-flight query before any fetch | application control |
+| `CandidateValidator` | validate claim citation, tier, hand-cut, metro and location before preview | application control |
 | `ArtifactWriter` | persist per-run snapshots/candidates/report; guard pending runs | `FileRunArtifacts` (`runs/<runId>/`, `archive/`) |
 | `CatalogBatchWriter` | **retired** — no generated data migration (D-15) | n/a |
 | `RestaurantListingRepository` (existing, extended) | single listing write path: match + batch apply | `ExposedRestaurantListingRepository` |
@@ -229,8 +235,8 @@ classDiagram
 | UC-01.9 | `IngestionCandidate.mergeWith` + `intendedStatus`/`verificationBasis`/`handCutFor(declaration)` |
 | UC-01.10–11 | `ArtifactWriter.begin/complete` (`FileRunArtifacts`); `IngestReport` |
 | UC-02.1–5 | `CompileManualBatch` → `CuratedBatchSource.read` → `GeocoderPort.geocode` → `mergeWith` |
-| UC-02.6–7 | `ArtifactWriter.writeCandidates/writeReport` |
-| UC-03.1–3 | `LoadIngestionBatch.preview` → `RestaurantListingRepository.findByNormalizedLocation` · `BrandRepository.resolve` → `CatalogUpdateReview` |
+| UC-02.6–7 | `ArtifactWriter.begin/complete` (`FileRunArtifacts`); `IngestReport` |
+| UC-03.1–3 | `LoadIngestionBatch.preview` → `CandidateValidator.validateTrustAndLocation` · `RestaurantListingRepository.findByNormalizedLocation` · `BrandRepository.resolve` → `CatalogUpdateReview` |
 | UC-03.4–6 | `LoadIngestionBatch.execute` → `RestaurantListingRepository.applyBatch` (one transaction) → `BatchLoadResult` |
 | UC-03.7 | existing `ListingSearchQuery` → `CatalogueDatabase` |
 | UC-04.1–5 | `IngestionReportDocument.*`; `AuditIngestionRun.execute` |
