@@ -169,6 +169,44 @@ If a task requires touching files in a disabled server's domain (e.g. frontend
 components while `svelte` is off), state the mismatch and ask to enable it
 rather than proceeding with unverified assumptions.
 
+### Memory discipline (MANDATORY — founder directive)
+
+The `basic-memory` MCP (KB project `tahirs-list-kb`) is the durable memory of
+this project. Every session — human-prompted or scheduled, first prompt or
+fiftieth — follows this discipline **without being asked**:
+
+**Read first (anything beyond a trivial edit):**
+
+1. Before planning or answering a product/process/architecture/security/QA/
+   design question, search the KB (`bm_search`/semantic grep) and follow
+   relevant relations. If the KB returns nothing relevant, say so explicitly —
+   silence from the KB is information, not permission to guess.
+2. Before writing or changing cross-cutting rules, architecture decisions, QA
+   conventions, or design tokens: read the current KB note for that area. You
+   amend, not duplicate.
+3. When the user references a past event/decision ("the tokens review", "the
+   certifier spike"): the KB's `work/`, `risks/`, and `research/` notes are the
+   record of record. Read before asking the user to repeat it.
+
+**Write back (before ending the turn / session):**
+
+4. Any reusable non-task knowledge produced in a session — a decision and its
+   reason, a rejected alternative, a gotcha, a framework/library quirk, test
+   or probe evidence, environment facts — must reach the KB as a structured
+   note (typed observations + relations) **in the same turn it was learned**,
+   not "later".
+5. A default-skipped write needs an explicit reason: "nothing worth keeping"
+   is stated in the outro, never assumed.
+6. Before claiming KB work done: `basic-memory okf check` passes and inbound
+   links still resolve.
+
+**Enforcement:**
+
+- Sessions cite which KB notes they read (paths) and which they wrote when
+  reporting status. A status report without a memory line is incomplete.
+- Any convergence decision made *without* consulting the KB is a process bug
+  to be flagged by reviewers, same as a skipped PR review.
+
 ## Engineering ground rules
 
 - **Hand-cut vocabulary rule (product-wide, all layers).** Tahir's List has
