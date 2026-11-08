@@ -74,7 +74,7 @@ sequenceDiagram
   CLI-->>DC: 11. counts + rejects
 ```
 
-**Consistency:** `ING-1` — no directory request happens until the geocoder pre-flight passes; candidates are written only after every fetched row is classified. `ING-3` — `VERIFIED` + `CERTIFIER_REGISTRY` iff the winning claim is Tier-1; hand-cut is TRUE only when that claim declares hand-cut, FALSE otherwise (declared not or silent), never from the tier alone. Files are atomic (temp + rename); report is the commit marker.
+**Consistency:** `ING-1` — no directory request happens until the geocoder pre-flight passes; every URL (including redirect targets) is HTTPS and allow-listed; candidates are written only after every fetched row is classified. `ING-3` — `VERIFIED` + `CERTIFIER_REGISTRY` iff the winning claim is Tier-1; hand-cut is TRUE only when that claim declares hand-cut, FALSE otherwise (declared not or silent), never from the tier alone. Files are atomic (temp + rename); report is the commit marker.
 
 | Phase-4 flow | Error / outcome |
 |---|---|
@@ -85,7 +85,8 @@ sequenceDiagram
 | E3 | `SourceParseException` → `IngestReject(SOURCE_PARSE_FAILED)`; source skipped |
 | E4 | `MetroFilter.accepts` false for all → zero for that metro |
 | E5 | `WRONG_REGION` / `AMBIGUOUS_GEOCODER_MATCH` reject; place never used |
-| E6 | HFSAA `401` → `discoverKey()` → retry once; otherwise `SOURCE_BLOCKED` |
+| E6 | HFSAA `401` → `discoverKey()` → retry once; `403` → `SOURCE_BLOCKED` immediately (never re-discover); otherwise NYC draws from HMS only |
 | E7 | HMS blank city → `deriveCity`; null if not derivable |
+| E8 | Off-allow-list host, plain HTTP, redirect escape, oversized body, or denied robots → blocked/too-large, source fails honestly; no partial trust data |
 
 **Authorization:** local operator; no HTTP surface; anonymous throttled fetches with a configured User-Agent; libraries never write to the DB.

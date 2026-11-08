@@ -30,7 +30,7 @@ flowchart TB
 |---|---|---|
 | `:domain` | modified | `Provenance` (+4 strings); new `CertificationClaim` (+`declaredHandCut`), `VerificationBasis`; `VerificationStatus`/`VerificationCommittee` KDoc |
 | `:application` | modified | `com.tahirslist.application.ingestion`: 4 use cases, ports, model, errors; `com.tahirslist.application.geo.CheckGeocoderHealth` (pre-flight) |
-| `:certifier-core` | **new** | `CertifierHttp`, `FetchPolicy`, `HttpTransport`/`KtorHttpTransport`, `SnapshotStore`/`FileSnapshotStore`, `RobotsPolicy`, `SourceSnapshot`, `CertifierPage`, `CertifierProfile`, `HandCutDeclaration` |
+| `:certifier-core` | **new** | `CertifierHttp`, `FetchPolicy` (HTTPS + per-certifier host allow-list, capped redirects, response-size cap), `HttpTransport`/`KtorHttpTransport`, `SnapshotStore`/`FileSnapshotStore`, `RobotsPolicy`, `SourceSnapshot`, `CertifierPage`, `CertifierProfile`, `HandCutDeclaration` |
 | `:certifier-hms` | **new** | `HmsDirectory`, `HmsParser`, `HmsEstablishment`, `HmsCategory`, `HmsCertificationStatus`, `HmsAddress`, `HmsLocation`, `HmsProfile` |
 | `:certifier-hfsaa` | **new** | `HfsaaLocator`, `HfsaaParser`, `HfsaaEntry`, `HfsaaEntryType`, `HfsaaProject`, `HfsaaProfile` |
 | `:certifier-hma` | **new** | `HmaCertifiedOutlets`, `HmaParser`, `HmaCertifiedOutlet`, `HmaAddress`, `HmaProfile` |
@@ -65,7 +65,7 @@ flowchart TB
 
 | Element | Status | Detail |
 |---|---|---|
-| `V22__sc_211_ingestion_schema.sql` | new | provenance CHECK (+4 values); `external_certification_claims` table (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, `declared_hand_cut BOOLEAN NULL`, first/last_seen, created_at; unique (listing_id, source, source_record_ref)); index on listing_id; drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` |
+| `V22__sc_211_ingestion_schema.sql` | new | provenance CHECK (+4 values); `external_certification_claims` table (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, `hand_cut_declaration TEXT NOT NULL` with CHECK `(HAND_CUT, NOT_HAND_CUT, UNSPECIFIED)` — the three-state declaration is the audit evidence; the listing's derived `is_hand_cut` boolean stays on `restaurant_listings` — first/last_seen, created_at; unique (listing_id, source, source_record_ref)); index on listing_id; drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` |
 | `V23__sc_211_ingest_sample.sql` | new, generated | brands upsert → listings insert with verification + hand-cut outcome → matched-row `UPDATE` to `VERIFIED` with hand-cut from the claim's declaration → claims → `listing_search` insert/update |
 | `Tables.kt` | modified | add `ExternalCertificationClaims` catalogue object |
 | Verification CHECK | unchanged | V15 already admits `VERIFIED` |
@@ -83,14 +83,14 @@ flowchart TB
 | Item | Status | Detail |
 |---|---|---|
 | CLI flags | new | `--metros --caps --sources --cache-dir --out-dir` |
-| `FetchPolicy` defaults | new | UA `TahirsListBot/0.1`, 1 req/s/host, 3 attempts, 10 requests/run, 24 h cache, robots on |
+| `FetchPolicy` defaults | new | UA `TahirsListBot/0.1`, HTTPS-only + per-certifier host allow-list, 1 req/s/host, 3 attempts, 10 wire requests/run, 24 h cache, robots on (fail-closed), max 3 redirects (each re-checked), 16 MB response cap |
 | `scripts/ingest-sample.sh` | new | Containerized `:bootstrap:ingestSample` |
 | `scripts/certifier-live.sh` | **new** | Containerized `:ingestion:liveProbe` (ad-hoc live check) |
 | `scripts/generate_ingest_migration.py` | new | Containerized candidates → V23 |
 | `scripts/backend-test.sh` | unchanged | Picks up the new modules automatically |
 | Pre-flight (D-14) | new | `CheckGeocoderHealth` runs one Photon query before any directory request; `Unavailable` aborts the run with no artifacts |
-| Tests (66 new, all green) | new | Core: `CertifierHttpTest` (15), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (4) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests · application: `CheckGeocoderHealthTest` (4, new) |
-| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `marksTierOneCandidatesVerified`, `neverVerifiesManualOnlyRows`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `follows X-WP-TotalPages`, `passes when the probe resolves`, `fails when the provider throws` |
+| Tests (85 new, all green) | new | Core: `CertifierHttpTest` (28), `RobotsPolicyTest` (7), `HandCutDeclarationTest` (3), `FileSnapshotStoreTest` (4) · HMS: `HmsParserTest` (8), `HmsDirectoryTest` (3) · HFSAA: `HfsaaParserTest` (6), `HfsaaLocatorTest` (6) · HMA: `HmaParserTest` (5), `HmaCertifiedOutletsTest` (3) · ingestion: 8 translator/derivation tests · application: `CheckGeocoderHealthTest` (4, new) |
+| Key test names | new | `loadsTierOneAsVerifiedWithClaims`, `loadsManualAsUnverified`, `handCutFollowsDeclaredStandard`, `nonHandCutDeclarationYieldsFalse`, `silentDeclarationYieldsFalse`, `manualRowStaysNull`, `upgradesMatchedSeedRow`, `isIdempotent`, `doesNotDuplicateSeedRows`, `refusesVerifiedWithoutClaim`, `marksTierOneCandidatesVerified`, `neverVerifiesManualOnlyRows`, `flagsUnaccountedRow`, `re-discovers a rotated publishable key once and retries`, `does not re-discover a key after a 403`, `follows X-WP-TotalPages`, `refuses a host outside the certifier allow-list`, `refuses a redirect to a host outside the allow-list`, `counts each redirect hop against the request budget`, `rejects a response over the size cap`, `fails closed when robots.txt denies access`, `treats a tampered body as a cache miss`, `passes when the probe resolves`, `fails when the provider throws` |
 
 ## Architecture and risks
 
@@ -99,6 +99,7 @@ flowchart TB
 | Risk | Mitigation |
 |---|---|
 | Photon down at run start | One test query runs first; `Unavailable` aborts before any directory fetch, so no wasted download and no partial artifacts |
+| Hostile/broken directory response | HTTPS-only + per-certifier host allow-list, capped redirects re-checked per hop, 16 MB response cap, fail-closed robots, cache digest verification |
 | Source markup/JSON changes | Recorded-fixture tests + `SOURCE_PARSE_FAILED` quarantine |
 | HFSAA publishable key rotates | Key re-discovery from the public bundle, retry once (tested) |
 | HMS city blank on 10 rows | `deriveCity` from the address; null if not derivable (tested) |

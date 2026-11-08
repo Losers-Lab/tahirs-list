@@ -1,7 +1,7 @@
 # Certifier libraries — verified API surface and field coverage
 
 **Author:** Hamza (backend/DB) · **Date:** 2026-11-08 · **Consumer:** SC-211
-**Status:** implemented, 66 tests green, one live probe passed
+**Status:** implemented, 85 new tests green, one live probe passed
 **Scope:** the three Tier-1 libraries (`certifier-hms`, `certifier-hfsaa`, `certifier-hma`), the shared `certifier-core`, and the `:ingestion` translators
 
 ## What was built
@@ -106,17 +106,19 @@ flowchart LR
 
 ## Politeness (implemented, not aspirational)
 
-`CertifierHttp` enforces, in order: fresh snapshot → zero network; robots.txt before any real fetch; one request at a time per host; 1 req/second minimum; exponential backoff with `Retry-After`; three attempts; a hard 10-request run budget; a 24 h on-disk snapshot cache; and an identifying User-Agent (`TahirsListBot/0.1 (+repo URL)`).
+`CertifierHttp` enforces, in order: fresh snapshot → zero network; HTTPS-only plus the certifier's explicit host allow-list; one wire request at a time; robots.txt before any real fetch (fail-closed); one request at a time per host; 1 req/second minimum; exponential backoff with `Retry-After`; three attempts; a hard 10-wire-request run budget (redirect hops and retries each count); at most three redirects, each re-checked against the allow-list, robots, throttle and budget; a 16 MB response cap; a 24 h on-disk snapshot cache in a user-scoped directory with digest verification and `0700`/`0600` permissions; and an identifying User-Agent (`TahirsListBot/0.1 (+repo URL)`).
+
+Snapshots record the URL that actually served the bytes (`url`) and the URL requested (`requestedUrl`), so a redirect cannot rewrite provenance. A `401` is the only status that triggers HFSAA key re-discovery; a `403` is a hard stop.
 
 A full probe is **six requests** (three robots.txt + three data), and a repeat run is **zero**. An ingestion run adds exactly one Photon pre-flight query before any directory request (D-14); if it fails, the directories are never contacted.
 
-## Tests (66 new, all green)
+## Tests (85 new, all green)
 
 | Module | Tests | What they pin |
 |---|---:|---|
-| `certifier-core` | 25 | cache/TTL, ETag/304, retries, `Retry-After`, budget, per-host spacing, robots, snapshot redaction, hand-cut derivation |
+| `certifier-core` | 42 | cache/TTL, ETag/304, retries, `Retry-After`, budget, per-host spacing, robots, snapshot redaction, hand-cut derivation, HTTPS/allow-list, redirects, size cap, cache digest |
 | `certifier-hms` | 11 | 20-record fixture, entity decoding, blank-city recovery, coordinate-less row, no-records failure |
-| `certifier-hfsaa` | 10 | 13-row fixture, certificate ids, chapter filter, headers, rotated-key re-discovery, honest failure |
+| `certifier-hfsaa` | 12 | 13-row fixture, certificate ids, chapter filter, headers, rotated-key re-discovery, 403 hard stop, hostile bundle URL, honest failure |
 | `certifier-hma` | 8 | 8-outlet fixture, Elementor anchors, address splitting, pagination, malformed JSON |
 | `:ingestion` | 8 | Tier-1 standard, not-hand-cut and silent declarations, manual-row null, HFSAA certificate/place id, HMA province + geocoding warning |
 | `:application` | 4 (new) | `CheckGeocoderHealth`: probe resolves, no match, provider failure, cancellation not swallowed |

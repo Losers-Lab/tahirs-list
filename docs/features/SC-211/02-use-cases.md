@@ -22,7 +22,7 @@ flowchart LR
 - **Goal:** produce a geocoded, reconciled candidate batch + honest run report for three metros
 - **Trigger:** curator starts the sample-ingestion command with a metro selection
 - **Preconditions:** design approved; network to sources + Photon; metros/caps configured
-- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut TRUE only if the certifier declares hand-cut, FALSE otherwise (declared not or silent); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model · BR-6c a single Photon pre-flight query must pass before any directory request
+- **Business rules:** BR-1 restaurants only · BR-2 metro allowlist · BR-3 confirmed Photon match only · BR-4 highest tier wins provenance, all claims kept · BR-5 every fetched row accounted for · BR-6 throttled, identified client, no prohibited scraping, one request per directory where the source allows it; HTTPS only, per-certifier host allow-list, bounded re-checked redirects, response-size cap, fail-closed robots · BR-6a Tier-1 claim ⇒ `VERIFIED`; hand-cut TRUE only if the certifier declares hand-cut, FALSE otherwise (declared not or silent); no Tier-1 claim ⇒ `UNVERIFIED` + `NULL` · BR-6b each library's own model is mapped by its translator, never leaked into the app model · BR-6c a single Photon pre-flight query must pass before any directory request
 
 **Main success scenario**
 
@@ -46,7 +46,7 @@ flowchart LR
 | A2 | 3 | HMS unavailable → recorded source failure; cached snapshot replayed if fresh | Step 4 |
 | A3 | 8 | Fewer rows than the cap → continue, report the shortfall | Step 10 |
 | A4 | — | Repeat run → cached snapshots, no fetch | Step 10, marked cache-sourced |
-| A5 | 4 | HFSAA publishable key rotated → re-discover from the public bundle, retry once | Step 5 |
+| A5 | 4 | HFSAA publishable key rotated → re-discover from the public bundle, retry once; otherwise NYC draws from HMS only and the gap is reported | Step 5 |
 | P1 | 2 | Photon pre-flight fails → abort before any directory request | `Aborted`, no artifacts |
 | E1 | 3–5 | Source unreachable → `SOURCE_UNAVAILABLE`, run continues | Partial report |
 | E2 | 8 | Photon down mid-run → abort before publishing candidates | `Aborted`, no candidates file |

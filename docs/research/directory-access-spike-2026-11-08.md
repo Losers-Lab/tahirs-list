@@ -49,7 +49,7 @@ Counts by category: Restaurants 370 · Retail Store 157 · Slaughter House 74 ·
 
 ```
 POST https://pmolfcjxryccsisyhhwm.supabase.co/rest/v1/rpc/get_public_locator_entries
-apikey: sb_publishable_D9EXV4Sip6WURhiClGHZCA_YaGOBY-2
+apikey: sb_publishable_…   (shipped by the public locator bundle; read at runtime, not stored here)
 {}
 → 200, Content-Range: 0-312/*, 313 rows
 ```
@@ -58,7 +58,7 @@ Fields: `id`, `type`, `name`, `certificate_id` (`R-…` restaurant / `M-…` mea
 
 Chapters: Chicago 131 · Bay Area 42 · **New York 26** · Maryland 19 · Los Angeles 16 · San Diego 15 · Detroit 14 · Pennsylvania 11 · Orlando 8 · Seattle 7. New York splits into 16 restaurants + 10 meat markets; combined with HMS's NYC rows the metro clears 15–25 before dedupe.
 
-**Risk:** the publishable key is rotatable. The library treats a `401` as a signal to re-discover the key from the public locator bundle (`sb_publishable_[A-Za-z0-9_-]+`), then retry once. This is not an auth bypass — it reads the same credential the public page already ships.
+**Risk:** the publishable key is rotatable. The library treats a `401` as a signal to re-discover the key from the public locator bundle (`sb_publishable_[A-Za-z0-9_-]+`), then retry once; a `403` is a hard stop and never triggers re-discovery. This is not an auth bypass — it reads the same credential the public page already ships, and the bundle URL must stay on the locator's allow-listed host.
 
 ## HMA — hmacanada.org
 
