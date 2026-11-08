@@ -60,6 +60,6 @@ existing `/v1/listings/{id}/certificate` verified/approved/archived rule.
 
 **A1** — ineligible certificate: `CertificateFactsPolicy` returns null; no
 `certificateUrl` is advertised (never a 404 link).
-**A2** — partial halal: scope and items are emitted independently of status.
+**A2** — partial halal: scope and the declared per-item status are emitted independently of verification; absence = unknown.
 
 **Error hygiene:** no exception text, SQL, stack trace or server path reaches the agent.

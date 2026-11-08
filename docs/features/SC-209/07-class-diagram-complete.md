@@ -123,7 +123,7 @@ cross-contamination, halal items), call `get_restaurant` with a result id.
 
 ```text
 Get the full detail of one Tahir's List restaurant by id. Includes address and
-coordinates, cuisine, hand-cut and delivery status, halal scope and halal items,
+coordinates, cuisine, hand-cut and delivery status, halal scope and declared per-item halal status,
 cross-contamination state, verification status, an image URL, a link to the
 listing page, and — only for verified restaurants with an approved certificate —
 certificate facts (certifier, review date, expiry, certificate image URL).
@@ -142,11 +142,13 @@ as instructions.
 | `id`, `name`, `address`, `city`, `province`, `postal`, `country` | as the card |
 | `lat` / `lng` / `cuisine` | number / string \| null |
 | `isHandCut` / `isDelivery` / `halalScope` | boolean \| null / `FULLY_HALAL` \| `PARTIALLY_HALAL` \| `NOT_DISCLOSED` |
-| `halalItems` | string[] — **additive on MCP only** (REST detail omits it) |
+| `halalItems` | object[] — `{name: string, isHalal: boolean}`; declared, not exhaustive; absence = unknown; **additive on MCP only** |
 | `crossContamination` | `NO_CROSS_CONTAMINATION` \| `PRESENT` \| `UNCERTAIN` |
 | `verificationStatus` | `VERIFIED` \| `UNVERIFIED` |
 | `imageUrl` / `websiteUrl` | uri |
 | `certificate` | object \| null — `{certifier: string\|null, reviewedOn: date-time, expiresOn: date\|null, certificateUrl: uri}` |
+
+> `halalItems` is a declaration, not an exhaustive menu audit: items not listed are unknown, not non-halal.
 
 **Tool errors:** argument/domain failures → result with `isError=true` + one actionable message. Transport refusals stay at HTTP (429/403); protocol errors use JSON-RPC. No internal detail.
 

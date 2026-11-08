@@ -130,7 +130,7 @@ failure: actionable error or protocol refusal, **no state change**.
 **Alternate flows**
 
 - **A1 (from 5)** — unverified or no archived approval: detail without certificate facts; no broken link.
-- **A2 (from 5)** — partially halal: partial scope and halal items reported; verification independent.
+- **A2 (from 5)** — partially halal: partial scope and the declared per-item status reported (absence = unknown); verification independent.
 
 **Exception flows**
 
@@ -146,7 +146,7 @@ error or protocol refusal, **no state change**.
 
 - **Data:** read — listing, latest approved certification review · created/updated — none
 - **ACs:** AC-1, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10
-- **Open:** Q-1, Q-3, Q-6, Q-7
+- **Open:** Q-1, Q-3, Q-6, Q-7, Q-9
 
 ## AC coverage
 
@@ -175,3 +175,4 @@ error or protocol refusal, **no state change**.
 | Q-6 | Production base URLs for listing and certificate/image links. | Founder / Adnan | Deploy |
 | Q-7 | Agent as supporting actor only, or a new persona? | Founder / Adnan | Design approval |
 | Q-8 | Update the Shortcut system-wide use-case diagram to add the AG actor to Search/View (the authoritative diagram lives there). | Adnan | Before implementation |
+| Q-9 | Do we need categorical coverage ("only the chicken is halal", "all meat except burgers")? The domain stores a declared item map, not exclusivity. | Founder / Adnan | Design approval |

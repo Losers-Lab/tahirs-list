@@ -58,7 +58,7 @@ classDiagram
 | Hand-cut status | Tri-state boolean; true = Zabiha claim | Immutable |
 | Delivery status | Tri-state boolean; delivery is the extra claim | Immutable |
 | Halal scope | Fully / partially / not disclosed | Immutable |
-| Halal item set | Which items are halal (partial listings) | Immutable |
+| Halal item map | Declared `{item, isHalal}` entries; absence = unknown, not non-halal; may be partial | Immutable |
 | Cross-contamination state | Enum; only "no cross-contamination" is indexed | Immutable (index gate) |
 | Verification status | Unverified / verified | Immutable per read |
 | Search centre (new) | Place text or coordinates | Per request; not persisted |
@@ -105,8 +105,8 @@ classDiagram
 |---|---|
 | AI agent | Software acting for a user; a supporting external actor, not a persona |
 | MCP | Model Context Protocol; the JSON-RPC protocol used to discover and call tools |
-| Tool | A named, model-callable read operation exposed over MCP |
-| Structured content | Machine-readable tool output (not prose) |
+| Tool / structured content | A named, model-callable read operation exposed over MCP; its output is machine-readable, not prose |
+| Halal item | A named menu item/section with an explicit halal flag; absence means unknown, not non-halal |
 | Place | Free-text location input resolved to coordinates before searching |
 | Search centre | The point a radius is measured from (resolved place or coordinates) |
 | Straight-line distance | Great-circle distance in statute miles; not driving distance |

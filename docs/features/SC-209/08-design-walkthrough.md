@@ -61,7 +61,7 @@ flowchart LR
 | D-4 | Origin allow-list, empty prod default; dev adds Inspector `http://localhost:6274`. | Allow-list (deny by default) | pending |
 | D-5 | Tool names, schemas and LLM-facing descriptions as drafted. | Approve; Fatima rewords | pending |
 | D-6 | Extract `ListingSearchRequestParser` + `CertificateFacts` into `:application`; behaviour-preserving `web-api` refactor. | Approve | pending |
-| D-7 | Include `halalItems` on MCP detail only (REST unchanged). | Approve | pending |
+| D-7 | Include the declared per-item halal map (`{name, isHalal}`) on MCP detail only (REST unchanged); absence = unknown, not exhaustive; categorical "only X" coverage is Q-9. | Approve | pending |
 | D-8 | New `Bucket4jMcpRateLimiter` in `:mcp` rather than a shared module. | Approve; extract later | pending |
 | D-9 | AI agent = supporting actor on the existing Search/View use cases; MCP is the new channel (not a new goal); no README persona. | Approve | pending |
 | D-10 | `APP_MCP_PUBLIC_WEB_BASE_URL` / `APP_MCP_PUBLIC_API_BASE_URL`; prod requires https, rejects defaults. | Approve; founder confirms prod values | pending |
