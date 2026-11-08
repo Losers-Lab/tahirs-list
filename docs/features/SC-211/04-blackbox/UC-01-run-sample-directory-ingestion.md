@@ -31,8 +31,8 @@ sequenceDiagram
   TL->>TL: 5. Keep only restaurants inside the selected metro city allowlists
   TL->>PH: 6. Resolve "name, address, city, region"
   PH-->>TL: Candidate place or no match
-  TL->>TL: 7. Reconcile same-venue rows (tier priority; merge claims)
-  TL->>TL: 8. Write raw snapshots, candidates.json, report.md
+  TL->>TL: 7. Reconcile same-venue rows (tier priority; merge claims; set intended verification)
+  TL->>TL: 8. Write raw snapshots, candidates.json (verification outcome), report.md
   TL-->>DC: 9. Counts per source/metro + rejected rows with reasons
 ```
 

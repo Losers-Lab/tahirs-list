@@ -40,7 +40,7 @@ sequenceDiagram
     GEO-->>RUN: GeocodedPlace? / throw GeocodingException
     RUN->>MCP: confirm(query, place, listing)
     MCP-->>RUN: MatchConfirmation | RejectReason
-    RUN->>CAND: 7. create/mergeWith(other)
+    RUN->>CAND: 7. create/mergeWith(other) + set intendedStatus/verificationBasis
   end
   RUN->>REP: build(counts, rejects, suspectedDuplicates, gaps)
   RUN->>ART: 8. writeSnapshots(runId, snapshots)
@@ -56,6 +56,10 @@ sequenceDiagram
 - `ING-1 (run atomicity):` candidates are written only after every fetched row
   has been classified (candidate or reject). If geocoding aborts (E2), no
   candidates file is written.
+- `ING-3 (verification rule):` a candidate's `intendedStatus` is `VERIFIED` and
+  its `verificationBasis` is `CERTIFIER_REGISTRY` **iff** its winning claim is
+  Tier-1; otherwise `UNVERIFIED` with no basis. The candidate file records this
+  outcome so the reviewer sees it before any catalogue write.
 - The report is the commit marker: its presence means the run finished.
 
 ## Exception mapping

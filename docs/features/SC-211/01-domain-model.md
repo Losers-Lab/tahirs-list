@@ -6,14 +6,21 @@
 
 This feature introduces a new domain capability — **external directory
 ingestion** — and extends the existing restaurant/catalogue model with
-**externally observed certification claims**. It does not change the product's
-verification process: nothing ingested here becomes *our* Verified status.
+**externally observed certification claims** and a second legal path to the
+listing's `VERIFIED` status.
+
+**Founder ruling (2026-11-07):** recognized Tier-1 certifier registries
+(HMS, HFSAA, HMA) are authoritative certificate boards. A venue they certify as
+hand-slaughtered halal is ingested as **`VERIFIED` + hand-cut**, with the
+certifier's claim recorded as the verification evidence. The owner-claim +
+committee review flow is unchanged and remains the path for certificates that
+we receive and review ourselves.
 
 ## 2. Aggregates and consistency boundaries
 
 | Aggregate root | Consistency boundary | Why |
 |---|---|---|
-| **RestaurantListing** (existing) | The listing's identity, location, halal attributes, trust status, provenance | Unchanged aggregate; ingestion only *creates* members of it in the `UNVERIFIED` state |
+| **RestaurantListing** (existing) | The listing's identity, location, halal attributes, trust status, provenance | Unchanged aggregate; ingestion creates members and may upgrade matched members to `VERIFIED` with a certifier claim (INV-11) |
 | **IngestionRun** (new) | One pipeline execution: its selection, source observations, candidates, rejections, and report | A run is the unit of auditability; partial results are meaningful only as a whole run, not as orphan rows |
 | **Brand** (existing) | Brand identity shared by locations | Unchanged; ingestion resolves locations to brands by name |
 
@@ -34,17 +41,23 @@ not an event stream; there is no subscriber in scope.
 
 The existing aggregate. Ingestion adds members with:
 
-- `verificationStatus = UNVERIFIED` **always** (INV-1);
-- `isHandCut = TRUE` **iff** the venue was observed in a Tier-1 certifier
-  directory during the run and the certification claim is recorded (INV-3);
+- `verificationStatus = VERIFIED` **iff** the venue was observed in a recognized
+  Tier-1 certifier directory and a backing certification claim is recorded
+  (INV-1, INV-3); otherwise `UNVERIFIED` (Tier-3 manual rows);
+- `isHandCut = TRUE` under the same condition (a Tier-1 claim);
 - `provenance` = the highest-tier source that supplied the venue (INV-6);
 - `owner = none`, `cuisine = unknown` (consistent with the seed precedent).
+
+When an ingested Tier-1 venue matches an existing catalogue row (same normalized
+location), that row is **upgraded** to `VERIFIED` + hand-cut with the claim
+attached — it is not skipped (INV-11).
 
 ### 3.2 CertificationClaim (new entity)
 
 A dated, cited **observation** by an external source that a venue holds a halal
-certification. Not a certification *record of ours* — it is evidence, retained
-verbatim, that the product may later choose to surface.
+certification. It is not a certificate we reviewed ourselves: it is the
+evidence record behind a `CERTIFIER_REGISTRY` verification (or a Tier-3
+observation that confers nothing).
 
 | Attribute | Meaning |
 |---|---|
@@ -104,6 +117,7 @@ known gaps. The report is the audit surface for the amanah rule.
 | **MetroFilter** | Metro name + country + region code + city allowlist | A candidate must resolve inside exactly one metro |
 | **MatchConfirmation** | The accepted geocoder result with the evidence (country + region agreement, name-token overlap) | No candidate exists without one |
 | **RejectReason** | Closed vocabulary (see 3.5) | Rejects cannot be free-text-only |
+| **VerificationBasis** | *Why* a listing is `VERIFIED`: `COMMITTEE_REVIEW` (owner claim reviewed by us) or `CERTIFIER_REGISTRY` (a recognized Tier-1 certifier's registry entry with a backing claim) | A `VERIFIED` listing always has exactly one attributable basis; a `CERTIFIER_REGISTRY` basis requires a Tier-1 claim |
 
 ## 5. Relationships
 
@@ -157,6 +171,7 @@ classDiagram
   class SourceTier
   class SourceRef
   class MetroFilter
+  class VerificationBasis
 
   IngestionRun "1" o-- "0..*" SourceListing : observes
   IngestionRun "1" o-- "0..*" IngestionCandidate : proposes
@@ -166,6 +181,7 @@ classDiagram
   IngestionCandidate ..> MetroFilter : must satisfy
   IngestionCandidate --> Provenance : stamped with
   IngestionCandidate --> SourceTier : wins by
+  IngestionCandidate --> VerificationBasis : carries
   SourceListing --> SourceRef : cites
   CertificationClaim --> SourceRef : cites
   RestaurantListing "0..1" --> "0..*" CertificationClaim : is evidenced by
@@ -185,9 +201,9 @@ Cardinality notes:
 
 | ID | Invariant |
 |----|-----------|
-| INV-1 | Every listing created by ingestion is `UNVERIFIED`; no source can set another verification status. |
+| INV-1 | Every ingested listing is `VERIFIED` **iff** a recognized Tier-1 certifier claim backs it; every other ingested listing is `UNVERIFIED`. No other status is ever written by ingestion. |
 | INV-2 | Every ingested listing carries a provenance stamp from the closed vocabulary; an unknown stamp fails the batch. |
-| INV-3 | `isHandCut = TRUE` **only** when at least one claim with tier 1 and `claimedSlaughter = HAND` exists for that listing; Tier-3-only rows are `NULL`. |
+| INV-3 | `isHandCut = TRUE` **only** when a Tier-1 claim with `claimedSlaughter = HAND` exists; Tier-3-only and registry-unbacked rows are `NULL`. Every `VERIFIED` row has an attributable verification basis with a cited claim. |
 | INV-4 | Every candidate location came from a confirmed geocoder match; no location is synthesized, offset, or copied from another row. |
 | INV-5 | Claims are unique per (listing, source, source record) and every claim cites a source URL. |
 | INV-6 | Two source listings describing the same venue produce **one** candidate; the highest tier wins the provenance; all sources' claims are retained. |
@@ -195,6 +211,8 @@ Cardinality notes:
 | INV-8 | Claim expiry/first-seen/last-seen never changes a listing's verification status or its hand-cut assertion within this feature. |
 | INV-9 | A run never emits a candidate for a metro it did not select, and never exceeds the configured per-metro cap. |
 | INV-10 | A run report always accounts for every fetched row: it is a candidate or a reject with a reason (no silent drops). |
+| INV-11 | A Tier-1 candidate that matches an existing catalogue row by normalized location upgrades that row to `VERIFIED` + hand-cut and attaches the claim; it never creates a duplicate and never leaves the matched row unverified. |
+| INV-12 | The owner-claim + committee path is unchanged: ingestion neither consumes nor mutates `HalalCertificationReview` aggregates, and a `CERTIFIER_REGISTRY`-verified listing is distinguishable from a `COMMITTEE_REVIEW`-verified one. |
 
 ## 7. State machines
 
@@ -235,11 +253,24 @@ stateDiagram-v2
 
 `expiresOn` is an attribute; **no automatic transition** on expiry (INV-8).
 
-### 7.3 Listing verification
+### 7.3 Listing verification (two legal routes)
 
-Unchanged from the agreed model (`UNVERIFIED → …` through the owner
-claim/certificate flow). Ingestion only ever enters at `UNVERIFIED` and never
-participates in transitions.
+```mermaid
+stateDiagram-v2
+  [*] --> Unverified: user-added / research seed / Tier-3 manual
+  Unverified --> Verified: owner claim + committee approval (COMMITTEE_REVIEW)
+  Unverified --> Verified: Tier-1 certifier registry ingestion + backing claim (CERTIFIER_REGISTRY)
+  Verified --> [*]
+```
+
+- The **committee route** is unchanged (owner claim → certificate review →
+  committee approval).
+- The **registry route** is new: an ingested venue observed in a recognized
+  Tier-1 directory becomes `VERIFIED` with a `CERTIFIER_REGISTRY` basis, always
+  backed by a claim row that cites the source URL (and certifier/expiry where
+  published).
+- `Verified` is terminal in this feature. Expiry/revocation handling remains an
+  open product flag (INV-8).
 
 ## 8. Glossary
 
@@ -255,6 +286,8 @@ participates in transitions.
 | **Batch** | The set of candidates from one reviewed run, materialized as a catalog update |
 | **Metro** | A named geographic target with a country, region code, and city allowlist |
 | **Hand-cut** | The product's boolean assertion that a listing is hand-slaughtered (Zabiha); `NULL` = unknown/not claimed |
+| **Registry verification** | `VERIFIED` status conferred by a recognized Tier-1 certifier's registry entry, with the claim recorded as evidence |
+| **Verification basis** | Why a listing is `VERIFIED`: committee review of an owner claim, or a certifier registry entry |
 | **Manual batch** | The hand-curated, individually cited Tier-3 sample |
 | **Suspected duplicate** | A candidate whose normalized location matches an existing catalogue row that the run could not formally merge (e.g. differing name), surfaced for human review |
 
@@ -264,13 +297,18 @@ participates in transitions.
   HalalCertification; RestaurantListing → Verified/Unverified; committees.
 - **Extended:** **Restaurant ↔ 0..\* CertificationClaim** — external,
   source-attributed observations, deliberately separate from the owner-submitted
-  `HalalCertification` review flow. A claim is evidence; it is not a
-  certification of ours.
+  `HalalCertification` review flow.
 - **Extended:** the listing's provenance vocabulary gains per-directory stamps.
+- **Changed (founder ruling 2026-11-07):** the meaning of `VERIFIED` gains a
+  second legal route — a recognized Tier-1 certifier's registry entry with a
+  recorded claim (`CERTIFIER_REGISTRY` basis) — alongside committee approval
+  (`COMMITTEE_REVIEW`). The listing's `VerificationStatus` values and the
+  owner-claim/committee state machine are otherwise unchanged.
 - **New capability:** an *ingestion* boundary that produces candidates and run
   reports; its output enters the catalogue only through the reviewed batch.
-- **Explicitly not changed:** verification statuses, the verification state
-  machine, trust badges, and the meaning of "Verified".
+- **Explicitly not changed:** the verification state machine and review
+  aggregate; the trust-badge visual language (the attribution copy for
+  registry-verified rows is a follow-up story).
 
 Decision D-3 (claims as a separate listing-associated entity) and D-4 (run
 reconciliation rules) are the architecture-level items for founder approval.

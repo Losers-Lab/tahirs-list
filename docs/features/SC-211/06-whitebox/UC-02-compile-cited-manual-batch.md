@@ -27,7 +27,7 @@ sequenceDiagram
     CMB->>MCP: confirm(query, place, listing)
     MCP-->>CMB: MatchConfirmation | RejectReason
   end
-  CMB->>CAND: 5. existing.mergeWith(manual)  [Tier-1 keeps provenance]
+  CMB->>CAND: 5. existing.mergeWith(manual)  [Tier-1 keeps provenance + VERIFIED; manual-only rows UNVERIFIED]
   CMB->>REP: build(merged, rejects, gaps)
   CMB->>ART: 6. writeCandidates(runId, candidates)
   CMB->>ART: writeReport(runId, report)
@@ -49,6 +49,11 @@ sequenceDiagram
   validation never truncates the existing candidate set.
 - Merging is deterministic: for an equal-tier collision, the earlier-observed
   `SourceRef` wins; the report records the merge.
+- `ING-4 (manual verification rule):` a manual-only candidate is always
+  `UNVERIFIED` with `is_hand_cut = NULL`; a merged candidate inherits the
+  Tier-1 verification outcome (`VERIFIED` + hand-cut) and keeps the tier-3 claim
+  as additional evidence. A manual row can never upgrade a Tier-1 row's status
+  or set hand-cut.
 
 ## Exception mapping
 

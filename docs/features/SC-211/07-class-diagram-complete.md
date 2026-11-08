@@ -7,7 +7,7 @@ Legend: 🆕 new · ✏️ modified · (unchanged).
 
 | Module | Status | Contents |
 |---|---|---|
-| `:domain` | ✏️ modified | `Provenance` vocabulary extension; new `CertificationClaim` entity + `SourceTier`/`SourceRef`/`SlaughterClaim` value objects |
+| `:domain` | ✏️ modified | `Provenance` vocabulary extension; new `CertificationClaim` entity + `SourceTier`/`SourceRef`/`SlaughterClaim`/`VerificationBasis` value objects; `VerificationStatus` and `VerificationCommittee` KDoc amended to record the second legal route to `VERIFIED` (registry verification) |
 | `:application` | ✏️ modified | New package `com.tahirslist.application.ingestion`: use cases, ports, ports' DTOs, errors |
 | `:persistence` | ✏️ modified | `V22__sc_211_ingestion_schema.sql`, generated `V23__sc_211_ingest_sample.sql`, `Tables.kt` + `ExternalCertificationClaims`, migration tests |
 | `:ingestion` 🆕 | 🆕 new | Adapters: three directory sources, curated-batch file adapter, polite fetcher, artifact writer, SQL batch writer (registered as `project(":ingestion").projectDir = file("adapters/ingestion")`) |
@@ -52,6 +52,16 @@ classDiagram
     +expiresOn : LocalDate?
     +claimedSlaughter : SlaughterClaim
     +observedOn : LocalDate
+  }
+  class VerificationBasis {
+    <<enumeration>>
+    COMMITTEE_REVIEW
+    CERTIFIER_REGISTRY
+  }
+  class VerificationStatus {
+    <<enumeration>>
+    UNVERIFIED
+    VERIFIED
   }
 
   %% application
@@ -117,6 +127,8 @@ classDiagram
     +tier : SourceTier
     +provenance : Provenance
     +claims : List~CertificationClaim~
+    +intendedStatus : VerificationStatus
+    +verificationBasis : VerificationBasis
     +mergeWith(other) IngestionCandidate
     +isHandCut() Boolean?
   }
@@ -230,7 +242,9 @@ classDiagram
   - `hfsaa-certified-directory / photon-geocode`
   - `hma-certified-directory / photon-geocode`
   - `zabihah-manual-batch / photon-geocode`
-- 🆕 `CertificationClaim`, `SourceTier`, `SourceRef`, `SlaughterClaim`.
+- 🆕 `CertificationClaim`, `SourceTier`, `SourceRef`, `SlaughterClaim`, `VerificationBasis`.
+- ✏️ `VerificationStatus` KDoc: `VERIFIED` is now reachable via two routes — committee approval (existing) and recognized Tier-1 registry ingestion (this feature); `DEFAULT` remains `UNVERIFIED`.
+- ✏️ `VerificationCommittee` KDoc: the committee is the only route for **owner-submitted** certificates; registry verification is a separate, claim-backed route.
 
 ### 3.2 `:application` (`com.tahirslist.application.ingestion`)
 - Ports: `HalalDirectorySource`, `CuratedBatchSource`, `PageFetcher`, `ArtifactWriter`, `CatalogBatchWriter` (🆕; `GeocoderPort` unchanged).
@@ -258,7 +272,8 @@ classDiagram
   1. replace `ck_restaurant_listings_provenance` with the extended closed vocabulary;
   2. `CREATE TABLE external_certification_claims` (id, listing_id FK, source, source_tier, source_record_ref, source_url, certifier, expires_on, claimed_slaughter with CHECK, first_seen_on, last_seen_on, created_at; unique (listing_id, source, source_record_ref); index on listing_id);
   3. drop `uq_restaurant_listings_seed_location`, create `uq_restaurant_listings_research_location` on `(location_lat_6, location_lng_6) WHERE provenance IS NOT NULL` (D-4).
-- 🆕 `V23__sc_211_ingest_sample.sql` — **generated**, never hand-edited: brands upsert → listings insert (`UNVERIFIED`, per-source provenance, `is_hand_cut` per tier rule, structured address, `cross_contamination = NO_CROSS_CONTAMINATION` seed-consistent default, `ON CONFLICT` on the partial index) → claims insert (`ON CONFLICT` on the unique key) → `listing_search` projection insert.
+  No verification-status constraint change is needed: V15 already admits `VERIFIED`.
+- 🆕 `V23__sc_211_ingest_sample.sql` — **generated**, never hand-edited: brands upsert → listings insert with the intended verification outcome (`VERIFIED` + `is_hand_cut = TRUE` + per-source provenance for Tier-1; `UNVERIFIED` + `NULL` for manual rows; structured address, `cross_contamination = NO_CROSS_CONTAMINATION` seed-consistent default, `ON CONFLICT` on the partial index) → upgrades of matched existing rows (`UPDATE … SET verification_status = 'VERIFIED', is_hand_cut = TRUE WHERE verification_status = 'UNVERIFIED'`, preserving original provenance) → claims insert (`ON CONFLICT` on the unique key) → `listing_search` projection insert/update.
 - ✏️ `Tables.kt` — add `ExternalCertificationClaims` catalogue object (no `SchemaUtils` use).
 - 🆕 tests in `:persistence`: `IngestionSchemaMigrationTest`, `IngestSampleMigrationTest`.
 
@@ -314,17 +329,17 @@ until the migration is merged and applied.
 | `ProvenanceTest.acceptsIngestionVocabularies` / `rejectsUnknownVocabulary` | domain | INV-2 |
 | `CertificationClaimTest.requiresCitation` / `rejectsTierThreeHandAssertion` | domain | INV-3, INV-5 |
 | `IngestionSchemaMigrationTest.addsClaimsTable` / `widensProvenanceCheck` / `widensDedupeIndex` | persistence | D-4/V22 |
-| `IngestSampleMigrationTest.loadsSampleAsUnverified` / `handCutOnlyForTierOne` / `isIdempotent` / `doesNotDuplicateSeedRows` | persistence | AC-4..AC-6, INV-1/3/7 |
+| `IngestSampleMigrationTest.loadsTierOneAsVerifiedWithClaims` / `loadsManualAsUnverified` / `upgradesMatchedSeedRow` / `isIdempotent` / `doesNotDuplicateSeedRows` | persistence | AC-4..AC-6, INV-1/3/7/11 |
 | `HmsDirectoryAdapterTest.parsesCertifiedRestaurants` / `fallsBackToShariahBoard` | adapter | AC-1, E-2 |
 | `HfsaaDirectoryAdapterTest.discoversChapterLinks` / `parsesNewYorkChapter` | adapter | AC-1, E-1 |
 | `HmaDirectoryAdapterTest.parsesCityGroupedList` / `fetchesDetailAddress` | adapter | AC-1 |
 | `PoliteFetcherTest.throttlesAndCaches` / `retriesThenThrows` | adapter | BR-6, E-7 |
 | `CuratedBatchFileAdapterTest.validatesCitationAndFields` | adapter | BR-7/8, E1 |
 | `MatchConfirmationPolicyTest.acceptsSameRegionNameOverlap` / `rejectsWrongRegion` / `rejectsAmbiguous` | application | AC-2, INV-4 |
-| `RunSampleIngestionTest.filtersToMetroAndCap` / `mergesTierPriority` / `accountsForEveryRow` / `abortsBeforeCandidatesOnGeocoderOutage` | application | AC-2/3, INV-6/9/10 |
-| `CompileManualBatchTest.mergesDuplicateOfTierOne` / `rejectsInvalidEntry` | application | AC-5, E1/E3 |
-| `LoadIngestionBatchTest.generatesIdempotentBatch` / `refusesHandCutWithoutClaim` | application | AC-4/6, INV-3 |
-| `AuditIngestionRunTest.flagsUnaccountedRow` / `flagsUnbackedHandCut` | application | AC-8, INV-3/10 |
+| `RunSampleIngestionTest.filtersToMetroAndCap` / `mergesTierPriority` / `marksTierOneCandidatesVerified` / `accountsForEveryRow` / `abortsBeforeCandidatesOnGeocoderOutage` | application | AC-2/3, INV-1/6/9/10 |
+| `CompileManualBatchTest.mergesDuplicateOfTierOne` / `rejectsInvalidEntry` / `neverVerifiesManualOnlyRows` | application | AC-5, E1/E3 |
+| `LoadIngestionBatchTest.generatesIdempotentBatch` / `refusesVerifiedWithoutClaim` / `emitsUpgradeForMatchedRow` | application | AC-4/6, INV-3/11 |
+| `AuditIngestionRunTest.flagsUnaccountedRow` / `flagsVerifiedWithoutClaim` | application | AC-8, INV-3/10 |
 
 ## 11. ARCHITECTURE.md update (proposed, in the implementation PR)
 
@@ -335,9 +350,12 @@ Add to Part 1 §1.0 a row:
 > curated Tier-3 sample, geocodes through the existing Photon `GeocoderPort`
 > with mandatory match-confirmation, and produces reviewed artifacts. Catalogue
 > writes happen only through a generated, idempotent Flyway batch. External
-> certification observations are stored as `CertificationClaim` rows — separate
-> from our verification flow — and never confer Verified status. `is_hand_cut`
-> is asserted true only for Tier-1 rows and only with a backing claim.
+> certification observations are stored as `CertificationClaim` rows. **Founder
+> ruling (2026-11-07):** a recognized Tier-1 certifier's registry entry is
+> authoritative — the ingested/upgraded listing is `VERIFIED` and hand-cut,
+> backed by the claim (`CERTIFIER_REGISTRY` verification basis); owner-submitted
+> certificates continue through committee review (`COMMITTEE_REVIEW`). Tier-3
+> manual rows stay unverified and never assert hand-cut.
 
 ## 12. Risks
 
@@ -346,6 +364,8 @@ Add to Part 1 §1.0 a row:
 | Source HTML changes without notice | Fixture-based tests + `SOURCE_PARSE_FAILED` quarantine + report; follow-up stories per breakage |
 | HMS page is JS-rendered | Documented ShariahBoard fallback, tested as a first-class path |
 | Widened dedupe index silently merges distinct venues at identical 6-dp coordinates | Suspected duplicates reported for human review; acceptable at sample scale (D-4) |
+| **Registry-verified rows display the same badge/tooltip copy as committee-verified rows, which says "reviewed by our committee"** | Blocking product follow-up (D-8): verified-badge attribution must name the certifier (e.g. "Certified by HMS") — new story, not silently accepted |
+| **Certifier expires/revokes a certificate after ingestion** | Expiry stored on the claim; revocation handling remains the open product flag (U-14 area) — no auto-demotion in this feature (INV-8) |
 | Manual batch's citations go stale | Access dates recorded; audit spot-checks (UC-04) |
 | Photon rate limits during the sample | ~60–100 throttled lookups total; cache prevents repeat lookups |
 | Terms-of-service concern for directory fetching | Public certifier registries, throttled, identified UA, attribution planned; Omar review gate; Zabihah excluded from automation |

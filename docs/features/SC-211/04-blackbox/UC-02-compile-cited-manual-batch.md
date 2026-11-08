@@ -2,8 +2,8 @@
 
 > **Security / trust flags:** a crowdsourced source (Zabihah) enters only through
 > hand curation with per-row citations; no scraping. A Tier-3 observation must
-> never produce a hand-cut assertion. Terms-of-service compliance is a review
-> concern for Omar.
+> never produce a hand-cut assertion and must never set `VERIFIED`.
+> Terms-of-service compliance is a review concern for Omar.
 
 **Actor:** Data Curator.
 **External services (opaque):** Zabihah public listing pages; the
@@ -25,7 +25,7 @@ sequenceDiagram
   TL->>TL: 3. Validate the batch against the manual-entry schema
   TL->>PH: 4. Resolve "name, address, city, region"
   PH-->>TL: Confirmed place or no match
-  TL->>TL: 5. Merge with Tier-1 candidates (Tier-1 wins; both claims kept)
+  TL->>TL: 5. Merge with Tier-1 candidates (Tier-1 wins, verified; manual rows stay unverified)
   TL->>TL: 6. Update candidates.json and report.md
   TL-->>DC: 7. Merged/rejected manual rows with reasons
 ```

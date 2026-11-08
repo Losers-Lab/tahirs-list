@@ -18,7 +18,7 @@
 |--------|---------|-----------|
 | **DC** *(new — proposed)* | **Data Curator** — internal operations/research actor who runs the pipeline, curates the cited manual batch, reviews generated catalog updates, and audits reports | Primary actor of every use case. **Not yet ratified in README's persona list — decision D-1.** |
 | U | User (not logged in / logged in) | Indirect beneficiary: sample listings appear in search. No new user-facing flow. |
-| VC | Verification Committee | Not a participant in this feature: ingested listings are UNVERIFIED and external claims do not confer our verification. |
+| VC | Verification Committee | Not a participant: Tier-1 registry rows are verified on the certifier's authority (founder ruling), not by the committee; owner-claimed certificates continue through the committee flow unchanged. |
 | ET | Extension Trigger | Not affected (browser extensions out of scope). |
 
 ## Requirement source
@@ -43,7 +43,7 @@ is inferred.
 | 4 | **Hand-cut mapping:** `is_hand_cut = TRUE` for Tier-1 rows; each assertion is backed by a recorded certification claim (certifier, source URL, expiry where published). Manual Zabihah rows keep `NULL`. |
 | 5 | **Load path:** committed artifacts → generated, idempotent Flyway migration (the sc-155 seed pattern). No runtime ingestion runner in this story. |
 | 6 | **Metros:** Dallas metroplex, NYC, Toronto/GTA — 15–25 listings each. |
-| 7 | **Trust posture:** every ingested listing starts `UNVERIFIED`; Photon is the only geocoder; rows that do not pass match-confirmation are rejected with reasons — **no invented coordinates**. |
+| 7 | **Trust posture (revised 2026-11-07):** Tier-1 certifier registries (HMS/HFSAA/HMA) are authoritative certificate boards. A listing ingested from them is marked **`VERIFIED`** and **hand-cut (`is_hand_cut = TRUE`)**, backed by a recorded certification claim (certifier, source URL, expiry where published). Tier-3 manual Zabihah rows stay `UNVERIFIED` with `is_hand_cut = NULL`. Photon is the only geocoder; rows that do not pass match-confirmation are rejected with reasons — **no invented coordinates**. |
 | 8 | **Sample, not exhaustive** — the pipeline is re-runnable, but this story ingests a capped sample. |
 
 ## Acceptance criteria (verbatim, from SC-211)
@@ -60,19 +60,24 @@ is inferred.
 > tier priority and normalized location; the report maps every listing to its
 > source(s).
 >
-> **AC-4** A generated, idempotent Flyway migration loads the sample as
-> UNVERIFIED listings with per-source provenance, plus
+> **AC-4** A generated, idempotent Flyway migration loads the sample with
+> per-source provenance: Tier-1 rows as `VERIFIED` + `is_hand_cut = TRUE`,
+> manual Zabihah rows as `UNVERIFIED` + `NULL`; plus
 > `external_certification_claims` rows citing source URL (+ certifier/expiry
 > where published); brands upserted by name.
 >
-> **AC-5** Tier-1 rows have `is_hand_cut = TRUE`; manual Zabihah rows `NULL`.
-> Every hand-cut assertion is backed by a claims row.
+> **AC-5** Every ingested `VERIFIED`/hand-cut assertion is backed by a claims row
+> from a Tier-1 certifier; no `VERIFIED` row exists without such a claim.
+> Manual Zabihah rows are never marked verified or hand-cut.
 >
 > **AC-6** Re-applying the migration adds no duplicates, and no existing V7 seed
-> row is duplicated (e.g. Paramount Fine Foods).
+> row is duplicated (e.g. Paramount Fine Foods); a matched existing row is
+> upgraded to `VERIFIED` rather than skipped.
 >
 > **AC-7** Sample listings are returned by the existing search API for their
-> metros on the live stack, and the hand-cut-only filter includes Tier-1 rows.
+> metros on the live stack; Tier-1 rows display as Verified and are included by
+> the hand-cut-only filter; manual Zabihah rows are unverified and excluded from
+> that filter.
 >
 > **AC-8** The report honestly lists rejects/quarantines with reasons and known
 > gaps; design artifacts 00–10 complete.
@@ -89,6 +94,8 @@ is inferred.
 | E-6 | Photon no-match / ambiguous / wrong-country match | Row rejected with a reason; never coordinates from a different venue |
 | E-7 | Source rate-limits or is unreachable mid-run | Backoff, then mark that source FAILED; run continues; report states exactly what was and was not fetched |
 | E-8 | Fewer than 15 confirmed rows in a metro (e.g. thin coverage) | Report the shortfall honestly; do not pad with unconfirmed rows |
+| E-9 | Certification expires or is revoked after ingestion (registry-verified listing) | Record the expiry in the claim; revocation handling remains an **open product flag** — not decided by this feature |
+| E-10 | A Tier-1 venue matches an existing catalogue row (e.g. a V7 seed) | Upgrade the matched row to `VERIFIED` + hand-cut with claims, rather than skipping it (AC-6); report the upgrade |
 
 ## Open unknowns (owner + when needed)
 

@@ -1,9 +1,11 @@
 # SC-211 — Phase 4: Black-box sequence — UC-03 Load a reviewed ingestion batch into the catalog
 
 > **Security / trust flags:** this is the only flow that writes to the catalog.
-> All writes are `UNVERIFIED`; trust status cannot be escalated by data. The
-> generated migration is reviewed before merge (supply-chain-of-code control).
-> Idempotency is a correctness property, not a convenience.
+> Tier-1 writes are `VERIFIED` + hand-cut on the certifier's authority (founder
+> ruling) and must always be claim-backed; manual Tier-3 writes stay
+> `UNVERIFIED`. The generated migration is reviewed before merge
+> (supply-chain-of-code control). Idempotency and upgrade-on-match are
+> correctness properties, not conveniences.
 
 **Actor:** Data Curator.
 **External services:** none. The catalog, migration execution, and search are
@@ -18,12 +20,12 @@ sequenceDiagram
   participant TL as Tahir's List
 
   DC->>TL: 1. Generate catalog update from approved candidates
-  TL-->>DC: 2. Generated migration + diff summary (brands, listings, claims, projection)
+  TL-->>DC: 2. Generated migration + diff summary (brands, verified/unverified listings, upgrades, claims, projection)
   DC->>TL: 3. Review and merge the generated update
   TL->>TL: 4. Apply pending migrations at startup (single transaction)
-  TL-->>DC: 5. Applied counts (inserted / merged / skipped)
-  DC->>TL: 6. Verify search per metro + hand-cut-only filter on the live stack
-  TL-->>DC: 7. Listings visible; provenance and claims intact
+  TL-->>DC: 5. Applied counts (inserted / upgraded / skipped)
+  DC->>TL: 6. Verify search per metro, Verified display + hand-cut-only filter
+  TL-->>DC: 7. Tier-1 rows verified; manual rows unverified; provenance and claims intact
 ```
 
 ## Alternate flows
@@ -50,15 +52,15 @@ sequenceDiagram
   TL-->>DC: Counts show zero new rows — idempotency confirmed
 ```
 
-**A3 — a location collides with an existing row (from step 4)**
+**A3 — a Tier-1 venue matches an existing row (from step 4)**
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant TL as Tahir's List
-  TL->>TL: Insert candidate at an existing normalized location
-  TL->>TL: Skip the row (no duplicate listing)
-  Note over TL: The report already flags the suspected duplicate for follow-up
+  TL->>TL: Match a Tier-1 candidate to an existing listing at the same location
+  TL->>TL: Upgrade that listing to VERIFIED + hand-cut, attach the claim
+  Note over TL: No duplicate; report records the upgrade (INV-11)
 ```
 
 ## Exception flows
@@ -85,7 +87,7 @@ sequenceDiagram
   Note over TL: Fails fast on the missing V22; merge V22 first, then the data batch
 ```
 
-**E3 — a listing is not searchable after load (from step 6)**
+**E3 — a listing is not searchable or shows the wrong trust state after load (from step 6)**
 
 ```mermaid
 sequenceDiagram
@@ -93,8 +95,8 @@ sequenceDiagram
   actor DC as Data Curator
   participant TL as Tahir's List
   DC->>TL: Search the metro
-  TL-->>DC: Listing missing from results
-  Note over TL: Blocking: investigate projection write vs. cross-contamination gate; not accepted until fixed
+  TL-->>DC: Listing missing, or Tier-1 row not Verified, or manual row wrongly Verified
+  Note over TL: Blocking: investigate projection write, verification outcome, or cross-contamination gate; not accepted until fixed
 ```
 
 ## Coverage check

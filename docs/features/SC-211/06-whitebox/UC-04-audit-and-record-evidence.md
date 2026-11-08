@@ -26,10 +26,11 @@ sequenceDiagram
 | Check | Rule on failure |
 |---|---|
 | Fetched-row accounting: every snapshot row appears as a candidate or a reject | Blocking: `UnaccountedRowException` surfaced to the CLI; run not accepted |
+| Verification backing: every `VERIFIED` candidate has a Tier-1 claim and a `CERTIFIER_REGISTRY` basis | Blocking: `UnbackedHandCutException` (or `ProvenanceMismatchException`) |
 | Hand-cut backing: every `isHandCut = TRUE` candidate has a tier-1 claim | Blocking: `UnbackedHandCutException` |
 | Claim citation: every claim has a URL and accessed-on date | Blocking: `UncitedClaimException` |
 | Tier/provenance agreement: candidate provenance = its winning tier's stamp | Blocking: `ProvenanceMismatchException` |
-| Duplicate suspicion: same normalized location as a pre-existing catalogue row | Non-blocking: listed in the report for human review |
+| Duplicate suspicion: same normalized location as a pre-existing catalogue row | Non-blocking: listed in the report for human review (the load upgrades it) |
 
 ## Transaction notes
 

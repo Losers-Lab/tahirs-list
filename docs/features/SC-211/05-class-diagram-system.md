@@ -62,6 +62,8 @@ classDiagram
     +tier : SourceTier
     +claims : Set~CertificationClaim~
     +matchConfirmation : MatchConfirmation
+    +intendedStatus : VerificationStatus
+    +verificationBasis : VerificationBasis
     +mergeWith(other) IngestionCandidate
   }
   class SourceListing {
@@ -107,6 +109,11 @@ classDiagram
     +acceptedPlace
     +evidence
   }
+  class VerificationBasis {
+    <<enumeration>>
+    COMMITTEE_REVIEW
+    CERTIFIER_REGISTRY
+  }
   class RejectReason {
     <<enumeration>>
   }
@@ -117,6 +124,7 @@ classDiagram
   IngestionCandidate "1" *-- "1..*" CertificationClaim
   IngestionCandidate --> SourceTier
   IngestionCandidate --> MatchConfirmation
+  IngestionCandidate --> VerificationBasis
   SourceListing --> SourceRef
   CertificationClaim --> SourceRef
   IngestReport "1" o-- "0..*" IngestReject
@@ -232,7 +240,7 @@ input), `Clock` (timestamps on claims and artifacts).
 | UC-01.2–4 | `HalalDirectorySource.fetch` on each directory adapter |
 | UC-01.5 | `MetroFilter.accepts` |
 | UC-01.6 | `GeocoderPort.geocode` + `MatchConfirmationPolicy.confirm` |
-| UC-01.7 | `IngestionCandidate.mergeWith` |
+| UC-01.7 | `IngestionCandidate.mergeWith` + `IngestionCandidate.verificationBasis`/`intendedStatus` (Tier-1 → `VERIFIED` + hand-cut; else `UNVERIFIED`) |
 | UC-01.8 | `ArtifactWriter.write*` |
 | UC-01.9 | `IngestReport.counts` / `IngestReport.rejects` |
 | UC-02.1–2 | `IngestionConsole.compileManualBatch` |
@@ -253,3 +261,4 @@ input), `Clock` (timestamps on claims and artifacts).
 |---|---|---|
 | 2026-11-07 | Initial system class diagram | Phase 5 for SC-211 |
 | 2026-11-07 | Added §4.1 existing collaborators (`Migrations`, `ListingSearchQuery`, `RestaurantListingRepository`) | UC-03 white-box needs them; delta recorded before drawing Phase 6 |
+| 2026-11-07 | Added `VerificationBasis` and `IngestionCandidate.intendedStatus` | Founder ruling: Tier-1 rows ingest `VERIFIED` + hand-cut; the candidate must carry its intended verification outcome |

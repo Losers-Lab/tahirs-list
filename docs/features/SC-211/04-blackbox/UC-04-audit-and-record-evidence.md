@@ -75,15 +75,15 @@ sequenceDiagram
   Note over TL: Blocking defect; the run is re-executed after the fix
 ```
 
-**E3 — a Tier-1 hand-cut row lacks a claim (from step 2)**
+**E3 — a VERIFIED/hand-cut row lacks a backing claim (from step 2)**
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant TL as Tahir's List
-  TL->>TL: Check every is_hand_cut = TRUE row for a backing claim
+  TL->>TL: Check every VERIFIED / is_hand_cut = TRUE row for a Tier-1 claim
   TL-->>TL: Missing claim found
-  Note over TL: Blocking against INV-3; the generator must refuse to emit TRUE without a claim
+  Note over TL: Blocking against INV-3/INV-12; the generator must refuse VERIFIED or TRUE without a claim
 ```
 
 ## Coverage check

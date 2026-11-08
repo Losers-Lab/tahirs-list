@@ -20,6 +20,7 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
   - BR-4 The highest tier wins a venue's provenance; all observing sources' claims are retained.
   - BR-5 Every fetched row is either a candidate or a reject with a reason.
   - BR-6 Fetches are throttled and identify the client; no scraping of prohibited sources.
+  - BR-6a A recognized Tier-1 certifier claim makes the candidate **`VERIFIED` + hand-cut**; a candidate with no Tier-1 claim is `UNVERIFIED` with hand-cut `NULL`. No other combination is produced.
 
 **Main success scenario**
 
@@ -29,8 +30,8 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
 4. The system requests the HMA certified-restaurants list for the GTA and the detail pages for the sampled rows.
 5. The system filters all fetched rows to restaurants inside the selected metro city allowlists.
 6. The system geocodes each remaining row through Photon using "name, address, city, region" and accepts a match only with country + region agreement and name-token overlap.
-7. The system reconciles rows describing the same venue (normalized location or normalized name + city) into one candidate, applying tier priority and merging claims.
-8. The system writes the raw source snapshots, `candidates.json`, and `report.md` to the run artifact directory.
+7. The system reconciles rows describing the same venue (normalized location or normalized name + city) into one candidate, applying tier priority, merging claims, and recording the intended verification outcome (Tier-1 → `VERIFIED` + hand-cut with a backing claim; otherwise `UNVERIFIED` + `NULL`).
+8. The system writes the raw source snapshots, `candidates.json` (including each candidate's intended verification outcome and verification basis), and `report.md` to the run artifact directory.
 9. The system reports per-source/per-metro counts and the rejected rows with reasons to the curator.
 
 **Alternate flows**
@@ -54,7 +55,7 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
 - Failure: no candidate artifact is published as a success; the report records the partial/aborted state.
 
 - **Data:** read — external directory pages, geocoder results. Created — artifact files only.
-- **Acceptance criteria:** AC-1, AC-2, AC-3, AC-8
+- **Acceptance criteria:** AC-1, AC-2, AC-3, AC-5, AC-8
 - **Open questions:** Q-1 (HFSAA NY format), Q-2 (HMS fallback shape), Q-6 (artifact home).
 
 ---
@@ -69,7 +70,7 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
 - **Business rules:**
   - BR-7 Manual ingestion is **hand-curated only**; no automated scraping of Zabihah or other apps.
   - BR-8 Every manual row cites a source URL and an access date; a row without a citation is invalid.
-  - BR-9 Tier-3 rows never set `is_hand_cut = TRUE`; the observation is recorded as a claim (tier 3).
+  - BR-9 Tier-3 manual rows never set `is_hand_cut = TRUE` and never set `VERIFIED`; the observation is recorded as a tier-3 claim.
   - BR-10 Merging with Tier-1 candidates follows UC-01 BR-4 (Tier-1 wins provenance; both claims kept).
 
 **Main success scenario**
@@ -108,31 +109,31 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
 
 - **Primary actor:** Data Curator
 - **Supporting actors:** none external (the catalog and migration execution are inside the system); the existing search API is used for verification
-- **Goal:** turn an approved candidate batch into searchable, unverified catalog listings with provenance and claims — idempotently and transactionally.
+- **Goal:** turn an approved candidate batch into searchable catalog listings with the correct trust outcome (Tier-1 verified + hand-cut; manual unverified), provenance, and claims — idempotently and transactionally.
 - **Preconditions:** design approved; UC-01/UC-02 artifacts reviewed; the V22 schema migration merged; a database available in the target environment.
 - **Trigger:** the curator generates the catalog update from the approved candidates and merges it for deployment.
 - **Business rules:**
-  - BR-11 All listings created by the batch are `UNVERIFIED`.
+  - BR-11 Listings created or upgraded by the batch follow the registry-verification rule: `VERIFIED` + `is_hand_cut = TRUE` iff a Tier-1 claim backs them; otherwise `UNVERIFIED` + `NULL`.
   - BR-12 The batch is idempotent: re-application changes nothing.
   - BR-13 A listing and its claims are written in one transaction; a failure leaves no partial listing.
-  - BR-14 Existing rows (e.g. V7 seeds) are never duplicated; a location collision is skipped and reported.
+  - BR-14 A matched existing row is upgraded (never duplicated, never silently skipped); its original provenance is preserved and the certifier claim records the verification evidence.
   - BR-15 Brands are upserted by name before locations.
 
 **Main success scenario**
 
 1. The curator asks the system to generate the catalog update from the approved `candidates.json`.
-2. The system generates the Flyway migration (brands, listings, claims, search projection) and a diff summary mapped to the report.
+2. The system generates the Flyway migration (brands, listings with their verification outcome, claims, search projection, plus upgrades of matched existing rows) and a diff summary mapped to the report.
 3. The curator reviews the generated migration and diff summary and merges it.
 4. The system applies pending migrations at startup in a single transaction.
-5. The system reports applied counts (inserted, merged, skipped) to the curator.
-6. The curator verifies on the live stack that sample listings are returned by search for each metro and that the hand-cut-only filter includes the Tier-1 rows.
+5. The system reports applied counts (inserted, upgraded, skipped) to the curator.
+6. The curator verifies on the live stack that sample listings are returned by search for each metro, that Tier-1 rows display as Verified and are included by the hand-cut-only filter, and that manual Zabihah rows are unverified and excluded from it.
 7. The curator records the applied batch and verification evidence in the traceability matrix.
 
 **Alternate flows**
 
 - **A1 (from step 2, some candidates previously rejected)** — Only survivors are emitted; the migration header references the run and its report for the excluded rows.
 - **A2 (from step 4, the migration was already applied)** — No-op: counts show zero new rows; idempotency confirmed.
-- **A3 (from step 4, a location collides with an existing row)** — The row is skipped (`ON CONFLICT DO NOTHING` semantics); the run report already flags the suspected duplicate for follow-up.
+- **A3 (from step 4, a location collides with an existing row)** — The matched row is **upgraded** to `VERIFIED` + hand-cut with the claim attached (BR-14, INV-11); no duplicate is created; the report records the upgrade.
 
 **Exception flows**
 
@@ -142,7 +143,7 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
 
 **Postconditions**
 
-- Success: the catalog holds the new unverified listings and claims; search returns them; idempotency is proven by a re-run; evidence is recorded.
+- Success: the catalog holds the new/upgraded listings with the correct trust outcome and claims; search returns them; idempotency is proven by a re-run; evidence is recorded.
 - Failure: no partial load; the failure and its cause are recorded; rollback follows the existing revert-PR procedure.
 
 - **Data:** created — listings, brands (reused), certification claims, search-projection rows, migration file; read — search API results.
@@ -162,12 +163,12 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
   - BR-16 Every fetched row is accounted for (candidate or reject with a reason) — no silent drops.
   - BR-17 Spot-checks compare a sample of rows against their cited source URLs.
   - BR-18 Any gap, deferral, or suspected defect becomes a Shortcut story, never a code TODO.
-  - BR-19 A Tier-1 `is_hand_cut = TRUE` row without a backing claim is a blocking defect.
+  - BR-19 A `VERIFIED` row or a `is_hand_cut = TRUE` row without a backing Tier-1 claim is a blocking defect; every `VERIFIED` row must have an attributable verification basis.
 
 **Main success scenario**
 
 1. The curator opens the run report.
-2. The system presents counts by source × metro, the reject list with reasons, suspected duplicates (including against pre-existing catalogue rows), claims coverage, and known gaps.
+2. The system presents counts by source × metro, the reject list with reasons, suspected duplicates (including against pre-existing catalogue rows), claims coverage, verification-basis coverage, and known gaps.
 3. The curator spot-checks a sample of candidates against their cited source URLs.
 4. The curator records the evidence (commands, counts, spot-check results) in the traceability matrix.
 5. The curator raises any follow-up (source format change, unavailable source, ambiguous matches, deferred surfacing) as a Shortcut story.
@@ -181,7 +182,7 @@ proposed **Data Curator (DC)** — an internal operator, not an end-user persona
 
 - **E1 (from step 2, a fetched row is unaccounted for)** — Blocking defect: the run is not accepted; the accounting bug is fixed before the batch is loaded.
 - **E2 (from step 3, a spot-check does not match the cited source)** — Blocking defect: the row is quarantined, the cause investigated (parser vs. geocoder merge), and the run re-executed.
-- **E3 (from step 2, a Tier-1 hand-cut row lacks a claim)** — Blocking defect against INV-3; the generator must refuse to emit `TRUE` without a claim.
+- **E3 (from step 2, a VERIFIED/hand-cut row lacks a backing claim)** — Blocking defect against INV-3/INV-12; the generator must refuse to emit `VERIFIED` or `TRUE` without a Tier-1 claim.
 
 **Postconditions**
 
