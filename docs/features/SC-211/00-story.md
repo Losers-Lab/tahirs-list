@@ -1,109 +1,106 @@
 # SC-211 — Sample ingestion pipeline for halal directory sources
 
-- **Shortcut:** https://app.shortcut.com/halal-food-finder/story/211
-- **Epic:** M1 Core Search & Discovery (epic 111) — placement flagged for confirmation (D-2)
-- **Iteration:** M1 Sprint 7 — Directory Ingestion & Data Coverage (iteration 210, 2026-11-07 → 2026-11-14)
-- **Story type:** feature
-- **Priority:** Founder-directed for Sprint 7. Backlog position against the *User
-  Story Prioritization* / *Use Case Prioritization* docs was **not independently
-  verified** — Adnan to confirm (Q-5).
-- **Label:** `ready for design`
-- **Workflow:** `@tahirs-feature-workflow` — design-first, founder approval before
-  implementation.
-- **Requested by:** founder (Arham), 2026-11-07, in-session.
+> **Purpose:** lock the requirement and its verbatim ACs · **Derived from:** SC-211 + founder directive 2026-11-07 · **Delta:** new story
 
-## Personas
+| Field | Value |
+|---|---|
+| Shortcut | https://app.shortcut.com/halal-food-finder/story/211 |
+| Epic | M1 Core Search & Discovery (111) — placement flagged (D-2) |
+| Iteration | M1 Sprint 7 — Directory Ingestion & Data Coverage (210) |
+| Type · label | feature · `ready for design` |
+| Priority | Founder-directed; backlog position unverified — Q-5 (Adnan) |
+| Workflow | `@tahirs-feature-workflow`; approval before implementation |
+
+```mermaid
+flowchart LR
+  HMS[HMS] --> P["Tier-1 ingestion"]
+  HFSAA[HFSAA] --> P
+  HMA[HMA] --> P
+  ZAB["Zabihah<br/>manual, cited"] --> T3["Tier-3 batch"]
+  P --> V["VERIFIED + hand-cut<br/>claim-backed"]
+  T3 --> U["UNVERIFIED"]
+  V --> CAT[("Catalogue")]
+  U --> CAT
+```
 
 | Prefix | Persona | Relevance |
-|--------|---------|-----------|
-| **DC** *(new — proposed)* | **Data Curator** — internal operations/research actor who runs the pipeline, curates the cited manual batch, reviews generated catalog updates, and audits reports | Primary actor of every use case. **Not yet ratified in README's persona list — decision D-1.** |
-| U | User (not logged in / logged in) | Indirect beneficiary: sample listings appear in search. No new user-facing flow. |
-| VC | Verification Committee | Not a participant: Tier-1 registry rows are verified on the certifier's authority (founder ruling), not by the committee; owner-claimed certificates continue through the committee flow unchanged. |
-| ET | Extension Trigger | Not affected (browser extensions out of scope). |
+|---|---|---|
+| **DC** (new, D-1) | Data Curator — internal operator | Runs all four use cases |
+| U | User | Sees sample listings in search; no new flow |
+| VC | Verification Committee | Not a participant; registry verification is not committee review |
+| ET | Extension Trigger | Unaffected |
 
-## Requirement source
-
-Founder directive plus supply-side research supplied in-session on 2026-11-07.
-The research's central finding: North American halal directories split into
-**Tier 1 audited certifier registries** (HMS, HFSAA, HMA, AVA/Achahada),
-**Tier 2 vetted platforms** (Crave Halal, Muslim Foodies), and
-**Tier 3 crowdsourced scale** (Zabihah), and a credible product should *layer*
-them rather than treat "halal" as binary.
-
-The founder then locked the decisions below for this sample. Nothing beyond them
-is inferred.
-
-### Locked decisions (founder, 2026-11-07)
+## Locked decisions (founder, 2026-11-07)
 
 | # | Decision |
-|---|----------|
-| 1 | **Automated Tier-1 sources:** HMS (`hmsusa.org/certified-listing`; covers Dallas metro + NYC and publishes certification expiry dates), HFSAA (`hfsaa.org/chapters` → Northeast / New York), HMA (`hmacanada.org/hma-certified-restaurants/`; GTA). |
-| 2 | **Tier-3 manual batch:** a small hand-curated, individually cited Zabihah sample (zabihah.com is now an app-shell; **no scraping**). |
-| 3 | **Excluded from automation:** Crave Halal (app-only), Muslim Foodies (Google My Maps overlays — Google scraping prohibited by standing ruling), AVA/Achahada (Quebec/Ottawa only — outside the sample metros). |
-| 4 | **Hand-cut mapping:** `is_hand_cut = TRUE` for Tier-1 rows; each assertion is backed by a recorded certification claim (certifier, source URL, expiry where published). Manual Zabihah rows keep `NULL`. |
-| 5 | **Load path:** committed artifacts → generated, idempotent Flyway migration (the sc-155 seed pattern). No runtime ingestion runner in this story. |
-| 6 | **Metros:** Dallas metroplex, NYC, Toronto/GTA — 15–25 listings each. |
-| 7 | **Trust posture (revised 2026-11-07):** Tier-1 certifier registries (HMS/HFSAA/HMA) are authoritative certificate boards. A listing ingested from them is marked **`VERIFIED`** and **hand-cut (`is_hand_cut = TRUE`)**, backed by a recorded certification claim (certifier, source URL, expiry where published). Tier-3 manual Zabihah rows stay `UNVERIFIED` with `is_hand_cut = NULL`. Photon is the only geocoder; rows that do not pass match-confirmation are rejected with reasons — **no invented coordinates**. |
-| 8 | **Sample, not exhaustive** — the pipeline is re-runnable, but this story ingests a capped sample. |
+|---|---|
+| 1 | Automated Tier-1: HMS (Dallas + NYC), HFSAA (NYC), HMA (Toronto/GTA). |
+| 2 | Tier-3: hand-curated, individually cited Zabihah sample; no scraping. |
+| 3 | Excluded from automation: Crave Halal, Muslim Foodies, AVA/Achada. |
+| 4 | Tier-1 rows: `VERIFIED` + `is_hand_cut = TRUE`, backed by a claim. |
+| 5 | Tier-3 rows: `UNVERIFIED` + `is_hand_cut = NULL`. |
+| 6 | Load: committed artifacts → generated, idempotent Flyway migration. |
+| 7 | Metros: Dallas, NYC, Toronto; 15–25 rows each. |
+| 8 | Photon-only geocoding; non-matching rows rejected — no invented coordinates. |
 
-## Acceptance criteria (verbatim, from SC-211)
+## Acceptance criteria (verbatim)
 
 > **AC-1** A containerized, re-runnable command (`scripts/ingest-sample.sh`)
 > fetches the Tier-1 directories for the three metros with polite throttling and
 > writes committed artifacts (raw snapshots, `candidates.json`, `report.md`).
->
+
 > **AC-2** Every candidate is geocoded via the existing `GeocoderPort` (Photon)
 > with match-confirmation (country/state + name-token); non-matching rows are
 > excluded and listed with reasons. No invented coordinates.
->
+
 > **AC-3** The sample yields 15–25 listings per metro, deduplicated within-run by
 > tier priority and normalized location; the report maps every listing to its
 > source(s).
->
+
 > **AC-4** A generated, idempotent Flyway migration loads the sample with
 > per-source provenance: Tier-1 rows as `VERIFIED` + `is_hand_cut = TRUE`,
 > manual Zabihah rows as `UNVERIFIED` + `NULL`; plus
 > `external_certification_claims` rows citing source URL (+ certifier/expiry
 > where published); brands upserted by name.
->
+
 > **AC-5** Every ingested `VERIFIED`/hand-cut assertion is backed by a claims row
 > from a Tier-1 certifier; no `VERIFIED` row exists without such a claim.
 > Manual Zabihah rows are never marked verified or hand-cut.
->
+
 > **AC-6** Re-applying the migration adds no duplicates, and no existing V7 seed
 > row is duplicated (e.g. Paramount Fine Foods); a matched existing row is
 > upgraded to `VERIFIED` rather than skipped.
->
+
 > **AC-7** Sample listings are returned by the existing search API for their
 > metros on the live stack; Tier-1 rows display as Verified and are included by
 > the hand-cut-only filter; manual Zabihah rows are unverified and excluded from
 > that filter.
->
+
 > **AC-8** The report honestly lists rejects/quarantines with reasons and known
 > gaps; design artifacts 00–10 complete.
 
-## Edge cases (recorded, from the founder directive and source recon)
+## Edge cases
 
-| # | Edge case | Handling expectation |
-|---|-----------|----------------------|
-| E-1 | HFSAA New York chapter URL/format unverified (recon found `/chicago`, `/detroit`; `/new-york` 404s at time of writing) | Discover chapter links from `/chapters`; if no NY restaurant listings exist, NYC coverage falls back to HMS only — documented in the report |
-| E-2 | HMS listing page may be JS-rendered | Fallback: the `shariahboard.org/certified-listings` table (server-rendered; business name, address, phone, state, products, status, expiry) |
-| E-3 | Zabihah public listing pages may no longer be fetchable (app-shell) | Cite the founder-supplied research as a secondary source (marked as such) or drop the batch with rationale |
-| E-4 | Same venue from two sources (HMS + Zabihah; HMA + an existing V7 seed) | Tier-priority merge within the run; DB dedupe by normalized location; suspected duplicates listed in the report |
-| E-5 | Source address lacks city/postal/country | Structured address fields populated where present, `NULL` otherwise — never guessed |
-| E-6 | Photon no-match / ambiguous / wrong-country match | Row rejected with a reason; never coordinates from a different venue |
-| E-7 | Source rate-limits or is unreachable mid-run | Backoff, then mark that source FAILED; run continues; report states exactly what was and was not fetched |
-| E-8 | Fewer than 15 confirmed rows in a metro (e.g. thin coverage) | Report the shortfall honestly; do not pad with unconfirmed rows |
-| E-9 | Certification expires or is revoked after ingestion (registry-verified listing) | Record the expiry in the claim; revocation handling remains an **open product flag** — not decided by this feature |
-| E-10 | A Tier-1 venue matches an existing catalogue row (e.g. a V7 seed) | Upgrade the matched row to `VERIFIED` + hand-cut with claims, rather than skipping it (AC-6); report the upgrade |
+| # | Edge case | Handling |
+|---|---|---|
+| E-1 | HFSAA NY chapter URL/format unverified | Discover links from `/chapters`; fall back to HMS-only NYC if absent |
+| E-2 | HMS page JS-rendered | ShariahBoard certified-listings table fallback |
+| E-3 | Zabihah pages unavailable | Cite founder research as secondary source, or drop with rationale |
+| E-4 | Same venue from two sources | Tier-priority merge; report suspected duplicates |
+| E-5 | Partial address (no city/postal) | `NULL` structured fields; never guess |
+| E-6 | Photon no-match / wrong region | Reject with reason; no coordinates taken |
+| E-7 | Source rate-limits / unreachable | Backoff, mark source failed; run continues; report says what was missed |
+| E-8 | Metro below 15 rows | Report the shortfall; never pad |
+| E-9 | Certification expires or is revoked | Expiry stored on the claim; revocation stays an open flag (D-10) |
+| E-10 | Tier-1 venue matches an existing row | Upgrade that row to `VERIFIED` + hand-cut with claims (AC-6) |
 
-## Open unknowns (owner + when needed)
+## Open questions
 
 | # | Unknown | Owner | Needed by |
-|---|---------|-------|-----------|
-| Q-1 | HFSAA NY chapter listing format and whether it carries full addresses | Aisha / Hamza | WI-03 implementation |
-| Q-2 | Whether zabihah.com still serves individual public listing pages | Aisha | WI-05 (manual batch) |
-| Q-3 | Whether/when external claims surface in the product UI (badge, expiry display) | Founder / Adnan | Future story — explicitly out of scope |
-| Q-4 | ODbL / certifier attribution display policy | Founder | Open flag, `docs/reviews/sc-138-external-services.md` §5 — not decided here |
-| Q-5 | Backlog priority against the two prioritization docs | Adnan | Before sprint sign-off |
-| Q-6 | Whether the sample batch artifacts live under `docs/research/<dated>/` (recommended) or another home | Founder | Walkthrough (D-5) |
+|---|---|---|---|
+| Q-1 | HFSAA NY chapter format and address completeness | Aisha / Hamza | WI-03 |
+| Q-2 | Zabihah public listing pages still fetchable | Aisha | WI-05 |
+| Q-3 | If/when external claims surface in the UI | Founder / Adnan | Future story |
+| Q-4 | ODbL / certifier attribution display policy | Founder | Open flag (sc-138 §5) |
+| Q-5 | Backlog priority against the two prioritization docs | Adnan | Sprint sign-off |
+| Q-6 | Artifact home: `docs/research/ingest-sample-2026-11/` | Founder | Walkthrough (D-5) |

@@ -1,105 +1,66 @@
-# SC-211 — Phase 4: Black-box sequence — UC-03 Load a reviewed ingestion batch into the catalog
+# SC-211 — Phase 4: Black-box — UC-03 Load a reviewed ingestion batch
 
-> **Security / trust flags:** this is the only flow that writes to the catalog.
-> Tier-1 writes are `VERIFIED` + hand-cut on the certifier's authority (founder
-> ruling) and must always be claim-backed; manual Tier-3 writes stay
-> `UNVERIFIED`. The generated migration is reviewed before merge
-> (supply-chain-of-code control). Idempotency and upgrade-on-match are
-> correctness properties, not conveniences.
-
-**Actor:** Data Curator.
-**External services:** none. The catalog, migration execution, and search are
-inside Tahir's List.
-
-## Main success scenario
+> **Purpose:** actor-visible behaviour of the catalogue load · **Derived from:** 02 UC-03 · **Delta:** new
+> **Security:** the only catalogue write; Tier-1 verified on certifier authority; manual rows unverified; reviewed before merge.
 
 ```mermaid
 sequenceDiagram
   autonumber
   actor DC as Data Curator
   participant TL as Tahir's List
-
-  DC->>TL: 1. Generate catalog update from approved candidates
-  TL-->>DC: 2. Generated migration + diff summary (brands, verified/unverified listings, upgrades, claims, projection)
-  DC->>TL: 3. Review and merge the generated update
-  TL->>TL: 4. Apply pending migrations at startup (single transaction)
-  TL-->>DC: 5. Applied counts (inserted / upgraded / skipped)
-  DC->>TL: 6. Verify search per metro, Verified display + hand-cut-only filter
-  TL-->>DC: 7. Tier-1 rows verified; manual rows unverified; provenance and claims intact
+  DC->>TL: 1. Generate update from approved candidates
+  TL-->>DC: 2. Migration + diff (brands, verified/unverified, upgrades, claims, projection)
+  DC->>TL: 3. Review and merge
+  TL->>TL: 4. Apply migrations at startup (one transaction)
+  TL-->>DC: 5. Counts: inserted / upgraded / skipped
+  DC->>TL: 6. Verify search, Verified display, hand-cut filter
+  TL-->>DC: 7. Tier-1 verified; manual unverified; claims intact
 ```
 
-## Alternate flows
-
-**A1 — the batch has previously rejected rows (from step 2)**
+**A1 — rejected rows excluded** · survivors only.
 
 ```mermaid
 sequenceDiagram
-  autonumber
   participant TL as Tahir's List
-  TL->>TL: Build the update from the survivors only
-  Note over TL: Migration header references the run report for excluded rows
+  TL->>TL: emit survivors; header references the report
 ```
 
-**A2 — the migration was already applied (from step 4)**
+**A2 — re-apply** · idempotent no-op.
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  actor DC as Data Curator
   participant TL as Tahir's List
-  DC->>TL: Deploy the same batch again
-  TL->>TL: Recognize the applied batch (no-op)
-  TL-->>DC: Counts show zero new rows — idempotency confirmed
+  TL->>TL: zero new rows; idempotency proven
 ```
 
-**A3 — a Tier-1 venue matches an existing row (from step 4)**
+**A3 — matched existing row** · upgrade, never duplicate.
 
 ```mermaid
 sequenceDiagram
-  autonumber
   participant TL as Tahir's List
-  TL->>TL: Match a Tier-1 candidate to an existing listing at the same location
-  TL->>TL: Upgrade that listing to VERIFIED + hand-cut, attach the claim
-  Note over TL: No duplicate; report records the upgrade (INV-11)
+  TL->>TL: `UPDATE` to `VERIFIED` + hand-cut; attach claim
 ```
 
-## Exception flows
-
-**E1 — constraint violation (from step 4)**
+**E1 — constraint violation** · rollback, no partial load.
 
 ```mermaid
 sequenceDiagram
-  autonumber
   participant TL as Tahir's List
-  TL->>TL: Apply migration (provenance CHECK, claim FK, vocabulary)
-  TL-->>TL: Violation
-  TL->>TL: Roll back the migration transaction
-  Note over TL: No partial catalog write; the app does not start on a half-applied batch; curator fixes and regenerates
+  TL->>TL: transaction rolls back; startup fails
 ```
 
-**E2 — schema migration not yet applied (from step 4)**
+**E2 — schema missing** · fail fast.
 
 ```mermaid
 sequenceDiagram
-  autonumber
   participant TL as Tahir's List
-  TL->>TL: Apply migrations in order
-  Note over TL: Fails fast on the missing V22; merge V22 first, then the data batch
+  TL->>TL: V22 must be applied first
 ```
 
-**E3 — a listing is not searchable or shows the wrong trust state after load (from step 6)**
+**E3 — missing/wrong trust state** · blocking.
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  actor DC as Data Curator
   participant TL as Tahir's List
-  DC->>TL: Search the metro
-  TL-->>DC: Listing missing, or Tier-1 row not Verified, or manual row wrongly Verified
-  Note over TL: Blocking: investigate projection write, verification outcome, or cross-contamination gate; not accepted until fixed
+  TL->>TL: Tier-1 not Verified / manual Verified → investigate
 ```
-
-## Coverage check
-
-Every UC-03 step (1–7) appears as a numbered message; A1–A3 and E1–E3 each have a
-fragment.
