@@ -86,7 +86,7 @@ class McpEndpointTest : FunSpec({
         }
     }
 
-    test("toolResultContainingParseErrorCodeIsNotRewritten") {
+    test("toolResultMentioningParseErrorStaysSuccessful") {
         val query = com.tahirslist.application.agent.RecordingSearchQuery(
             listOf(com.tahirslist.application.agent.sampleResult(name = """x"code":-32700""")),
         )
@@ -99,9 +99,10 @@ class McpEndpointTest : FunSpec({
                     arguments = """{"center":{"lat":1,"lng":2},"radiusMiles":5}""",
                 ),
             )
+            val results = response.jsonBody().structuredContent()["results"]!!.jsonArray
 
             response.status shouldBe HttpStatusCode.OK
-            response.jsonBody().result()["isError"]?.jsonPrimitive?.booleanOrNull shouldBe false
+            results.first().jsonObject["name"]!!.jsonPrimitive.content shouldBe """x"code":-32700"""
         }
     }
 

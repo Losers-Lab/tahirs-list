@@ -47,4 +47,25 @@ class McpServerTest : FunSpec({
         mcpClientKey("10.0.0.5", "<script>", trustProxy = true) shouldBe "mcp|10.0.0.5"
         mcpClientKey("10.0.0.5", "1.2.3.4, 9.9.9.9", trustProxy = true) shouldBe "mcp|1.2.3.4"
     }
+
+    test("parseErrorEnvelopeIsRecognisedAtTheStartOnly") {
+        // Both SDK shapes, and a leading newline/space.
+        """{"error":{"code":-32700,"message":"Parse error: secret"},"jsonrpc":"2.0"}"""
+            .isParseErrorEnvelope() shouldBe true
+        """{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}"""
+            .isParseErrorEnvelope() shouldBe true
+        "  {\"jsonrpc\":\"2.0\",\"id\":7,\"error\":{\"code\":-32700,\"message\":\"x\"}}"
+            .isParseErrorEnvelope() shouldBe true
+    }
+
+    test("nonParseErrorBodiesAreNotRewritten") {
+        // Successful results, other JSON-RPC errors, and a listing string that
+        // merely contains the code must never match.
+        """{"jsonrpc":"2.0","id":1,"result":{"content":[]}}"""
+            .isParseErrorEnvelope() shouldBe false
+        """{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}}"""
+            .isParseErrorEnvelope() shouldBe false
+        """{"jsonrpc":"2.0","id":1,"result":{"name":"x\"code\":-32700"}}"""
+            .isParseErrorEnvelope() shouldBe false
+    }
 })

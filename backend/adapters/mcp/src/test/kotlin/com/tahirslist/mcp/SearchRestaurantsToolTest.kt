@@ -146,6 +146,12 @@ class SearchRestaurantsToolTest : FunSpec({
         )
         handCut.isError shouldBe true
         handCut.message() shouldBe "handCutOnly must be a boolean"
+
+        val lat = tool().call(
+            args("""{"center":{"lat":"43","lng":2},"radiusMiles":5}"""),
+        )
+        lat.isError shouldBe true
+        lat.message() shouldBe "center.lat must be a number"
     }
 
     test("emptyResultIsSuccess") {

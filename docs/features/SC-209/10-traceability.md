@@ -13,7 +13,7 @@ Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/
 | WI-03 | `SearchListingsForAgent` (geocode / coordinates, next offset) | `SearchListingsForAgentTest` (7 tests) |
 | WI-04 | `GetListingForAgent` (review lookup only when verified) | `GetListingForAgentTest` (5 tests) |
 | WI-05 | `GetRestaurantTool` + detail mapper (halal items, certificate) | `GetRestaurantToolTest` (6 tests) |
-| WI-06 | `SearchRestaurantsTool` + card mapper (strict args) | `SearchRestaurantsToolTest` (18 tests) |
+| WI-06 | `SearchRestaurantsTool` + card mapper (strict args) | `SearchRestaurantsToolTest` (19 tests) |
 | WI-07 | `Bucket4jMcpRateLimiter` + pipeline refusal + per-call batch budget | `McpRateLimitTest` (4 tests) |
 | WI-08 | `McpOriginGuard` (exact match) + CORS/preflight | `McpOriginTest` (7 tests) |
 | WI-09 | Public `POST /mcp`; REST uses shared parser/facts (behaviour preserved) | `McpRegressionTest`, `McpPublicAccessTest`; existing REST suites |
@@ -28,7 +28,7 @@ Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/
 | AC-1 | `McpDiscoveryTest` (initialize, exactly two tools, schemas) |
 | AC-2 | `McpSearchPostgisTest.filtersAndOrdersByDistance`; `McpEndpointTest.toolsCallOverStreamableHttp` |
 | AC-3 | `SearchListingsForAgentTest.placeNotResolvedIsActionable`, `geocoderOutageIsDistinctAndActionable`; live Photon test |
-| AC-4 | `SearchRestaurantsToolTest` (8 validation tests); `McpSearchPostgisTest` (all filters) |
+| AC-4 | `SearchRestaurantsToolTest` (10 validation tests); `McpSearchPostgisTest` (all filters) |
 | AC-5 | `GetRestaurantToolTest` (certificate, partial halal, errors) |
 | AC-6 | `McpPublicAccessTest`, `McpRateLimitTest`, `McpEnabledWiringTest` |
 | AC-7 | `McpOriginTest` (no origin, listed, disallowed, empty list) |
@@ -52,9 +52,10 @@ Implementation branch: `feat/SC-209-mcp-server` · PR: [#76](https://github.com/
 |---|---|---|---|
 | 1 | Omar (security) | 3 blocking: parser `IllegalArgumentException` not mapped to actionable tool errors; JSON-RPC batch could bypass the per-request budget; SDK parse errors echoed exception text. Nits: serializer used REST `Json` for MCP, XFF key unvalidated, no CORS/OPTIONS, untested Host allow-list, swallowed cancellation, test gaps, log hygiene. | All fixed: typed IAE catch; per-call budget token (batch bounded); sanitized parse errors (matched on `-32700` envelope, not the wrong prefix); `McpAwareJsonConverter` (MCP uses `McpJson`, REST keeps explicit nulls); CF-Connecting-IP preferred + XFF validated; exact-origin CORS + preflight; `APP_MCP_ALLOWED_HOSTS`; cancellation rethrown; new negative/CORS/batch/no-null tests; hashed/sanitized refusal logs. |
 | 1 | Yusuf (QA) | 1 blocking: the parse-error sanitizer matched the wrong envelope shape, so parser text still leaked; its test passed for the wrong reason. Nits: string→number/boolean coercion, non-representable numbers yield `-32602`, thin output schemas, traceability counts overstated, no log assertion, no `deliveryOnly`/paging ITs, Q-3 sign-off unrecorded, test isolation leftovers. | Fixed: sanitizer matches `"code":-32700` and replaces the whole envelope; test asserts absence of parser internals; string primitives rejected for number/integer/boolean; schemas enriched; counts corrected; `deliveryOnly` + paging ITs added; fixture users cleaned up; test geocoder points at an unroutable port. Remaining accepted/documented: `-32602` for non-representable numbers, no automated log capture, Q-3 copy sign-off still open, ties ordered by distance only (pre-existing). |
-| 2 | Omar (security) | 1 blocking: batches of *non-tool* methods could still materialise huge responses (one POST token, ~70k `tools/list` replies). Medium: `CF-Connecting-IP` preference is deployment-coupled. Lows: refusal-log volume, charset delta, 32-bit key hash, broad IAE catch, cuisine cap after decode. | Fixed: 16 KiB body cap on the anonymous transport; refusal logs at debug; salted key hash; IAE reflection scoped to parsing only; cuisine count checked before normalisation; oversized-body test. Documented: CF header is trusted only under `APP_RATELIMIT_TRUST_PROXY` (origin must be tunnel-only); `-32602` for non-representable numbers; no automated log capture. |
-| 3 | Omar (security) | **Verdict: APPROVE.** No blocking. Low: residual batch amplification still 6.4 MB at a 64 KiB cap (S3-1). Low: parse-error matcher keyed on an unanchored substring, so a listing name containing `"code":-32700` could flip a 200 into a 400 (S3-2). Low: the S2-6 scoping had no regression test (S3-3). Info: 32-bit log hash (S3-4), thin oversized-body assertions (S3-5). | Fixed: cap lowered to 16 KiB (~1.6 MB worst case) and recorded as an explicit acceptance; matcher anchored to the error envelope **and** requires the outgoing `TextContent` status `400`, with `toolResultContainingParseErrorCodeIsNotRewritten` proving no false positive; `useCaseIllegalArgumentExceptionIsMasked` guards the parse/execute split; oversized test asserts the body is not a result and `largeButLegitimateBodyIsAccepted` covers the near-cap path. S3-4 accepted (debug breadcrumb); size-shaped residual documented below. |
-| 2 | Yusuf (QA) | _pending_ | _pending_ |
+| 2 | Omar (security) | 1 blocking: batches of *non-tool* methods could still materialise huge responses (one POST token, ~70k `tools/list` replies). Medium: `CF-Connecting-IP` preference is deployment-coupled. Lows: refusal-log volume, charset delta, 32-bit key hash, broad IAE catch, cuisine cap after decode. | Fixed: 64 KiB body cap on the anonymous transport (lowered to 16 KiB in round 4); refusal logs at debug; salted key hash; IAE reflection scoped to parsing only; cuisine count checked before normalisation; oversized-body test. Documented: CF header is trusted only under `APP_RATELIMIT_TRUST_PROXY` (origin must be tunnel-only); `-32602` for non-representable numbers; no automated log capture. |
+| 3 | Omar (security) | **Verdict: APPROVE.** No blocking. Low: residual batch amplification still 6.4 MB at a 64 KiB cap (S3-1). Low: parse-error matcher keyed on an unanchored substring (S3-2). Low: the S2-6 scoping had no regression test (S3-3). Info: 32-bit log hash (S3-4), thin oversized-body assertions (S3-5). | Fixed: cap lowered to 16 KiB (~1.6 MB worst case) and recorded as an explicit acceptance; matcher anchored **and** status-gated; `useCaseIllegalArgumentExceptionIsMasked` guards the parse/execute split; oversized test asserts the body is not a result and `largeButLegitimateBodyIsAccepted` covers the near-cap path. S3-4 accepted (debug breadcrumb). |
+| 4 | Omar (security) | **Verdict: APPROVE.** No blocking. Low: the round-3 spoof test was vacuous (large-body test proved nothing about the anchor); Info: dead second matcher arm, S3-4 not in the durable register, round-2 row rewritten. | Fixed: `isParseErrorEnvelope` is `internal` with direct positive/negative unit tests (both envelope shapes, other error codes, a result body, an id-bearing envelope); the HTTP test now asserts the listing text survives a 200; matcher is one anchored, id-tolerant regex; round-2 wording restored and S3-4 added to the register. |
+| 2 | Yusuf (QA) | **Verdict: APPROVE.** No blocking; all round-1 blockers verified fixed on the wire (7 malformed bodies → fixed envelope; 16 384 B → 200, 16 385 B → 413; spoof-resistant; CORS/405; 20 concurrent; 1.28 MB bounded batch). Low: Q2-1 search validation failures were no longer logged after the parse/execute split; Q2-2 search card schema omitted `city/province/postal/country` and typed tri-state as non-null. Nits: `center.lat` label dropped, stale test counts, weak schema assertion. | Fixed: parsing back inside the timed block (scoped catch kept), so every outcome logs; card schema now declares all 17 fields with nullable tri-state; `center.lat must be a number`; test counts corrected; `McpDiscoveryTest` asserts the card schema contents and nullability. |
 
 `certificateUrl` remains gated by the REST proxy (verified + approved + archived);
 existence in object storage is checked at fetch time, so a since-deleted archive can
@@ -71,6 +72,9 @@ Open items carried to the owner:
   of `tools/list` responses (constant, no longer scaling with attacker bandwidth).
   The largest legitimate body is ~1.6 KB. Tightening further would need a
   batch-count or response-size cap in the SDK.
+- **Accepted (S3-4):** the refusal-log key hash is a salted 32-bit `hashCode`.
+  Adequate as a debug breadcrumb; a configured HMAC is the upgrade path if
+  cross-restart correlation ever matters.
 - **Accepted (S2-4):** the SDK decodes request bodies as UTF-8 regardless of a
   declared charset; a non-UTF-8 body fails closed with the sanitized parse error.
 - **Deployment invariant (S2-2):** `APP_RATELIMIT_TRUST_PROXY=true` trusts
@@ -80,7 +84,10 @@ Open items carried to the owner:
 ## Commands run (containerized)
 
 ```text
-docker run ... eclipse-temurin:21-jdk ./gradlew test        # BUILD SUCCESSFUL (all modules)
+docker run ... eclipse-temurin:21-jdk ./gradlew test --rerun-tasks
+    # BUILD SUCCESSFUL (all modules); 668 tests, 667 passed, 1 skipped (live), 0 failures
+docker run ... eclipse-temurin:21-jdk ./gradlew :mcp:test :bootstrap:test --rerun-tasks
+    # BUILD SUCCESSFUL; mcp 55, bootstrap 196, 0 failures
 LIVE_TESTS=1 ./gradlew :geocoding:test --tests '*PhotonGeocoderLiveTest*'
                                                             # PASSED against photon.komoot.io
 ```

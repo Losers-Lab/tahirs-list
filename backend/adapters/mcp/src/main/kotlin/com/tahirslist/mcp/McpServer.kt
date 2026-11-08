@@ -231,16 +231,17 @@ private fun sanitize(header: String?): String =
     header.orEmpty().filter { it.code in 0x20..0x7e }.take(MAX_LOGGED_HEADER_LENGTH)
 
 /**
- * The SDK's parse-error envelopes are either
- * `{"error":{"code":-32700,...},"jsonrpc":"2.0"}` or a `jsonrpc`-first variant.
- * Anchoring to the start avoids matching a listing string that merely contains
- * the code.
+ * Anchored to the start of the body so a listing string that merely contains the
+ * code can never match. Accepts the envelope with or without a leading
+ * `jsonrpc`/`id` pair, which keeps it correct if the SDK changes property order
+ * or starts including an id.
  */
-private fun String.isParseErrorEnvelope(): Boolean {
-    val text = trimStart()
-    return text.startsWith("{\"error\":{\"code\":-32700") ||
-        text.startsWith("{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700")
-}
+private val PARSE_ERROR_ENVELOPE = Regex(
+    """^\{(?:"jsonrpc":"2\.0","id":(?:null|-?\d+),)?"error":\{"code":-32700""",
+)
+
+internal fun String.isParseErrorEnvelope(): Boolean =
+    PARSE_ERROR_ENVELOPE.containsMatchIn(trimStart())
 
 private fun clientKeyHash(key: String): String = (key + clientKeySalt).hashCode().toUInt().toString(16)
 

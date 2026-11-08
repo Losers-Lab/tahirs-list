@@ -13,8 +13,10 @@ import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.Tool
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlin.time.measureTimedValue
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
@@ -50,18 +52,20 @@ class SearchRestaurantsTool(
             return toolError("Rate limit exceeded. Try again shortly.")
         }
 
-        // Only parsing failures are reflected to the caller. An IAE escaping the
-        // use case is an internal defect and stays behind the generic message.
-        val request = try {
-            parse(arguments)
-        } catch (e: InvalidSearchArgumentsException) {
-            return toolError(e.message)
-        } catch (e: IllegalArgumentException) {
-            // The shared parser and LatLng throw plain IAE with a caller-safe reason.
-            return toolError(e.message)
-        }
-
         val timed = measureTimedValue {
+            // Only parsing failures are reflected to the caller. An IAE escaping
+            // the use case is an internal defect and stays behind the generic
+            // message. Parsing stays inside the timed block so every outcome is
+            // logged (AC-10), including invalid arguments.
+            val request = try {
+                parse(arguments)
+            } catch (e: InvalidSearchArgumentsException) {
+                return@measureTimedValue toolError(e.message)
+            } catch (e: IllegalArgumentException) {
+                // The shared parser and LatLng throw plain IAE with a caller-safe reason.
+                return@measureTimedValue toolError(e.message)
+            }
+
             try {
                 val result = search.execute(request)
                 success(AgentResultMapper.search(result, config))
@@ -248,18 +252,36 @@ class SearchRestaurantsTool(
                     putJsonObject("items") {
                         put("type", "object")
                         putJsonObject("properties") {
+                            fun JsonObjectBuilder.nullable(name: String, type: String) {
+                                put(
+                                    name,
+                                    buildJsonObject {
+                                        put(
+                                            "type",
+                                            JsonArray(
+                                                listOf(JsonPrimitive(type), JsonPrimitive("null")),
+                                            ),
+                                        )
+                                    },
+                                )
+                            }
+
                             putJsonObject("id") { put("type", "string") }
                             putJsonObject("name") { put("type", "string") }
                             putJsonObject("address") { put("type", "string") }
+                            putJsonObject("city") { put("type", "string") }
+                            putJsonObject("province") { put("type", "string") }
+                            putJsonObject("postal") { put("type", "string") }
+                            putJsonObject("country") { put("type", "string") }
                             putJsonObject("lat") { put("type", "number") }
                             putJsonObject("lng") { put("type", "number") }
                             putJsonObject("distanceMiles") { put("type", "number") }
-                            putJsonObject("cuisine") { put("type", "string") }
-                            putJsonObject("isHandCut") { put("type", "boolean") }
+                            nullable("cuisine", "string")
+                            nullable("isHandCut", "boolean")
+                            nullable("isDelivery", "boolean")
+                            nullable("rating", "number")
                             putJsonObject("halalScope") { put("type", "string") }
-                            putJsonObject("isDelivery") { put("type", "boolean") }
                             putJsonObject("verificationStatus") { put("type", "string") }
-                            putJsonObject("rating") { put("type", "number") }
                             putJsonObject("websiteUrl") { put("type", "string") }
                         }
                     }
@@ -301,16 +323,16 @@ internal fun JsonObject.optionalBoolean(name: String): Boolean? {
         ?: throw InvalidSearchArgumentsException("$name must be a boolean")
 }
 
-internal fun JsonObject.optionalDouble(name: String): Double? {
+internal fun JsonObject.optionalDouble(name: String, label: String = name): Double? {
     val element = this[name] ?: return null
     if (element is JsonNull) return null
     val primitive = element as? JsonPrimitive
-        ?: throw InvalidSearchArgumentsException("$name must be a number")
-    if (primitive.isString) throw InvalidSearchArgumentsException("$name must be a number")
+        ?: throw InvalidSearchArgumentsException("$label must be a number")
+    if (primitive.isString) throw InvalidSearchArgumentsException("$label must be a number")
     val value = primitive.doubleOrNull
-        ?: throw InvalidSearchArgumentsException("$name must be a number")
+        ?: throw InvalidSearchArgumentsException("$label must be a number")
     if (!value.isFinite()) {
-        throw InvalidSearchArgumentsException("$name must be a finite number")
+        throw InvalidSearchArgumentsException("$label must be a finite number")
     }
     return value
 }
@@ -343,7 +365,7 @@ internal fun JsonObject.optionalStringArray(name: String): List<String>? {
 }
 
 internal fun JsonObject.requiredDouble(name: String, label: String = name): Double {
-    val value = optionalDouble(name)
+    val value = optionalDouble(name, label)
         ?: throw InvalidSearchArgumentsException("$label is required")
     return value
 }

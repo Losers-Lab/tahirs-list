@@ -1,6 +1,8 @@
 package com.tahirslist.mcp
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.ktor.http.HttpStatusCode
@@ -53,6 +55,20 @@ class McpDiscoveryTest : FunSpec({
                 tool["inputSchema"]!!.jsonObject["type"]!!.jsonPrimitive.content shouldBe "object"
                 tool["outputSchema"]!!.jsonObject["type"]!!.jsonPrimitive.content shouldBe "object"
             }
+
+            // The search card schema must describe every field the mapper emits,
+            // including the address parts and the genuinely nullable tri-state.
+            val search = tools.first { it["name"]!!.jsonPrimitive.content == "search_restaurants" }
+            val items = search["outputSchema"]!!.jsonObject["properties"]!!.jsonObject["results"]!!
+                .jsonObject["items"]!!.jsonObject["properties"]!!.jsonObject
+
+            items.keys shouldContainAll listOf(
+                "id", "name", "address", "city", "province", "postal", "country",
+                "lat", "lng", "distanceMiles", "cuisine", "isHandCut", "halalScope",
+                "isDelivery", "verificationStatus", "rating", "websiteUrl",
+            )
+            items["isHandCut"]!!.jsonObject["type"]!!.jsonArray.map { it.jsonPrimitive.content } shouldContain "null"
+            items["rating"]!!.jsonObject["type"]!!.jsonArray.map { it.jsonPrimitive.content } shouldContain "null"
         }
     }
 })
