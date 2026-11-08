@@ -4,7 +4,7 @@
 
 | AC | UC | Black-box | White-box | Classes | Tests | WI | PR | Deployed |
 |---|---|---|---|---|---|---|---|---|
-| AC-a | UC-01.4 · UC-02.6 | 04/UC-01 · 04/UC-02 | 06/UC-01 · 06/UC-02 | `GeocodedAddress`, `GeocodedAddresses`, `ExposedGeocodedAddressStore` | `GeocodedAddressesMigrationTest` "V22 creates…" ✅ · "normalized_query_hash is the primary key" ✅ · `ExposedGeocodedAddressStoreTest` round-trip ✅ · duplicate/out-of-range rejected ✅ | WI-01, WI-03 | #81 | — |
+| AC-a | UC-01.4 · UC-02.6 | 04/UC-01 · 04/UC-02 | 06/UC-01 · 06/UC-02 | `GeocodedAddress`, `GeocodedAddresses`, `ExposedGeocodedAddressStore` | `GeocodedAddressesMigrationTest` "V23 creates…" ✅ · "normalized_query_hash is the primary key" ✅ · `ExposedGeocodedAddressStoreTest` round-trip ✅ · duplicate/out-of-range rejected ✅ | WI-01, WI-03 | #81 | — |
 | AC-b | UC-01.4.2–4.3 · UC-02.6 | 04/UC-01 · 04/UC-02 | 06/UC-01 · 06/UC-02 | `CachingGeocoder`, `GeocodedAddressStore` | `CachingGeocoderTest` "missThenHitCallsProviderOnce" ✅ · "hitReturnsStoredPlaceWithoutProviderCall" ✅ · "lookupAndWriteUseSameKey" ✅ | WI-04 | #81 | — |
 | AC-c | UC-01.4.1 | 04/UC-01 | 06/UC-01 | `NormalizedQuery` | `NormalizedQueryTest` "ignores case and surrounding whitespace" ✅ · "collapses internal whitespace" ✅ · "folds compatibility forms before hashing" ✅ | WI-02 | #81 | — |
 | AC-d | UC-01.4.4, E2, E3 · UC-02.6 | 04/UC-01 · 04/UC-02 | 06/UC-01 · 06/UC-02 | `NormalizedQuery`, `CachingGeocoder`, `GeocodedAddress` | `NormalizedQueryTest` "hash is stable across calls" ✅ · "pins the algorithm with a known vector" ✅ · `CachingGeocoderTest` "noMatchIsNotCached" ✅ · "providerFailureLeavesNoCacheRow" ✅ | WI-02, WI-04 | #81 | — |

@@ -8,7 +8,7 @@ Backend only — the cache has no API or UI surface. Each WI is one review-sized
 
 | WI | Layer | Covers | Tests first | Depends on | PR |
 |---|---|---|---|---|---|
-| **WI-01** | persistence | AC-a · table + checks | `GeocodedAddressesMigrationTest.uniqueQueryHash` · `rejectsOutOfRangePoint` | — | #81 |
+| **WI-01** | persistence | AC-a · table + checks | `GeocodedAddressesMigrationTest` "V23 creates…" · "normalized_query_hash is the primary key" | — | #81 |
 | **WI-02** | application | AC-c, AC-d · normalization + key | `NormalizedQueryTest.ignoresWhitespaceAndCase` · `collapsesInternalWhitespace` · `fullWidthFormsNormalize` · `hashIsStable` · `knownHashVector` | — | #81 |
 | **WI-03** | application + persistence | AC-a, INV-11 · store port + adapter | `ExposedGeocodedAddressStoreTest.saveThenFindRoundTrips` · `saveRefreshesStaleRow` · `oldRowIsNotServed` | WI-01 | #81 |
 | **WI-04** | application | AC-b, AC-d, INV-9 · decorator | `CachingGeocoderTest.missThenHitCallsProviderOnce` · `hitReturnsStoredPlaceWithoutProviderCall` · `noMatchIsNotCached` · `providerFailureLeavesNoCacheRow` · `expiredRowIsRefetchedAndRefreshed` · `lookupAndWriteUseSameKey` · `readFailureFallsBackToProvider` · `writeFailureStillReturnsPlace` | WI-02, WI-03 | #81 |
@@ -32,7 +32,7 @@ Backend only — the cache has no API or UI surface. Each WI is one review-sized
 
 | Class / object | WI |
 |---|---|
-| `GeocodedAddresses` (Exposed) · `V22__sc_198_geocoded_addresses.sql` | WI-01 |
+| `GeocodedAddresses` (Exposed) · `V23__sc_198_geocoded_addresses.sql` | WI-01 |
 | `NormalizedQuery` | WI-02 |
 | `GeocodedAddress` · `GeocodedAddressStore` · `ExposedGeocodedAddressStore` | WI-03 |
 | `CachingGeocoder` | WI-04 |

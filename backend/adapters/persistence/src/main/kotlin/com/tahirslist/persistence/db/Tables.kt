@@ -104,6 +104,7 @@ object RestaurantListings : Table("restaurant_listings") {
     val ownerId = uuid("owner_id").index("idx_restaurant_listings_owner").nullable()
     val brandId = uuid("brand_id").nullable()
     val provenance = varchar("provenance", 64).nullable()
+    val venueKey = char("venue_key", 64).nullable()
     val verificationStatus = varchar("verification_status", 32)
     val createdAt = timestampWithTimeZone("created_at")
     val price = decimal("price", 10, 2).nullable()
@@ -214,7 +215,7 @@ object HalalCertificationReviews : Table("halal_certification_reviews") {
 }
 
 /**
- * `V22__sc_198_geocoded_addresses.sql` (SC-198): the geocode cache.
+ * `V23__sc_198_geocoded_addresses.sql` (SC-198): the geocode cache.
  *
  * One row per normalized query; the SHA-256 hash is the primary key, so a write
  * is an idempotent upsert and a read is a primary-key lookup. `created_at` is
@@ -231,4 +232,28 @@ object GeocodedAddresses : Table("geocoded_addresses") {
     val createdAt = timestampWithTimeZone("created_at")
 
     override val primaryKey = PrimaryKey(normalizedQueryHash)
+}
+
+/**
+ * `V22__sc_211_ingestion_schema.sql` — cited certifier observations.
+ *
+ * Unique by `(source, source_record_ref)` globally; the listing FK is the audit
+ * link. `hand_cut_declaration` stores the certifier's three-state policy so
+ * "declared not" stays distinguishable from "silent".
+ */
+object ExternalCertificationClaims : Table("external_certification_claims") {
+    val id = uuid("id")
+    val listingId = uuid("listing_id").index("idx_external_claims_listing")
+    val claimSource = varchar("source", 64)
+    val sourceTier = short("source_tier")
+    val sourceRecordRef = varchar("source_record_ref", 255)
+    val sourceUrl = varchar("source_url", 1024)
+    val certifier = varchar("certifier", 255)
+    val expiresOn = date("expires_on").nullable()
+    val handCutDeclaration = varchar("hand_cut_declaration", 32)
+    val firstSeen = timestampWithTimeZone("first_seen").nullable()
+    val lastSeen = timestampWithTimeZone("last_seen").nullable()
+    val createdAt = timestampWithTimeZone("created_at")
+
+    override val primaryKey = PrimaryKey(id)
 }

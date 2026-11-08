@@ -145,7 +145,7 @@ Three rounds without convergence → escalate with a one-paragraph summary. That
 asks the owner for a decision, not a code review; merge still needs both
 `Verdict: APPROVE` verdicts.
 
-## Step 12 — Owner review, merge, deploy
+## Step 12 — Owner review, merge, deploy, close the story
 
 Only a converged PR goes to the owner. The owner reviews the diff plus the
 recorded Omar/Yusuf verdicts and approves or requests changes. Merge only after
@@ -156,6 +156,11 @@ output as evidence.) Verify on
 exception path, no new log errors, migration applied, uploads/auth if touched.
 Record evidence in `10-traceability.md`. Roll back with a revert PR, never a
 force-push.
+
+**Close the story in Shortcut.** After the dev checks pass, move the story to
+**Completed** and put the evidence on the story itself — merge commit, PR link,
+dev checks, suite counts. Do not report the task done while the story still
+reads "In Development"; a merged PR with an open story is an unfinished story.
 
 ## Report honestly
 

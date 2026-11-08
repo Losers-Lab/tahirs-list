@@ -23,7 +23,7 @@ class GeocodedAddressesMigrationTest : FunSpec({
     val hash = "a".repeat(64)
     val other = "b".repeat(64)
 
-    test("V22 creates the geocoded_addresses table") {
+    test("V23 creates the geocoded_addresses table") {
         runTest {
             postgis.count(
                 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'geocoded_addresses'",
