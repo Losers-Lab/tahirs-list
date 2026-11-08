@@ -47,7 +47,7 @@ The core UX question: **"What does the user think is happening here?"** — a ve
 
 ## 3. HandCutIndicator
 
-**Anatomy:** `[icon] Hand-cut` — icon 16px + label. There is NO machine-cut
+**Anatomy:** `[icon] Hand-cut` — icon 16px + label. There is NO counter-category
 state (sc-42 founder ruling): hand-cut is an extra boolean a listing either
 claims or not, and the indicator is shown ONLY when the listing is hand-cut.
 When hand-cut is false/unknown, omit the component entirely.
@@ -68,7 +68,7 @@ When hand-cut is false/unknown, omit the component entirely.
 - Tooltip/`title`: "Zabiha method: animal slaughtered by hand".
 
 **Don't:**
-- DON'T render a distinct machine-cut state — it does not exist.
+- DON'T render a distinct counter-category state — it does not exist.
 - DON'T add a second style for "unknown" — if not hand-cut, omit the component entirely (see Empty State rule).
 
 ## 4. Shared rules (all three components)

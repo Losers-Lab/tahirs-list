@@ -52,7 +52,7 @@ Legend: 🔒 hard constraint · 🎯 preference · ⚠ founder decision.
 2. Google Places — 🔒 **ToS prohibits storing Place data except Place IDs. Never a seed corpus; live enrichment only, cache ≤30 days.**
 3. Yelp Fusion (5k calls/day free) — 🔒 same non-retention posture; enrichment only.
 
-🎯 Halal/cutting-method attributes are sparse in OSM — hand-cut/machine-cut starts human-sourced (product cold-start, not vendor). 🔒 No scraping Google/Yelp, ever.
+🎯 Halal/cutting-method attributes are sparse in OSM — hand-cut (true/false/unknown) starts human-sourced (product cold-start, not vendor). 🔒 No scraping Google/Yelp, ever.
 
 ## 5. Other integrations
 
