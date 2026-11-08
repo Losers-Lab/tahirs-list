@@ -73,6 +73,26 @@ acceptance** (12). Everything between is the agent's job, self-checked.
 6. **Every PR traces to a use case step**, and every merged PR is verified on dev.
 7. **Review the diagram, then the delta table.** Prose is reviewed only where the
    diagram is silent.
+8. **Actors left, data stores right.** Sequence diagrams put everything outside
+   the system on the left; owned data stores sit on the far right. See
+   [Diagram conventions](#diagram-conventions).
+
+### Diagram conventions
+
+**Sequence diagrams: actors on the left.** Anything outside our system — the
+user, an agent client, Google Places, Photon, Yelp, Gemini — is an actor and sits
+on the left. Our lifelines follow in call order, so a call to an actor points
+**left**. A black-box diagram keeps one "Tahir's List" lifeline and puts every
+external service to its left as well.
+
+**Our data stores sit on the far right.** PostgreSQL/PostGIS, MinIO/S3 and other
+owned infrastructure come after the internal lifelines. A white-box sequence must
+show the actual read/write against the store (SQL or object call); it may not stop
+at the repository interface. Data never arrives by magic.
+
+**White-box shows the concrete adapter and its outbound call.** For every
+external dependency, draw adapter → external system → adapter, with the failure
+branch (no match vs provider outage).
 
 ## Artifacts
 
@@ -198,7 +218,8 @@ sequenceDiagram
 Number messages to match the use case steps. **No class, port, table, or method
 names** — if a step needs one to be explained, Phase 2 is underspecified.
 Security-relevant flows (auth, uploads, trust, PII) get a `> **Security:**` line
-in the header.
+in the header. Actor lifelines sit on the left; external services are actors too
+(see [Diagram conventions](#diagram-conventions)).
 
 ## Phase 5 — System class diagram
 
@@ -245,7 +266,9 @@ sequenceDiagram
 
 Every diagram must show: **transaction boundary**, aggregate state transition,
 authorization point (identity from the token, never the client), and the concrete
-error each exception flow becomes. A missing class means a Phase 5 fix + delta.
+error each exception flow becomes. Actors sit on the left, owned data stores on
+the far right; show the adapter's outbound call and the actual store read/write.
+A missing class means a Phase 5 fix + delta.
 
 ## Phase 7 — Complete class diagram
 
