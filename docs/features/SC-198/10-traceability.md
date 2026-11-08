@@ -25,7 +25,7 @@ Empty cell = finding, not formatting.
 |---|---|
 | Design approved | 2026-11-08 · commit `91fc71b` · PR #80 (merged) |
 | Implementation PR | #81 · `feat/SC-198-cache-impl` · WI-01…WI-05 done |
-| Containerized suites | **full backend suite from scratch: 799 passed, 0 failed** (`gradlew test --rerun-tasks`, 67/67 tasks, `eclipse-temurin:21-jdk`, 2026-11-08) |
+| Containerized suites | **full backend suite from scratch after merging main: 832 passed, 0 failed** (`gradlew test --rerun-tasks`, 67/67 tasks, `eclipse-temurin:21-jdk`, 2026-11-08) |
 | Reviews | `[omar]` APPROVE · `[yusuf]` APPROVE — round 2, both blocking findings fixed |
 | Deploy verification | not started — dev.tahirslist.com after merge |
 

@@ -4,7 +4,7 @@
 
 Backend only — the cache has no API or UI surface. Each WI is one review-sized slice (all six ship in PR #81), tests first.
 
-> **State 2026-11-08:** WI-01…WI-05 implemented; the full containerized backend suite is green from scratch (799 passed, 0 failed). WI-06 evidence is in `10-traceability.md`; review verdicts `[omar]` and `[yusuf]` are APPROVE.
+> **State 2026-11-08:** WI-01…WI-05 implemented; the full containerized backend suite is green from scratch after merging main (832 passed, 0 failed). WI-06 evidence is in `10-traceability.md`; review verdicts `[omar]` and `[yusuf]` are APPROVE.
 
 | WI | Layer | Covers | Tests first | Depends on | PR |
 |---|---|---|---|---|---|
