@@ -148,6 +148,17 @@ afterwards to keep context lean.
   frontend components, routes, load functions, or stores**, consult the live
   Svelte/SvelteKit documentation MCP to confirm the version-correct idiom
   (runes, `$app/state`, etc.) instead of patterns that may be outdated.
+- **`basic-memory`** (always on, project default `tahirs-list-kb`): the shared
+  knowledge base lives in [`Losers-Lab/tahirs-list-kb`](https://github.com/Losers-Lab/tahirs-list-kb)
+  as an OKF v0.2 bundle. **Division of labor:** read and search cross-cutting
+  knowledge (product, process, architecture goals, operations, QA-conventions,
+  security, design decisions, research, roadmap, work ledger) through the
+  Basic Memory tools instead of guessing; write *new* cross-cutting knowledge
+  there as structured notes (typed observations + relations), never into this
+  repo's `docs/`; keep per-feature workflow artifacts in `docs/features/SC-*`
+  here. Validate bundle conformance with `basic-memory okf check` before
+  claiming a KB change is complete; KB file edits still go through this repo's
+  PR flow in the KB repository.
 - **`shadcn-svelte`** (on while implementing SvelteKit UI slices): use it to
   add/verify shadcn-svelte components rather than hand-rolling equivalents. The
   legacy Next.js app was removed in the SvelteKit migration (recover it from
