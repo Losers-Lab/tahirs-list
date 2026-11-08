@@ -37,6 +37,11 @@ The team's agreed workflow, per feature, in order:
 3. **Update Use Case Diagram**
 4. **TDD for the backend server** (test-driven development; tests first)
 5. **Front-end development**
+6. **Close the loop in Shortcut** — after the merge and the dev verification,
+   move the story to **Completed** and record the evidence on the story itself
+   (merge commit, PR, dev checks, suite counts). Merging the PR is not the end
+   of the story; a story still sitting in "In Development" after merge is an
+   open process defect.
 
 Follow this order. Backend work is test-driven; do not write backend
 implementation before its failing tests unless explicitly directed otherwise.
