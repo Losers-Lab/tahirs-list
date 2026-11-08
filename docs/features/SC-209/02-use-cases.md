@@ -175,4 +175,4 @@ error or protocol refusal, **no state change**.
 | Q-6 | Production base URLs for listing and certificate/image links. | Founder / Adnan | Deploy |
 | Q-7 | Agent as supporting actor only, or a new persona? | Founder / Adnan | Design approval |
 | Q-8 | Update the Shortcut system-wide use-case diagram to add the AG actor to Search/View (the authoritative diagram lives there). | Adnan | Before implementation |
-| Q-9 | Partial-halal coverage: must the product assert "these are the only halal items; the rest is not halal" (or an exhaustive halal list), beyond today's declared map where unlisted = unknown? | Founder / Adnan | Design approval |
+| Q-9 | Partial-halal coverage: must the product assert "these are the only halal items; the rest is not halal" (or an exhaustive halal list), beyond today's declared map where unlisted = unknown? **Out of scope here — tracked as SC-216.** | Founder / Adnan | SC-216 |
