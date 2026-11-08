@@ -55,9 +55,10 @@ class PostgisSmokeTest : FunSpec() {
             // (V16), the sc-42 hand-cut boolean (V17), the sc-119 partial-halal
             // columns + restaurant_halal_items (V18), the sc-184
             // is_delivery column (V19), the sc-187 structured address
-            // columns (V20), and the sc-73 certificate_key column on reviews
-            // (V21) all run cleanly on a real PostGIS DB.
-            result.migrationsExecuted shouldBe 21
+            // columns (V20), the sc-73 certificate_key column on reviews
+            // (V21), and the SC-198 geocoded_addresses cache table (V22) all
+            // run cleanly on a real PostGIS DB.
+            result.migrationsExecuted shouldBe 22
         }
     }
 }
