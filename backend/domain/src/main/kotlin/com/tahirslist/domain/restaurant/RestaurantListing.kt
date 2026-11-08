@@ -19,13 +19,12 @@ import kotlin.uuid.Uuid
  * [fromStorage] with nulls. [brandId] links a location to its brand (brand /
  * location split) and [provenance] stamps the row's origin.
  *
- * [isHandCut] is the founder's sc-42 ruling: there is NO machine-cut concept.
- * Hand-cut is a plain boolean — a listing either claims it or not. null means
+ * [isHandCut] is the founder's sc-42 ruling: hand-cut is the only cut claim we
+ * model. It is a plain boolean — a listing either claims it or not. null means
  * "unknown / not claimed" (community/research seed rows, which never claim a
  * method); true means hand-cut (Zabiha); false means not-hand-cut. Search treats
  * null the same as false: only a hand-cut-only filter excludes it. This replaces
- * the earlier either/or CuttingMethod enum (HAND_CUT | MACHINE_CUT) wholesale
- * (V17 migrates the column).
+ * the earlier either/or CuttingMethod enum wholesale (V17 migrates the column).
  *
  * Partial-halal modeling (sc-119, founder re-scope):
  *  - [halalScope] + [halalItems] model *which* items are halal per listing. This
@@ -78,6 +77,7 @@ data class RestaurantListing(
     val ownerId: Uuid?,
     val brandId: Uuid?,
     val provenance: Provenance?,
+    val venueKey: String? = null,
     val verificationStatus: VerificationStatus,
     val createdAt: Instant,
     val halalScope: HalalScope = HalalScope.DEFAULT,
@@ -89,8 +89,9 @@ data class RestaurantListing(
     /**
      * Produce an updated copy of this listing's *editable content fields*
      * (sc-23/47/48 owner listing edit). Unlike [new], identity and governance
-     * fields — [id], [ownerId], [brandId], [provenance], [verificationStatus],
-     * [createdAt], [price] and [rating] — are PRESERVED untouched: an owner
+     * fields — [id], [ownerId], [brandId], [provenance], [venueKey],
+     * [verificationStatus], [createdAt], [price] and [rating] — are PRESERVED
+     * untouched: an owner
      * editing their listing can never change who owns it, its verification
      * status, or audit fields. Ownership/status changes are out of scope for a
      * listing edit (they run through the claim/verification vertical).
@@ -143,6 +144,9 @@ data class RestaurantListing(
         const val PROVINCE_MAX_LENGTH: Int = 64
         const val POSTAL_MAX_LENGTH: Int = 32
         const val COUNTRY_MAX_LENGTH: Int = 16
+
+        /** A deterministic venue identity: lowercase SHA-256 hex. */
+        private val VENUE_KEY = Regex("^[0-9a-f]{64}$")
 
         /**
          * Trim + validate an optional structured-address field. null (unknown)
@@ -210,8 +214,89 @@ data class RestaurantListing(
                 ownerId = ownerId,
                 brandId = null,
                 provenance = null,
+                venueKey = null,
                 verificationStatus = VerificationStatus.DEFAULT,
                 createdAt = Clock.System.now(),
+                halalScope = halalScope,
+                halalItems = halalItems,
+                crossContamination = crossContamination,
+                alcoholServed = alcoholServed,
+            )
+        }
+
+        /**
+         * Build an ingested listing (D-15). Unlike [new], the row may have no
+         * owner and no cuisine, carries a brand/provenance and a deterministic
+         * [venueKey], and may start `VERIFIED` only when the caller supplies the
+         * `CERTIFIER_REGISTRY` basis. The claim that justifies it is enforced by
+         * the load use case, not here.
+         *
+         * @throws IllegalArgumentException if the name/address is blank, an
+         *   address field is blank/too long, [provenance] is null, the basis does
+         *   not match the status, or [venueKey] is not a 64-char lowercase hex.
+         */
+        fun imported(
+            name: String,
+            address: String,
+            city: String? = null,
+            province: String? = null,
+            postal: String? = null,
+            country: String? = null,
+            location: LatLng,
+            cuisine: Cuisine? = null,
+            isHandCut: Boolean? = null,
+            isDelivery: Boolean? = null,
+            price: Price? = null,
+            rating: Rating? = null,
+            ownerId: Uuid? = null,
+            brandId: Uuid? = null,
+            provenance: Provenance?,
+            venueKey: String? = null,
+            verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
+            verificationBasis: VerificationBasis? = null,
+            createdAt: Instant = Clock.System.now(),
+            halalScope: HalalScope = HalalScope.DEFAULT,
+            halalItems: Set<HalalItem> = emptySet(),
+            crossContamination: CrossContamination = CrossContamination.DEFAULT,
+            alcoholServed: Boolean = false,
+        ): RestaurantListing {
+            val trimmedName = name.trim()
+            val trimmedAddress = address.trim()
+            require(trimmedName.isNotBlank()) { "Listing name must not be blank." }
+            require(trimmedAddress.isNotBlank()) { "Listing address must not be blank." }
+            require(provenance != null) { "An imported listing must carry a provenance stamp." }
+            require(venueKey == null || VENUE_KEY.matches(venueKey)) {
+                "venueKey must be a 64-character lowercase hex string."
+            }
+            when (verificationStatus) {
+                VerificationStatus.VERIFIED -> require(verificationBasis == VerificationBasis.CERTIFIER_REGISTRY) {
+                    "A VERIFIED imported listing requires the CERTIFIER_REGISTRY basis."
+                }
+                VerificationStatus.UNVERIFIED -> require(verificationBasis == null) {
+                    "An UNVERIFIED imported listing must not carry a verification basis."
+                }
+            }
+
+            return RestaurantListing(
+                id = Uuid.random(),
+                name = trimmedName,
+                address = trimmedAddress,
+                city = trimAddressField("city", city, CITY_MAX_LENGTH),
+                province = trimAddressField("province", province, PROVINCE_MAX_LENGTH),
+                postal = trimAddressField("postal", postal, POSTAL_MAX_LENGTH),
+                country = trimAddressField("country", country, COUNTRY_MAX_LENGTH),
+                location = location,
+                cuisine = cuisine,
+                isHandCut = isHandCut,
+                isDelivery = isDelivery,
+                price = price,
+                rating = rating,
+                ownerId = ownerId,
+                brandId = brandId,
+                provenance = provenance,
+                venueKey = venueKey,
+                verificationStatus = verificationStatus,
+                createdAt = createdAt,
                 halalScope = halalScope,
                 halalItems = halalItems,
                 crossContamination = crossContamination,
@@ -241,6 +326,7 @@ data class RestaurantListing(
             ownerId: Uuid?,
             brandId: Uuid?,
             provenance: Provenance?,
+            venueKey: String? = null,
             verificationStatus: VerificationStatus,
             createdAt: Instant,
             halalScope: HalalScope = HalalScope.DEFAULT,
@@ -264,6 +350,7 @@ data class RestaurantListing(
             ownerId = ownerId,
             brandId = brandId,
             provenance = provenance,
+            venueKey = venueKey,
             verificationStatus = verificationStatus,
             createdAt = createdAt,
             halalScope = halalScope,
