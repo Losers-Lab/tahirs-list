@@ -97,6 +97,7 @@ class CertifierHttpTest : FunSpec({
             transport.requests.size shouldBe 1
             second.snapshot.fromCache shouldBe true
             second.snapshot.body shouldBe "cached body"
+            second.snapshot.requestedUrl shouldBe "https://example.test/list"
         }
     }
 
@@ -571,6 +572,7 @@ class CertifierHttpTest : FunSpec({
 
             shouldThrow<SourceBlockedException> { client.get("https://example.test/forbidden") }
             shouldThrow<SourceBlockedException> { client.get("https://example.test/forbidden") }
+            transport.requests.size shouldBe 2
         }
     }
 })

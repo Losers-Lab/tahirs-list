@@ -94,7 +94,9 @@ class CertifierHttp(
             ageMillis < policy.cacheTtl.inWholeMilliseconds
         ) {
             log("cache hit: ${request.method} ${request.url}")
-            return FetchResult(cached.toSnapshot(certifierId(URI(cached.url)), fromCache = true))
+            return FetchResult(
+                cached.toSnapshot(certifierId(URI(cached.url)), fromCache = true, requestedUrl = uri.toString()),
+            )
         }
 
         val headers = request.headers.toMutableMap()
@@ -111,7 +113,11 @@ class CertifierHttp(
             store.write(key, refreshed)
             log("revalidated (304): ${request.url}")
             return FetchResult(
-                refreshed.toSnapshot(certifierId(URI(refreshed.url)), fromCache = true),
+                refreshed.toSnapshot(
+                    certifierId(URI(refreshed.url)),
+                    fromCache = true,
+                    requestedUrl = uri.toString(),
+                ),
             )
         }
 
