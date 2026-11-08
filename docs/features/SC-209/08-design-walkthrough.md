@@ -74,5 +74,7 @@ flowchart LR
 Approved by: `<pending>` · Date: · Design commit:
 Decision items: `<pending>`
 
-> **Design approval requested.** Reply `approved` to start implementation, or
-> name the diagram and the change.
+Re-approval: format-only retrofit, technical content unchanged, 0ef91f7
+
+> **Re-approval requested.** Reply `approved` to confirm technical content is
+> unchanged (format-only), or name the diagram and the change.
