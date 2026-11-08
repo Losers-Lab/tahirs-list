@@ -120,7 +120,8 @@ the PR; **two consecutive clean rounds**; diagrams updated; deferrals are
 Shortcut stories.
 
 Three rounds without convergence → escalate with a one-paragraph summary. That
-asks the owner for a decision, not a code review; merge still needs both verdicts.
+asks the owner for a decision, not a code review; merge still needs both
+`Verdict: APPROVE` verdicts.
 
 ## Step 12 — Owner review, merge, deploy
 

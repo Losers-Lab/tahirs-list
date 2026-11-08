@@ -205,7 +205,8 @@ rather than proceeding with unverified assumptions.
     specialist rounds. Both `Verdict: APPROVE` verdicts (`[omar]`, `[yusuf]`)
     must be on the PR before the owner is asked. When rounds stall, escalate to
     the owner **for a decision** (see the three-round rule in the process doc);
-    that escalation is not an owner code review.
+    that escalation is not an owner code review, so "never show the owner an
+    unconverged PR **for review**" still holds.
   - **No merge without an approving review** recorded on the PR. Security-
     sensitive work (auth, trust, integrations) additionally requires Omar's
     explicit approval.

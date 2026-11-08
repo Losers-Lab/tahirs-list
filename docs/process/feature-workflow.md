@@ -398,22 +398,22 @@ Converged when all of these hold:
 Three rounds without convergence → escalate with a one-paragraph summary and a
 proposed resolution. This escalation asks the owner for a **decision**, not a
 code review, so it is the one case where an unconverged PR may be shown to them;
-merge still requires both specialist verdicts. Never split the difference on a
-security finding.
+merge still requires both `Verdict: APPROVE` verdicts. Never split the difference
+on a security finding.
 
 ## Phase 12 — Owner approval, merge, deploy
 
 ```mermaid
 flowchart LR
-  O{Owner approved?} -- no --> F[Address feedback] --> O
+  O{Owner approved?} -- no --> F[Address feedback] --> R[Re-run security + QA rounds] --> O
   O -- yes --> M[Merge to main] --> W[GitHub webhook] --> B[Rebuild backend] --> F2[Rebuild frontend]
   F2 --> T[Cloudflare tunnel] --> D[dev.tahirslist.com] --> V{Verify UCs}
   V -- fail --> X[Runbook / revert] --> M
   V -- pass --> DONE([Story done])
 ```
 
-Only a converged PR reaches the owner. Merge **after** the owner's approval, then
-push to `main`; that push triggers the webhook.
+Only a converged PR reaches the owner. Merge **after** the owner's approval — the
+merge is the push to `main`; the webhook does the rest.
 
 The deploy scripts live **outside this repo**; there is **no CI**. "Green" means
 the containerized suites were run and the output recorded. Verify on dev:
