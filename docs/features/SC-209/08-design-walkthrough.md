@@ -55,26 +55,24 @@ flowchart LR
 
 | # | Question | Recommendation | Decision |
 |---|----------|----------------|----------|
-| D-1 | Ratify `ARCHITECTURE.md` §1.0: Kotlin SDK, embedded `:mcp`, stateless Streamable HTTP at `/mcp`, public read-only, rate-limited. | Approve | pending |
-| D-2 | Confirm epic 207 / iteration 208 / first in state; prioritization docs not discoverable; update the Shortcut use-case diagram for the agent actor (Q-8). | Keep; Adnan confirms | pending |
-| D-3 | Rate budget 60 req/min per client IP, bounded keys, existing proxy-trust setting. | Approve; Omar may tune | pending |
-| D-4 | Origin allow-list, empty prod default; dev adds Inspector `http://localhost:6274`. | Allow-list (deny by default) | pending |
-| D-5 | Tool names, schemas and LLM-facing descriptions as drafted. | Approve; Fatima rewords | pending |
-| D-6 | Extract `ListingSearchRequestParser` + `CertificateFacts` into `:application`; behaviour-preserving `web-api` refactor. | Approve | pending |
-| D-7 | Include the declared per-item halal map (`{name, isHalal}`) on MCP detail only (REST unchanged); absence = unknown, not exhaustive; categorical "only X" coverage is out of scope and tracked as SC-216. | Approve | pending |
-| D-8 | New `Bucket4jMcpRateLimiter` in `:mcp` rather than a shared module. | Approve; extract later | pending |
-| D-9 | AI agent = supporting actor on the existing Search/View use cases; MCP is the new channel (not a new goal); no README persona. | Approve | pending |
-| D-10 | `APP_MCP_PUBLIC_WEB_BASE_URL` / `APP_MCP_PUBLIC_API_BASE_URL`; prod requires https, rejects defaults. | Approve; founder confirms prod values | pending |
-| D-11 | Last-resort dedicated localhost server behind the tunnel if the SDK cannot coexist with `ContentNegotiation`. | Accept only if the spike proves it necessary | pending |
-| G-1 | Public "connect your agent" docs page. | Out of scope — separate story | pending |
-| G-2 | Phase 9/10 (work items, traceability) not started; no matrix yet. | Expected; starts after approval | pending |
+| D-1 | Ratify `ARCHITECTURE.md` §1.0: Kotlin SDK, embedded `:mcp`, stateless Streamable HTTP at `/mcp`, public read-only, rate-limited. | Approve | Approved 2026-11-08 |
+| D-2 | Confirm epic 207 / iteration 208 / first in state; prioritization docs not discoverable; update the Shortcut use-case diagram for the agent actor (Q-8). | Keep; Adnan confirms | Approved 2026-11-08 |
+| D-3 | Rate budget 60 req/min per client IP, bounded keys, existing proxy-trust setting. | Approve; Omar may tune | Approved 2026-11-08 |
+| D-4 | Origin allow-list, empty prod default; dev adds Inspector `http://localhost:6274`. | Allow-list (deny by default) | Approved 2026-11-08 |
+| D-5 | Tool names, schemas and LLM-facing descriptions as drafted. | Approve; Fatima rewords | Approved 2026-11-08 |
+| D-6 | Extract `ListingSearchRequestParser` + `CertificateFacts` into `:application`; behaviour-preserving `web-api` refactor. | Approve | Approved 2026-11-08 |
+| D-7 | Include the declared per-item halal map (`{name, isHalal}`) on MCP detail only (REST unchanged); absence = unknown, not exhaustive; categorical "only X" coverage is out of scope and tracked as SC-216. | Approve | Approved 2026-11-08 |
+| D-8 | New `Bucket4jMcpRateLimiter` in `:mcp` rather than a shared module. | Approve; extract later | Approved 2026-11-08 |
+| D-9 | AI agent = supporting actor on the existing Search/View use cases; MCP is the new channel (not a new goal); no README persona. | Approve | Approved 2026-11-08 |
+| D-10 | `APP_MCP_PUBLIC_WEB_BASE_URL` / `APP_MCP_PUBLIC_API_BASE_URL`; prod requires https, rejects defaults. | Approve; values set at deploy | Approved 2026-11-08 |
+| D-11 | Last-resort dedicated localhost server behind the tunnel if the SDK cannot coexist with `ContentNegotiation`. | Accept only if the spike proves it necessary | Approved 2026-11-08 |
+| G-1 | Public "connect your agent" docs page. | Out of scope — separate story | Approved: out of scope |
+| G-2 | Phase 9/10 (work items, traceability) not started; no matrix yet. | Expected; starts after approval | Approved: starts now |
 
 ## Approval
 
-Approved by: `<pending>` · Date: · Design commit:
-Decision items: `<pending>`
+Approved by: Founder (Arham) · Date: 2026-11-08 · Design commit: aad0e46
+Decision items: D-1–D-11 approved as recommended (D-10 values at deploy; D-11 only if the spike requires it); G-1 out of scope; G-2 starts now.
 
-Re-approval: design corrected — existing use cases reused; per-item halal, Photon geocoding, diagram conventions and actor/database symbols clarified; implementation content unchanged, 9291002
-
-> **Re-approval requested.** Reply `approved` to confirm technical content is
-> unchanged (format-only), or name the diagram and the change.
+> **Approved.** Step 9 (work items) begins. Any design change needs a new delta and
+> re-approval.
