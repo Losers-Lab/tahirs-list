@@ -55,7 +55,7 @@ The add-listing flow needs to (a) pre-fill known fields (name, address, phone) a
 | **Google Place Details / Yelp Fusion** | ~$0 (U-10 ratified: ~1k free/mo Google, ~500/day Yelp) | External rating/count/review link enrichment | Google: **non-retention, Place IDs only**; Yelp: **non-retention, ToS-restricted** | Enrichment only (already ratified), **never for storage** |
 
 **Honest gaps (falafel-grade):**
-- **Halal/cutting-method + address precision** are **sparse in OSM**. Hand-cut vs machine-cut starts **human-sourced** (product cold-start, not a vendor feed). No scraping of Google/Yelp — **ever** (ToS/DMCA).
+- **Halal/cutting-method + address precision** are **sparse in OSM**. Hand-cut (true/false/unknown) starts **human-sourced** (product cold-start, not a vendor feed). No scraping of Google/Yelp — **ever** (ToS/DMCA).
 - **ODbL share-alike** on OSM-derived POI data is an **unsettled policy decision** (⚠ founder) — whether fields we pull from OSM/Photon and store must be released share-alike. Flagging, not deciding.
 - **Dedupe is fuzzy and error-prone** (spellings, chains, address variants). Recommend a conservative local match + let owners claim (existing claim flow) resolve collisions. Do not pretend ML-grade dedupe at MVP.
 

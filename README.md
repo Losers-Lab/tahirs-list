@@ -3,7 +3,7 @@
 > بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيْمِ
 
 A platform to help Muslims reliably find halal food, with a granular **hand-cut**
-filter (an extra on/off switch — there is no machine-cut concept) and a formal
+filter (an extra on/off switch — there is no counter-category) and a formal
 verification process for restaurants.
 
 ## Status

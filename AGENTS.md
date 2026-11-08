@@ -43,9 +43,9 @@ implementation before its failing tests unless explicitly directed otherwise.
 
 ## Product at a glance
 
-Halal Food Finder helps Muslims find halal food, with a granular
-**hand-cut vs machine-cut** filter and a **formal verification process** for
-restaurants. Core pillars (from the PRD):
+Halal Food Finder helps Muslims find halal food, with a **hand-cut filter**
+(hand-cut, not hand-cut, or unknown — there is no counter-category) and a
+**formal verification process** for restaurants. Core pillars (from the PRD):
 
 - Searchable restaurant listings by location; filters for cutting method,
   price, cuisine (with AND/OR chaining), rating, and distance.
@@ -160,6 +160,16 @@ rather than proceeding with unverified assumptions.
 
 ## Engineering ground rules
 
+- **Hand-cut vocabulary rule (product-wide, all layers).** Tahir's List has
+  exactly one cutting attribute: **hand-cut**. A certifier-backed row is
+  `TRUE` only when the certifier declares hand-cut, and `FALSE` otherwise
+  (including when the certifier is silent); `NULL` is reserved for rows with no
+  certifier claim. Never introduce a counter-category, antonym, or
+  alternative-method label for hand-cut anywhere: UI copy, data vocabularies,
+  enum values, column names, test names, docs, commit messages, or PR text.
+  Verification and hand-cut are independent: a recognized certifier's tier
+  drives `VERIFIED`; that certifier's own declaration drives hand-cut. This
+  rule binds every future agent and every surface, not only ingestion.
 - **Work in small, reviewable increments.** Prefer clear tasks with explicit
   acceptance criteria tied to Shortcut stories.
 - **TDD for the backend** (per the Development Process doc). Keep tests runnable

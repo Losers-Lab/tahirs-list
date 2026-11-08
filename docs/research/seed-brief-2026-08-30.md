@@ -13,7 +13,7 @@
 | 1 | **Geocoder = Photon (OSM), NOT Google Places.** The earlier "Google autocomplete+geocoding hybrid" recommendation in `docs/research/external-services-brief-2026-08-29.md` is **superseded for MVP** by this founder ruling. | Arham, 2026-08-30 (relayed by Adnan) |
 | 2 | **Seed source = OSM/Overpass** ($0), ODbL-attribution aware. | external-services brief §4 |
 | 3 | **Google Places is never a seed corpus** (ToS: Place IDs only; live enrichment; cache ≤30 days). No scraping Google/Yelp, ever. | external-services brief §4 |
-| 4 | **hand-cut / machine-cut are sparsely tagged in OSM — human-sourced cold start.** | external-services brief §4 |
+| 4 | **hand-cut (true/false/unknown) is sparsely tagged in OSM — human-sourced cold start.** | external-services brief §4 |
 | 5 | Every seed row starts **UNVERIFIED** with provenance `research-seed / photon-geocode` (listing-first product model). | notes_for_hamza (seed JSON) |
 
 **Implication for seed-ingest:** the ingest task must (a) tag ODbL attribution as the data source, (b) seed only venues that resolve on Photon/OSM (no invented coordinates), (c) set `verification=unverified` + provenance on every row, and (d) treat cutting-method attributes as empty until human-sourced.
@@ -127,7 +127,7 @@ Note on endpoint reliability (process note for Hamza/sc-155): the primary `overp
 ## 5. Open flags / what I did NOT do
 
 - I did **not** scrape Google or Yelp; no Google-derived corpus (founder Photon ruling respected).
-- Cutting-method (hand-cut/machine-cut) attributes: **not determinable from OSM** — all 30 start with no cutting-method value (human-sourced cold start).
+- Cutting-method (hand-cut true/false/unknown) attributes: **not determinable from OSM** — all 30 start with no cutting-method value (human-sourced cold start).
 - Cuisines in §2 are brief-assigned enrichment; confirm per venue at ingest/claim (OSM cuisine tags were empty for most).
 - Halal status for the 3 held-back Austin venues is unconfirmed — kept out of the verified seed set on purpose.
 

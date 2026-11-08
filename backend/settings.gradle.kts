@@ -10,6 +10,19 @@ include(":persistence", ":storage-s3", ":verification-ai", ":verification-commit
 include(":geocoding")
 include(":bootstrap")
 
+// SC-211: standalone certifier libraries. Each owns its own domain model and
+// depends only on :certifier-core (transport/politeness) — never on :domain or
+// :application, so they can be extracted into independent repositories later.
+include(":certifier-core", ":certifier-hms", ":certifier-hfsaa", ":certifier-hma")
+// App-side translation boundary: library models -> Tahir's List ingestion model.
+include(":ingestion")
+
+project(":certifier-core").projectDir = file("libraries/certifier-core")
+project(":certifier-hms").projectDir = file("libraries/certifier-hms")
+project(":certifier-hfsaa").projectDir = file("libraries/certifier-hfsaa")
+project(":certifier-hma").projectDir = file("libraries/certifier-hma")
+project(":ingestion").projectDir = file("ingestion")
+
 project(":persistence").projectDir = file("adapters/persistence")
 project(":geocoding").projectDir = file("adapters/geocoding")
 project(":storage-s3").projectDir = file("adapters/storage-s3")
