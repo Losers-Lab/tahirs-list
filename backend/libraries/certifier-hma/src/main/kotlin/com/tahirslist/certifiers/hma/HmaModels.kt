@@ -29,4 +29,5 @@ val HmaProfile: CertifierProfile = CertifierProfile(
     sourceUrl = "https://hmacanada.org/hma-certified-restaurants/",
     declaredHandCut = HandCutDeclaration.HAND_CUT,
     handCutBasis = "HMA certification standard requires hand-cut (founder-supplied research, 2026-11-07)",
+    allowedHosts = setOf("hmacanada.org", "www.hmacanada.org"),
 )

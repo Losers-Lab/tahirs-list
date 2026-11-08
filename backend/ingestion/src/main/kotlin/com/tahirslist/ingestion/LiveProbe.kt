@@ -2,8 +2,11 @@ package com.tahirslist.ingestion
 
 import com.tahirslist.certifiers.core.CertifierHttp
 import com.tahirslist.certifiers.hfsaa.HfsaaLocator
+import com.tahirslist.certifiers.hfsaa.HfsaaProfile
 import com.tahirslist.certifiers.hma.HmaCertifiedOutlets
+import com.tahirslist.certifiers.hma.HmaProfile
 import com.tahirslist.certifiers.hms.HmsDirectory
+import com.tahirslist.certifiers.hms.HmsProfile
 import java.nio.file.Path
 import kotlin.system.exitProcess
 import kotlinx.coroutines.runBlocking
@@ -18,17 +21,15 @@ import kotlinx.coroutines.runBlocking
  * Run it in the container: `./scripts/certifier-live.sh`.
  */
 fun main() = runBlocking {
-    val cacheDir = Path.of(
-        System.getenv("CERTIFIER_CACHE_DIR") ?: "/tmp/tahirs-list-certifier-cache",
-    )
+    val cacheDir = System.getenv("CERTIFIER_CACHE_DIR")?.let { Path.of(it) }
+        ?: CertifierHttp.defaultCacheDir()
     println("Tahir's List certifier live probe")
     println("cache: $cacheDir")
     println()
 
-    val http = CertifierHttp.create(cacheDir = cacheDir, log = { println("  http  $it") })
-    val hms = HmsDirectory(http)
-    val hfsaa = HfsaaLocator(http)
-    val hma = HmaCertifiedOutlets(http)
+    val hms = HmsDirectory(CertifierHttp.createFor(HmsProfile, cacheDir, log = { println("  http  $it") }))
+    val hfsaa = HfsaaLocator(CertifierHttp.createFor(HfsaaProfile, cacheDir, log = { println("  http  $it") }))
+    val hma = HmaCertifiedOutlets(CertifierHttp.createFor(HmaProfile, cacheDir, log = { println("  http  $it") }))
 
     val hmsPage = hms.certifiedRestaurants()
     val hfsaaPage = hfsaa.entries()

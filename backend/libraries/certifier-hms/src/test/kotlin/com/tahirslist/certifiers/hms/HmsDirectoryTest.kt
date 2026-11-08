@@ -41,7 +41,11 @@ private object NoWait : Suspender {
 }
 
 private fun http(transport: HttpTransport) = CertifierHttp(
-    policy = FetchPolicy(userAgent = "TahirsListBot/0.1", obeyRobots = false),
+    policy = FetchPolicy(
+        userAgent = "TahirsListBot/0.1",
+        allowedHosts = setOf("hmsusa.org", "www.hmsusa.org"),
+        obeyRobots = false,
+    ),
     transport = transport,
     store = InMemorySnapshotStore(),
     clock = Clock.fixed(Instant.parse("2026-11-08T00:00:00Z"), ZoneOffset.UTC),

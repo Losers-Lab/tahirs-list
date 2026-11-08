@@ -5,13 +5,14 @@ import com.tahirslist.certifiers.core.CertifierPage
 import com.tahirslist.certifiers.core.CertifierProfile
 import com.tahirslist.certifiers.core.FetchResult
 import com.tahirslist.certifiers.core.SourceBlockedException
+import java.net.URI
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * HFSAA public-locator client.
  *
  * ```kotlin
- * val hfsaa = HfsaaLocator(CertifierHttp.create())
+ * val hfsaa = HfsaaLocator(CertifierHttp.createFor(HfsaaProfile))
  * val newYork = hfsaa.entries(chapter = "New York")
  * ```
  *
@@ -50,7 +51,10 @@ class HfsaaLocator(
     private suspend fun fetch(refresh: Boolean): FetchResult = try {
         rpc(activeKey, refresh)
     } catch (e: SourceBlockedException) {
-        // A rotated publishable key returns 401. Re-discover once, then retry.
+        // Only a rotated publishable key returns 401. A 403 is a real refusal:
+        // retrying it, or re-discovering a key to retry, would be bypassing the
+        // source's policy.
+        if (e.status != 401) throw e
         val discovered = (keyDiscovery ?: ::discoverKey)() ?: throw e
         activeKey = discovered
         rpc(discovered, refresh)
@@ -86,6 +90,11 @@ class HfsaaLocator(
         } else {
             HfsaaProject.LOCATOR_HOME.trimEnd('/') + "/" + bundlePath.trimStart('/')
         }
+        // Never fetch a script the page merely points at: it must stay on the
+        // locator's own allow-listed host, over HTTPS.
+        val bundleUri = runCatching { URI(bundleUrl) }.getOrNull() ?: return null
+        if (!bundleUri.scheme.equals("https", ignoreCase = true)) return null
+        if (bundleUri.host?.lowercase() !in profile.allowedHosts.map { it.lowercase() }) return null
 
         val bundle = try {
             http.get(bundleUrl, accept = "text/javascript").snapshot.body

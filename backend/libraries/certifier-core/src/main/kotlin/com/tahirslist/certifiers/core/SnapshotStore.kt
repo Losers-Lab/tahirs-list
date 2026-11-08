@@ -53,6 +53,9 @@ class FileSnapshotStore(private val root: Path) : SnapshotStore {
 
         return runCatching {
             val meta = json.decodeFromString<Meta>(Files.readString(metaFile, StandardCharsets.UTF_8))
+            val body = Files.readString(bodyFile, StandardCharsets.UTF_8)
+            // A tampered or half-written pair is a cache miss, never trust data.
+            if (meta.sha256 != null && meta.sha256 != sha256Hex(body)) return null
             StoredPage(
                 url = meta.url,
                 status = meta.status,
@@ -61,28 +64,46 @@ class FileSnapshotStore(private val root: Path) : SnapshotStore {
                 lastModified = meta.lastModified,
                 headers = meta.headers,
                 fetchedAt = Instant.parse(meta.fetchedAt),
-                body = Files.readString(bodyFile, StandardCharsets.UTF_8),
+                body = body,
             )
         }.getOrNull()
     }
 
     override suspend fun write(key: String, page: StoredPage) {
         Files.createDirectories(root)
-        writeAtomically(root.resolve("$key.body"), page.body)
-        writeAtomically(
-            root.resolve("$key.meta.json"),
-            json.encodeToString(Meta.from(page)),
-        )
+        secure(root, directory = true)
+        val bodyFile = root.resolve("$key.body")
+        val metaFile = root.resolve("$key.meta.json")
+        writeAtomically(bodyFile, page.body)
+        writeAtomically(metaFile, json.encodeToString(Meta.from(page)))
+    }
+
+    private fun secure(path: java.nio.file.Path, directory: Boolean) {
+        runCatching {
+            if (directory) {
+                Files.setPosixFilePermissions(
+                    path,
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"),
+                )
+            } else {
+                Files.setPosixFilePermissions(
+                    path,
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"),
+                )
+            }
+        }
     }
 
     private fun writeAtomically(target: Path, content: String) {
         val temp = Files.createTempFile(root, "snapshot-", ".tmp")
+        secure(temp, directory = false)
         Files.writeString(temp, content, StandardCharsets.UTF_8)
         runCatching {
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         }.onFailure {
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
         }
+        secure(target, directory = false)
     }
 
     @Serializable
@@ -94,6 +115,7 @@ class FileSnapshotStore(private val root: Path) : SnapshotStore {
         val lastModified: String? = null,
         val headers: Map<String, String> = emptyMap(),
         val fetchedAt: String,
+        val sha256: String? = null,
     ) {
         companion object {
             fun from(page: StoredPage) = Meta(
@@ -104,6 +126,7 @@ class FileSnapshotStore(private val root: Path) : SnapshotStore {
                 lastModified = page.lastModified,
                 headers = page.headers,
                 fetchedAt = page.fetchedAt.toString(),
+                sha256 = sha256Hex(page.body),
             )
         }
     }

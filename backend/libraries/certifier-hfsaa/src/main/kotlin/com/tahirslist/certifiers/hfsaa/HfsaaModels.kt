@@ -71,6 +71,12 @@ val HfsaaProfile: CertifierProfile = CertifierProfile(
     sourceUrl = "https://www.hfsaa.org/newyork",
     declaredHandCut = HandCutDeclaration.HAND_CUT,
     handCutBasis = "HFSAA certification standard requires hand-cut (founder-supplied research, 2026-11-07)",
+    allowedHosts = setOf(
+        "www.hfsaa.org",
+        "hfsaa.org",
+        "hfsaa-public-locator.developer-907.workers.dev",
+        "pmolfcjxryccsisyhhwm.supabase.co",
+    ),
 )
 
 /**

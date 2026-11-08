@@ -19,10 +19,14 @@ internal fun sha256Hex(value: String): String {
  * The exact bytes one directory request returned, plus the request metadata
  * needed to audit it later. Snapshots are the provenance record: candidates
  * cite [url] + [fetchedAt] + [sha256].
+ *
+ * [url] is the URL that finally served the bytes (after any redirects);
+ * [requestedUrl] is what we asked for. They differ when a directory redirects.
  */
 class SourceSnapshot(
     val certifierId: String,
     val url: String,
+    val requestedUrl: String = url,
     val status: Int,
     val contentType: String?,
     val etag: String?,

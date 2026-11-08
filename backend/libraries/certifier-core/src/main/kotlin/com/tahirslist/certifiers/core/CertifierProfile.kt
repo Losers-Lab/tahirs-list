@@ -28,7 +28,8 @@ enum class HandCutDeclaration {
  * Identity and declared policy of one certifier source.
  *
  * [handCutBasis] records where the declaration comes from, so a claim written
- * downstream can cite the policy rather than an assumption.
+ * downstream can cite the policy rather than an assumption. [allowedHosts] is
+ * the network allow-list every fetch for this certifier must satisfy.
  */
 data class CertifierProfile(
     val id: String,
@@ -36,11 +37,16 @@ data class CertifierProfile(
     val sourceUrl: String,
     val declaredHandCut: HandCutDeclaration,
     val handCutBasis: String,
+    val allowedHosts: Set<String>,
 ) {
     init {
         require(id.isNotBlank()) { "certifier id must not be blank" }
         require(name.isNotBlank()) { "certifier name must not be blank" }
         require(sourceUrl.startsWith("https://")) { "certifier source URL must be https" }
         require(handCutBasis.isNotBlank()) { "hand-cut basis must cite its source" }
+        require(allowedHosts.isNotEmpty()) { "a certifier must declare at least one allowed host" }
+        require(allowedHosts.none { it.isBlank() || '/' in it || ':' in it }) {
+            "allowed hosts must be bare host names"
+        }
     }
 }

@@ -9,6 +9,7 @@ class SourceUnavailableException(
     val url: String,
     message: String,
     cause: Throwable? = null,
+    val status: Int = 0,
 ) : CertifierException(message, cause)
 
 /**
@@ -18,7 +19,18 @@ class SourceUnavailableException(
 class SourceBlockedException(
     val url: String,
     message: String,
+    val status: Int = 0,
 ) : CertifierException(message)
+
+/**
+ * The response exceeded [FetchPolicy.maxResponseBytes]. Treated as a source
+ * failure, not a retryable one: a directory that streams an unbounded body is
+ * not something to hammer.
+ */
+class SourceTooLargeException(
+    val url: String,
+    val limit: Int,
+) : CertifierException("Response from $url exceeds the $limit-byte cap")
 
 /** The response arrived but could not be understood. */
 class SourceParseException(

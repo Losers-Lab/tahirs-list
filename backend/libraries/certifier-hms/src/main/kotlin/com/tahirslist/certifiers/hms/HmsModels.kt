@@ -88,4 +88,5 @@ val HmsProfile: CertifierProfile = CertifierProfile(
     sourceUrl = "https://hmsusa.org/certified-listing/",
     declaredHandCut = HandCutDeclaration.HAND_CUT,
     handCutBasis = "HMS certification standard requires hand-cut (founder-supplied research, 2026-11-07)",
+    allowedHosts = setOf("hmsusa.org", "www.hmsusa.org"),
 )

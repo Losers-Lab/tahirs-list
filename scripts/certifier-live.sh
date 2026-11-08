@@ -16,7 +16,8 @@ docker run --rm \
   -v "$PWD":/app \
   -w /app \
   -v tahirs-list-gradle-test-cache:/gradle-home \
+  -v tahirs-list-certifier-cache:/certifier-cache \
   -e GRADLE_USER_HOME=/gradle-home \
-  -e CERTIFIER_CACHE_DIR=/tmp/tahirs-list-certifier-cache \
+  -e CERTIFIER_CACHE_DIR=/certifier-cache \
   eclipse-temurin:21-jdk \
   ./gradlew --no-daemon --project-cache-dir=/tmp/gradle-project-cache :ingestion:liveProbe

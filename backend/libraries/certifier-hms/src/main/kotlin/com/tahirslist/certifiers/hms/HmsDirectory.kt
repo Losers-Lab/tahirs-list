@@ -10,7 +10,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * HMS certified-listing client.
  *
  * ```kotlin
- * val http = CertifierHttp.create()
+ * val http = CertifierHttp.createFor(HmsProfile)
  * val hms = HmsDirectory(http)
  * val restaurants = hms.certifiedRestaurants().records
  * ```

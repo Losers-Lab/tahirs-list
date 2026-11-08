@@ -32,7 +32,16 @@ private object NoWait : Suspender {
 }
 
 private fun http(transport: HttpTransport) = CertifierHttp(
-    policy = FetchPolicy(userAgent = "TahirsListBot/0.1", obeyRobots = false),
+    policy = FetchPolicy(
+        userAgent = "TahirsListBot/0.1",
+        allowedHosts = setOf(
+            "www.hfsaa.org",
+            "hfsaa.org",
+            "hfsaa-public-locator.developer-907.workers.dev",
+            "pmolfcjxryccsisyhhwm.supabase.co",
+        ),
+        obeyRobots = false,
+    ),
     transport = transport,
     store = InMemorySnapshotStore(),
     clock = Clock.fixed(Instant.parse("2026-11-08T00:00:00Z"), ZoneOffset.UTC),
@@ -175,6 +184,44 @@ class HfsaaLocatorTest : FunSpec({
             shouldThrow<SourceBlockedException> {
                 locator.entries()
             }
+        }
+    }
+
+    test("does not re-discover a key after a 403") {
+        runTest {
+            var discoveries = 0
+            val transport = RoutingTransport { HttpResponse(403) }
+            val locator = HfsaaLocator(
+                http(transport),
+                keyDiscovery = {
+                    discoveries++
+                    "sb_publishable_ROTATED"
+                },
+            )
+
+            shouldThrow<SourceBlockedException> {
+                locator.entries()
+            }
+            discoveries shouldBe 0
+            transport.requests shouldHaveSize 1
+        }
+    }
+
+    test("never fetches a key bundle from a host outside the allow-list") {
+        runTest {
+            val transport = RoutingTransport { request ->
+                when {
+                    request.url.contains("get_public_locator_entries") -> HttpResponse(401)
+                    request.url.endsWith("/") ->
+                        HttpResponse(200, body = """<script src="https://evil.test/assets/x.js"></script>""")
+                    else -> HttpResponse(200, body = """const k="sb_publishable_STOLEN";""")
+                }
+            }
+
+            shouldThrow<SourceBlockedException> {
+                HfsaaLocator(http(transport)).entries()
+            }
+            transport.requests.none { it.url.contains("evil.test") } shouldBe true
         }
     }
 })

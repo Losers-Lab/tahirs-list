@@ -51,13 +51,18 @@ private fun policy(
     maxRequests: Int = 10,
     cacheTtl: Duration = Duration.ZERO,
     obeyRobots: Boolean = false,
+    maxRedirects: Int = 3,
+    maxResponseBytes: Int = 16 * 1024 * 1024,
 ) = FetchPolicy(
     userAgent = TEST_UA,
+    allowedHosts = setOf("example.test", "one.test", "two.test"),
     minInterval = minInterval,
     maxAttempts = maxAttempts,
     maxRequestsPerRun = maxRequests,
     cacheTtl = cacheTtl,
     obeyRobots = obeyRobots,
+    maxRedirects = maxRedirects,
+    maxResponseBytes = maxResponseBytes,
 )
 
 class CertifierHttpTest : FunSpec({
@@ -312,7 +317,7 @@ class CertifierHttpTest : FunSpec({
 
     test("refuses a malformed policy") {
         shouldThrow<IllegalArgumentException> {
-            FetchPolicy(userAgent = " ")
+            FetchPolicy(userAgent = " ", allowedHosts = setOf("example.test"))
         }
     }
 
@@ -326,6 +331,246 @@ class CertifierHttpTest : FunSpec({
 
             snapshot.toString().contains("SECRET-BODY") shouldBe false
             snapshot shouldNotBe null
+        }
+    }
+
+    test("refuses plain HTTP") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { HttpResponse(200, body = "ok") }
+            val client = CertifierHttp(policy(), transport, InMemorySnapshotStore(), clock, RecordingSleeper(clock))
+
+            shouldThrow<SourceBlockedException> {
+                client.get("http://example.test/list")
+            }
+            transport.requests.size shouldBe 0
+        }
+    }
+
+    test("refuses a host outside the certifier allow-list") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { HttpResponse(200, body = "ok") }
+            val client = CertifierHttp(policy(), transport, InMemorySnapshotStore(), clock, RecordingSleeper(clock))
+
+            shouldThrow<SourceBlockedException> {
+                client.get("https://evil.test/list")
+            }
+            transport.requests.size shouldBe 0
+        }
+    }
+
+    test("follows an allowed redirect and records the final URL") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { request ->
+                if (request.url.endsWith("/start")) {
+                    HttpResponse(302, mapOf("Location" to "/final"))
+                } else {
+                    HttpResponse(200, body = "served")
+                }
+            }
+            val client = CertifierHttp(policy(), transport, InMemorySnapshotStore(), clock, RecordingSleeper(clock))
+
+            val snapshot = client.get("https://example.test/start").snapshot
+
+            snapshot.url shouldBe "https://example.test/final"
+            snapshot.requestedUrl shouldBe "https://example.test/start"
+            snapshot.body shouldBe "served"
+            transport.requests.map { it.url } shouldBe listOf(
+                "https://example.test/start",
+                "https://example.test/final",
+            )
+        }
+    }
+
+    test("refuses a redirect to a host outside the allow-list") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { request ->
+                if (request.url.endsWith("/start")) {
+                    HttpResponse(302, mapOf("Location" to "https://evil.test/final"))
+                } else {
+                    HttpResponse(200, body = "should not be fetched")
+                }
+            }
+            val client = CertifierHttp(policy(), transport, InMemorySnapshotStore(), clock, RecordingSleeper(clock))
+
+            shouldThrow<SourceBlockedException> {
+                client.get("https://example.test/start")
+            }
+            transport.requests.map { it.url } shouldBe listOf("https://example.test/start")
+        }
+    }
+
+    test("refuses a redirect to plain HTTP") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport {
+                HttpResponse(302, mapOf("Location" to "http://example.test/final"))
+            }
+            val client = CertifierHttp(policy(), transport, InMemorySnapshotStore(), clock, RecordingSleeper(clock))
+
+            shouldThrow<SourceBlockedException> {
+                client.get("https://example.test/start")
+            }
+        }
+    }
+
+    test("caps the redirect chain") {
+        runTest {
+            val clock = MutableClock()
+            var n = 0
+            val transport = ScriptedTransport {
+                n++
+                HttpResponse(302, mapOf("Location" to "/hop-$n"))
+            }
+            val client = CertifierHttp(
+                policy(maxRedirects = 2),
+                transport,
+                InMemorySnapshotStore(),
+                clock,
+                RecordingSleeper(clock),
+            )
+
+            shouldThrow<SourceBlockedException> {
+                client.get("https://example.test/start")
+            }
+            transport.requests.size shouldBe 3
+        }
+    }
+
+    test("counts each redirect hop against the request budget") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { request ->
+                if (request.url.endsWith("/start")) {
+                    HttpResponse(302, mapOf("Location" to "/final"))
+                } else {
+                    HttpResponse(200, body = "ok")
+                }
+            }
+            val client = CertifierHttp(
+                policy(maxRequests = 1),
+                transport,
+                InMemorySnapshotStore(),
+                clock,
+                RecordingSleeper(clock),
+            )
+
+            shouldThrow<SourceBudgetExceededException> {
+                client.get("https://example.test/start")
+            }
+        }
+    }
+
+    test("counts retries against the request budget") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { HttpResponse(503) }
+            val client = CertifierHttp(
+                policy(maxAttempts = 3, maxRequests = 2),
+                transport,
+                InMemorySnapshotStore(),
+                clock,
+                RecordingSleeper(clock),
+            )
+
+            shouldThrow<SourceBudgetExceededException> {
+                client.get("https://example.test/flaky")
+            }
+            transport.requests.size shouldBe 2
+        }
+    }
+
+    test("rejects a response over the size cap") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { HttpResponse(200, body = "123456") }
+            val client = CertifierHttp(
+                policy(maxResponseBytes = 5),
+                transport,
+                InMemorySnapshotStore(),
+                clock,
+                RecordingSleeper(clock),
+            )
+
+            shouldThrow<SourceTooLargeException> {
+                client.get("https://example.test/big")
+            }
+        }
+    }
+
+    test("fails closed when robots.txt denies access") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { request ->
+                if (request.url.endsWith("/robots.txt")) {
+                    HttpResponse(403)
+                } else {
+                    HttpResponse(200, body = "should not be fetched")
+                }
+            }
+            val client = CertifierHttp(
+                policy(obeyRobots = true),
+                transport,
+                InMemorySnapshotStore(),
+                clock,
+                RecordingSleeper(clock),
+            )
+
+            shouldThrow<SourceBlockedException> {
+                client.get("https://example.test/page")
+            }
+            transport.requests.none { it.url.endsWith("/page") } shouldBe true
+        }
+    }
+
+    test("allows fetching when robots.txt is absent") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { request ->
+                if (request.url.endsWith("/robots.txt")) HttpResponse(404) else HttpResponse(200, body = "ok")
+            }
+            val client = CertifierHttp(
+                policy(obeyRobots = true),
+                transport,
+                InMemorySnapshotStore(),
+                clock,
+                RecordingSleeper(clock),
+            )
+
+            client.get("https://example.test/page").snapshot.body shouldBe "ok"
+        }
+    }
+
+    test("uses a different cache entry per Accept header") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { HttpResponse(200, body = "ok") }
+            val client = CertifierHttp(
+                policy(cacheTtl = 24.hours),
+                transport,
+                InMemorySnapshotStore(),
+                clock,
+                RecordingSleeper(clock),
+            )
+
+            client.get("https://example.test/list", accept = "text/html")
+            client.get("https://example.test/list", accept = "application/json")
+
+            transport.requests.size shouldBe 2
+        }
+    }
+
+    test("does not re-use a cached 403 as a success") {
+        runTest {
+            val clock = MutableClock()
+            val transport = ScriptedTransport { HttpResponse(403) }
+            val client = CertifierHttp(policy(), transport, InMemorySnapshotStore(), clock, RecordingSleeper(clock))
+
+            shouldThrow<SourceBlockedException> { client.get("https://example.test/forbidden") }
+            shouldThrow<SourceBlockedException> { client.get("https://example.test/forbidden") }
         }
     }
 })

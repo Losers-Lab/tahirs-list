@@ -9,7 +9,7 @@ import com.tahirslist.certifiers.core.SourceSnapshot
  * HMA Canada certified-restaurants client.
  *
  * ```kotlin
- * val hma = HmaCertifiedOutlets(CertifierHttp.create())
+ * val hma = HmaCertifiedOutlets(CertifierHttp.createFor(HmaProfile))
  * val gta = hma.outlets().records
  * ```
  *
