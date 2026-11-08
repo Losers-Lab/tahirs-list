@@ -105,19 +105,31 @@ refactor. Formatter, `[SC-###]` commit, PR body with evidence. Update
 
 ## Step 11 — Review to convergence
 
+**Run the specialist rounds yourself.** Omar (security, static) and Yusuf (QA,
+dynamic) review the PR diff and post `[omar]` / `[yusuf]` findings on the PR.
+Do not ask the owner to review until both have converged — owner review is the
+final gate, not the first one. The verdicts are the reviewers' own; write the
+fixes, not the verdicts.
+
 Self-review → security (static) → QA (dynamic). Blocking vs `nit:`/`optional:`.
 Fix, reply per thread, re-request.
 
 Converged when: no blocking threads; every AC proven; traceability complete;
-suites green on head; `Verdict: APPROVE` recorded; **two consecutive clean
-rounds**; diagrams updated; deferrals are Shortcut stories.
+suites green on head; `Verdict: APPROVE` from **both** Omar and Yusuf recorded on
+the PR; **two consecutive clean rounds**; diagrams updated; deferrals are
+Shortcut stories.
 
-Three rounds without convergence → escalate with a one-paragraph summary.
+Three rounds without convergence → escalate with a one-paragraph summary. That
+asks the owner for a decision, not a code review; merge still needs both
+`Verdict: APPROVE` verdicts.
 
-## Step 12 — Merge, deploy, verify
+## Step 12 — Owner review, merge, deploy
 
-Merge only after convergence. Push to `main` triggers the webhook → dev stack
-(there is no CI; record test output as evidence). Verify on
+Only a converged PR goes to the owner. The owner reviews the diff plus the
+recorded Omar/Yusuf verdicts and approves or requests changes. Merge only after
+that approval — that merge is the push to `main` and triggers the webhook; any
+owner-requested changes go back through Step 11. (There is no CI; record test
+output as evidence.) Verify on
 `https://dev.tahirslist.com`: 200 + health UP, every in-scope UC main flow, one
 exception path, no new log errors, migration applied, uploads/auth if touched.
 Record evidence in `10-traceability.md`. Roll back with a revert PR, never a
