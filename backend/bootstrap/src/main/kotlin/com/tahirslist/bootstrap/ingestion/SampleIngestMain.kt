@@ -6,6 +6,8 @@ import com.tahirslist.ingestion.artifacts.FileRunArtifacts
 import com.tahirslist.ingestion.artifacts.PendingRunPolicy
 import com.tahirslist.ingestion.pipeline.CandidateFactory
 import com.tahirslist.ingestion.pipeline.IngestSelection
+import com.tahirslist.ingestion.pipeline.MetroCatalog
+import com.tahirslist.ingestion.pipeline.MetroFilter
 import com.tahirslist.ingestion.pipeline.RunSampleIngestion
 import com.tahirslist.ingestion.pipeline.tierOneFeeds
 import java.nio.file.Path
@@ -23,8 +25,8 @@ import kotlinx.coroutines.runBlocking
  * ```
  * :bootstrap:ingestSample -PingestArgs="--metros=Toronto --caps=25 --out-dir=ingest"
  * ```
- * Flags: `--metros`, `--caps`, `--sources`, `--cache-dir`, `--out-dir`,
- * `--run-id`, `--on-pending=abort|archive|ignore`, `--refresh`.
+ * Flags: `--metros`, `--metros-file`, `--caps`, `--sources`, `--cache-dir`,
+ * `--out-dir`, `--run-id`, `--on-pending=abort|archive|ignore`, `--refresh`.
  */
 fun main(args: Array<String>) = runBlocking {
     val options = IngestOptions.parse(args)
@@ -49,13 +51,18 @@ fun main(args: Array<String>) = runBlocking {
         },
     )
 
+    // Metros are data, not code: `--metros-file` (or the default catalogue)
+    // defines every centre, radius and prefilter alias.
+    val metros = options["metros-file"]?.let { MetroCatalog.load(Path.of(it)) } ?: MetroCatalog.default()
+
     val geocoder = PhotonGeocoder()
     val feeds = tierOneFeeds(cacheDir)
     val run = RunSampleIngestion(
         feeds = feeds,
         health = CheckGeocoderHealth(geocoder),
         artifacts = FileRunArtifacts(outDir),
-        factory = CandidateFactory(geocoder),
+        factory = CandidateFactory(geocoder, metros = metros),
+        metroFilter = MetroFilter(metros),
     )
 
     val result = run.execute(selection)

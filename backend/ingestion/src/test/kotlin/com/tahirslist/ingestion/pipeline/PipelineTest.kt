@@ -26,6 +26,8 @@ fun sourceListing(
     country: String? = "Canada",
     tier: SourceTier = SourceTier.TIER_1,
     handCut: HandCutDeclaration = HandCutDeclaration.HAND_CUT,
+    lat: Double? = 43.0,
+    lng: Double? = -79.0,
 ): SourceListing = SourceListing(
     source = SourceRef(certifierId = source, recordId = record, url = "https://example.test/$source/$record"),
     standard = DirectoryStandard(tier = tier, certifier = source, handCut = handCut),
@@ -35,8 +37,8 @@ fun sourceListing(
     region = region,
     postalCode = null,
     country = country,
-    latitude = 43.0,
-    longitude = -79.0,
+    latitude = lat,
+    longitude = lng,
     phone = null,
     website = null,
     certificateRef = null,
@@ -80,7 +82,11 @@ class MetroFilterTest : FunSpec({
     test("selection names are case-insensitive and empty means all") {
         val filter = MetroFilter()
         filter.selected(setOf("dallas")).map { it.name } shouldBe listOf("Dallas")
-        filter.selected(emptySet()).size shouldBe Metro.DEFAULTS.size
+        filter.selected(emptySet()).size shouldBe filter.metros.size
+    }
+
+    test("a mistyped metro name fails closed instead of running an empty selection") {
+        shouldThrow<IllegalArgumentException> { MetroFilter().selected(setOf("Torronto")) }
     }
 })
 
@@ -147,6 +153,28 @@ class CandidateFactoryTest : FunSpec({
             .candidate
 
         candidate.location shouldBe LatLng(43.665206, -79.384523)
+    }
+
+    test("a confirmed location outside the metro radius is rejected with the distance") {
+        // The label matches the row, so the match policy confirms it; only the
+        // metro circle can reject it - which is the point.
+        val montreal = FakeGeocoder { place("Paramount Fine Foods, Toronto, Ontario", 45.5019, -73.5674) }
+        val reject = CandidateFactory(montreal)
+            .build(sourceListing(), "Toronto")
+            .shouldBeInstanceOf<CandidateBuild.Rejected>()
+            .reject
+
+        reject.reason shouldBe RejectReason.OUTSIDE_METRO
+        reject.detail.contains("Toronto") shouldBe true
+    }
+
+    test("a metro that is not configured is a reject, not an invented metro") {
+        val reject = CandidateFactory(FakeGeocoder())
+            .build(sourceListing(), "Atlantis")
+            .shouldBeInstanceOf<CandidateBuild.Rejected>()
+            .reject
+
+        reject.reason shouldBe RejectReason.MISSING_METRO
     }
 
     test("no geocoder hit is a reject, never invented coordinates") {

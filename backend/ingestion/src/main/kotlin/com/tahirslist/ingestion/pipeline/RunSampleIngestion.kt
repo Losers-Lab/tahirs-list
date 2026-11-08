@@ -119,7 +119,7 @@ class RunSampleIngestion(
                 var sourceAccepted = 0
                 var sourceRejected = 0
                 for (listing in rows) {
-                    when (val build = factory.build(listing, metro.name)) {
+                    when (val build = factory.build(listing, metro)) {
                         is CandidateBuild.Built -> {
                             accepted += build.candidate
                             sourceAccepted++

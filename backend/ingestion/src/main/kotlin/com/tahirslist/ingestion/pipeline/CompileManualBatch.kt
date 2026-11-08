@@ -53,7 +53,7 @@ class CompileManualBatch(
                 null
             } ?: continue
 
-            when (val build = factory.build(curated.listing, metro.name, curated.crossContamination)) {
+            when (val build = factory.build(curated.listing, metro, curated.crossContamination)) {
                 is CandidateBuild.Built -> accepted += build.candidate.stamped(curated.accessedOn)
                 is CandidateBuild.Rejected -> rejects += build.reject
             }

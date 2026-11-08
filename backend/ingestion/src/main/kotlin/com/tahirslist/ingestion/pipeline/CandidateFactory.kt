@@ -35,11 +35,24 @@ sealed interface CandidateBuild {
 class CandidateFactory(
     private val geocoder: GeocoderPort,
     private val matches: MatchConfirmationPolicy = MatchConfirmationPolicy(),
+    private val metros: MetroCatalog = MetroCatalog.default(),
 ) {
 
+    /** Convenience for callers that hold only the metro's name. */
     suspend fun build(
         listing: SourceListing,
         metro: String,
+        crossContamination: CrossContamination = CrossContamination.DEFAULT,
+    ): CandidateBuild {
+        val definition = metros.named(metro) ?: return CandidateBuild.Rejected(
+            reject(RejectReason.MISSING_METRO, "metro '$metro' is not configured", listing),
+        )
+        return build(listing, definition, crossContamination)
+    }
+
+    suspend fun build(
+        listing: SourceListing,
+        metro: MetroDefinition,
         crossContamination: CrossContamination = CrossContamination.DEFAULT,
     ): CandidateBuild {
         if (listing.name.isBlank() || listing.addressLines.isEmpty()) {
@@ -81,6 +94,21 @@ class CandidateFactory(
             is MatchDecision.Confirmed -> Unit
         }
 
+        // The radius decides membership, not the directory's city text or its
+        // own coordinates (BR-3). A confirmed point outside the circle is a
+        // reject with the distance, never a candidate in the wrong metro.
+        if (!metro.contains(place.location)) {
+            return CandidateBuild.Rejected(
+                reject(
+                    RejectReason.OUTSIDE_METRO,
+                    "geocoded to ${place.displayName} (${place.location.lat}, ${place.location.lng}), " +
+                        "${"%.1f".format(metro.distanceKm(place.location))} km from ${metro.name}'s centre " +
+                        "(limit ${metro.radiusKm} km)",
+                    listing,
+                ),
+            )
+        }
+
         val venueKey = VenueIdentity.from(
             name = listing.name,
             addressLines = listing.addressLines,
@@ -102,7 +130,7 @@ class CandidateFactory(
                 location = place.location,
                 venueKey = venueKey.key,
                 claims = listOf(claimFor(listing)),
-                metro = metro,
+                metro = metro.name,
                 manualCrossContamination = crossContamination,
             ),
         )
