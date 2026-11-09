@@ -1,6 +1,8 @@
 package com.tahirslist.ingestion.pipeline
 
 import com.tahirslist.application.geo.GeocodedPlace
+import com.tahirslist.domain.restaurant.RestaurantListing
+import com.tahirslist.ingestion.LocalityNames
 
 /** What a directory row claims, as the match policy needs it. */
 data class MatchQuery(
@@ -50,16 +52,21 @@ class MatchConfirmationPolicy {
             return MatchDecision.Rejected("AMBIGUOUS_GEOCODER_MATCH", "geocoder returned a blank label")
         }
         val labelTokens = label.split(' ').filter { it.isNotBlank() }
-
-        val cityHit = query.city?.let { containsPhrase(labelTokens, normalize(it)) } ?: false
-        val postalHit = query.postalCode
-            ?.let { label.replace(" ", "").contains(compact(it)) }
-            ?: false
         // House numbers keep their hyphen ("258-03"), so match against a
         // hyphen-preserving view of the label.
         val labelled = place.displayName.lowercase()
             .replace(Regex("""[^a-z0-9-]+"""), " ")
             .trim()
+            .split(' ')
+            .filter { it.isNotBlank() }
+
+        val cityHit = query.city?.let { containsPhrase(labelTokens, normalize(it)) } ?: false
+        val postalHit = query.postalCode?.let { containsPostal(labelled, it) } ?: false
+        // Name evidence compares the row's name with the label's name slot — the
+        // first part before the adapter's ", " join. The label also carries the
+        // street, city, state and country, and a row called "Texas King" must
+        // not match the state "Texas".
+        val labelNameTokens = normalize(place.displayName.substringBefore(", "))
             .split(' ')
             .filter { it.isNotBlank() }
         val nameTokens = normalize(query.name).split(' ').filter { it.length >= 3 && it !in GENERIC }
@@ -68,10 +75,15 @@ class MatchConfirmationPolicy {
         val placeTokens = buildSet {
             listOfNotNull(query.city, query.region, query.country, query.postalCode)
                 .forEach { addAll(normalize(it).split(' ')) }
+            // A code excludes its full name too: "NY" must also block "New York".
+            query.region?.let { LocalityNames.usStateName(it) }
+                ?.let { addAll(normalize(it).split(' ')) }
+            query.country?.let { LocalityNames.country(it, RestaurantListing.COUNTRY_MAX_LENGTH) }
+                ?.let { addAll(normalize(it).split(' ')) }
             addAll(query.streetTokens)
         }
         // Whole-token match: "ham" must not match "Birmingham".
-        val nameHit = nameTokens.any { it in labelTokens && it !in placeTokens }
+        val nameHit = nameTokens.any { it in labelNameTokens && it !in placeTokens }
 
         if (nameHit) return MatchDecision.Confirmed(place)
 
@@ -133,6 +145,14 @@ class MatchConfirmationPolicy {
         if (parts.size != 2) return null
         val number = parts[1].takeWhile { it.isDigit() }.toIntOrNull() ?: return null
         return parts[0] to number
+    }
+
+    /** A postal code as its own token, or two adjacent tokens ("M5V 2T6"). */
+    private fun containsPostal(tokens: List<String>, postal: String): Boolean {
+        val wanted = compact(postal)
+        if (wanted.isEmpty()) return false
+        if (tokens.any { compact(it) == wanted }) return true
+        return tokens.zipWithNext().any { (first, second) -> compact(first + second) == wanted }
     }
 
     private fun compact(value: String): String =

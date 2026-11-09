@@ -179,17 +179,17 @@ object HmaParser {
 
     private val POSTAL_CODE = Regex("(?i)(?<![A-Za-z0-9])[A-Z]\\d[A-Z][ -]?\\d[A-Z]\\d(?![A-Za-z0-9])")
 
-    private val COUNTRY_WORD = Regex("(?i)(?<![A-Za-z])(Canada|CAN)(?![A-Za-z])")
+    private val COUNTRY_WORD = Regex("(?i)(?<![A-Za-z-])(Canada|CAN)(?![A-Za-z-])")
 
     private val PROVINCE_WORD = Regex(
-        "(?i)(?<![A-Za-z])(" +
+        "(?i)(?<![A-Za-z-])(" +
             "Ontario|Ont\\.|ONT|ON|Quebec|Québec|Que\\.|QUE|QC|British Columbia|B\\.C\\.|BC|" +
             "Alberta|Alta\\.|ALTA|AB|Manitoba|Man\\.|MAN|MB|Saskatchewan|Sask\\.|SASK|SK|" +
             "Nova Scotia|N\\.S\\.|NS|New Brunswick|N\\.B\\.|NB|" +
             "Newfoundland and Labrador|Newfoundland|Nfld\\.|NL|" +
             "Prince Edward Island|P\\.E\\.I\\.|PE|Yukon|YT|" +
             "Northwest Territories|N\\.W\\.T\\.|NWT|NT|Nunavut|NU" +
-            ")(?![A-Za-z])",
+            ")(?![A-Za-z-])",
     )
 
     private val PROVINCES = mapOf(

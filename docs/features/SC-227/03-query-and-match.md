@@ -119,6 +119,10 @@ the pipeline tests:
    The HMS translator now maps it to `United States`, the form HFSAA already
    uses, and drops an unexpected long name with a warning instead of
    truncating it.
+3. **State names were mixed with codes.** HMS publishes `New York`/`Texas`,
+   HFSAA publishes `NY`/`TX`. Region is part of the venue key, so the same venue
+   seen in both directories could never merge. The HMS translator now maps US
+   states and territories to their two-letter code.
 
 ## What this does not solve
 

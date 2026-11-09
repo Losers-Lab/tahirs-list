@@ -233,7 +233,11 @@ class CandidateFactory(
         return listOfNotNull(
             place?.let { "$name, $it" },
             place,
-        ).distinct()
+        )
+            // A pathological address is rejected, not sent as a URL the server
+            // answers with 414 (which would abort the whole run).
+            .filter { it.length <= MAX_QUERY_LENGTH }
+            .distinct()
     }
 
     private fun key(listing: SourceListing): String =
@@ -251,5 +255,10 @@ class CandidateFactory(
         data class Found(val place: GeocodedPlace) : Resolution
         data class Ambiguous(val reason: String, val detail: String) : Resolution
         data object Unmatched : Resolution
+    }
+
+    private companion object {
+        /** Photon answers a URL over a few hundred bytes with 414. */
+        const val MAX_QUERY_LENGTH = 400
     }
 }

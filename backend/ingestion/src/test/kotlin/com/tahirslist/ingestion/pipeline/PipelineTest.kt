@@ -177,6 +177,37 @@ class MatchConfirmationPolicyTest : FunSpec({
             .shouldBeInstanceOf<MatchDecision.Rejected>()
     }
 
+    test("a name token that is just the state is not a name match") {
+        // The label's state field is "Texas"; a venue called "Texas King" must
+        // not be confirmed by it, even though region is the code "TX".
+        val texas = MatchQuery(
+            name = "Texas King Irving",
+            city = "Irving",
+            region = "TX",
+            country = "United States",
+            street = "3455 North Belt Line Road",
+            houseNumber = "3455",
+            streetTokens = listOf("belt", "line"),
+        )
+        policy.confirm(texas, place("Some Market, 123 Main Street, Plano, Texas, United States"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("a Canadian postal code written as two tokens still confirms the address") {
+        val toronto = MatchQuery(
+            name = "Paramount Fine Foods",
+            city = "Toronto",
+            region = "ON",
+            country = "Canada",
+            street = "253 Yonge Street",
+            houseNumber = "253",
+            streetTokens = listOf("yonge"),
+            postalCode = "M5V 2T6",
+        )
+        policy.confirm(toronto, place("Some Place, 253 Yonge Street, M5V 2T6 Toronto, ON, Canada"))
+            .shouldBeInstanceOf<MatchDecision.Confirmed>()
+    }
+
     test("generic words alone never confirm a match") {
         policy.confirm(
             MatchQuery("The Halal Grill", "Toronto", "ON", "Canada"),

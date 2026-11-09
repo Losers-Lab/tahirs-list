@@ -54,6 +54,9 @@ object AddressText {
         val kept = mutableListOf<String>()
         for (segment in segments) {
             if (isCountryOnly(segment)) continue
+            // A unit segment ("Suite 12345") may contain five digits; never read
+            // those as a ZIP. Units inside a street are cut by stripUnit below.
+            if (startsWithUnit(segment)) continue
             val found = postalIn(segment)
             if (found != null) {
                 if (postal == null) postal = normalizePostal(found.value)
@@ -76,11 +79,14 @@ object AddressText {
         val tokens = street
             ?.let(::expandStreet)
             ?.split(' ')
-            ?.map { it.lowercase() }
+            ?.map { fold(it).lowercase() }
             ?.map { it.trim('.', ',') }
             ?.filter { it.isNotEmpty() }
             ?.filterNot { it in GENERIC_STREET_WORDS }
+            ?.filterNot { it in SUFFIX_ABBREVIATIONS }   // a suffix the expansion left in place
+            ?.filterNot { it in DIRECTIONAL_ABBREVIATIONS }
             ?.filterNot { it.matches(Regex("""\d+[a-z]?(-\d+[a-z]?)?""")) }
+            ?.filter { it.length > 1 }
             ?.distinct()
             .orEmpty()
 
@@ -105,10 +111,13 @@ object AddressText {
     private fun isLocality(segment: String, city: String?, region: String?): Boolean {
         val normalized = normalize(segment)
         if (normalized.isEmpty()) return true
-        val locality = listOfNotNull(city, region).map(::normalize).filter { it.isNotEmpty() }
-        if (normalized in locality) return true
-        // "TX 75287" after the postal code was removed leaves "TX".
-        return locality.any { it == normalized }
+        return listOfNotNull(city, region).any { normalize(it) == normalized }
+    }
+
+    /** True when the segment opens with a unit marker ("Suite 500", "Unit 7A"). */
+    private fun startsWithUnit(segment: String): Boolean {
+        val match = UNIT_MARKER.find(segment) ?: return false
+        return segment.substring(0, match.range.first).isBlank()
     }
 
     /** Cuts a unit/suite marker and everything after it from a street segment. */
@@ -121,14 +130,18 @@ object AddressText {
     private fun expandStreet(segment: String): String {
         val tokens = segment.split(' ').filter { it.isNotEmpty() }
         if (tokens.isEmpty()) return segment
+        val last = tokens.lastIndex
+        val lastKey = tokens.last().trim('.', ',').lowercase()
+        // "1365 Gerrard St E": the suffix is followed by a direction, not last.
+        val suffixIndex = if (lastKey in DIRECTIONAL_ABBREVIATIONS) last - 1 else last
         return tokens.mapIndexed { index, raw ->
             val cleaned = raw.trim('.', ',')
-            val suffix = cleaned.lowercase()
-            val isLast = index == tokens.lastIndex
+            val key = cleaned.lowercase()
             when {
-                isLast && suffix in SUFFIX_ABBREVIATIONS -> SUFFIX_ABBREVIATIONS.getValue(suffix)
-                index < 2 && suffix in DIRECTIONAL_ABBREVIATIONS ->
-                    DIRECTIONAL_ABBREVIATIONS.getValue(suffix)
+                index == suffixIndex && key in SUFFIX_ABBREVIATIONS -> SUFFIX_ABBREVIATIONS.getValue(key)
+                (index == last && key in DIRECTIONAL_ABBREVIATIONS) ||
+                    (index < 2 && key in DIRECTIONAL_ABBREVIATIONS) ->
+                    DIRECTIONAL_ABBREVIATIONS.getValue(key)
                 else -> raw
             }
         }.joinToString(" ")
@@ -157,7 +170,12 @@ object AddressText {
         }
 
     private fun normalize(value: String): String =
-        value.lowercase().replace(Regex("""[^a-z0-9]+"""), " ").trim()
+        fold(value).lowercase().replace(Regex("""[^a-z0-9]+"""), " ").trim()
+
+    /** Diacritics folded away, so "Québec" and "Quebec" compare equal. */
+    private fun fold(value: String): String =
+        java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFKD)
+            .replace(Regex("""\p{M}+"""), "")
 
     private val HOUSE_NUMBER = Regex("""^\s*(\d+[A-Za-z]?(?:-\d+[A-Za-z]?)?)\b""")
 

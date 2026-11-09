@@ -67,6 +67,14 @@ class AddressTextTest : FunSpec({
             "12 St Marks Avenue"
     }
 
+    test("expands a suffix followed by a direction, and keeps only distinctive tokens") {
+        val address = AddressText.parse(listOf("1365 Gerrard St E"), city = "Toronto")
+
+        address.street shouldBe "1365 Gerrard Street East"
+        // "st"/"e" alone must never satisfy the address check.
+        address.streetTokens shouldBe listOf("gerrard")
+    }
+
     test("a line with only a locality does not become the street") {
         val address = AddressText.parse(listOf("Dallas, TX"), city = "Dallas", region = "TX")
 

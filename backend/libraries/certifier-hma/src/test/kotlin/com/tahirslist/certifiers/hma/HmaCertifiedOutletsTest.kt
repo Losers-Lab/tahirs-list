@@ -140,6 +140,13 @@ class HmaParserTest : FunSpec({
             HmaAddress("2058 Ellesmere Rd Unit 6", "Scarborough", "ON", "M1H 2V6")
     }
 
+    test("a hyphenated place name is not split by its province letters") {
+        // "Niagara-on-the-Lake" contains "on"; the province match is bounded by
+        // hyphens too, so the city survives intact.
+        HmaParser.parseAddress("1 Main St, Niagara-on-the-Lake, ON L0S 1J0") shouldBe
+            HmaAddress("1 Main St", "Niagara-on-the-Lake", "ON", "L0S 1J0")
+    }
+
     test("malformed JSON is a parse failure") {
         shouldThrow<SourceParseException> {
             HmaParser.parse("{ not json")
