@@ -195,7 +195,7 @@ private fun useCaseModule(config: AppConfig): Module = module {
     single { IngestSeedHeroPhotos(get(), get(), get()) }
 
     // Agent surface (SC-209)
-    single { SearchListingsForAgent(get(), get()) }
+    single { SearchListingsForAgent(get(), get(), config.search.centrePrecision) }
     single { GetListingForAgent(get(), get()) }
 
     // Seed ingest runner (launched from Application when enabled)

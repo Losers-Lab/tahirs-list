@@ -1,5 +1,7 @@
 package com.tahirslist.bootstrap.config
 
+import com.tahirslist.application.listing.SearchSettings
+import com.tahirslist.domain.restaurant.CoordinatePrecision
 import com.tahirslist.verification.ai.HostedVisionConfig
 
 /**
@@ -20,6 +22,7 @@ data class AppConfig(
     val seedIngest: SeedIngestSettings,
     val mcp: McpSettings = McpSettings(),
     val geocodeCache: GeocodeCacheSettings = GeocodeCacheSettings(),
+    val search: SearchSettings = SearchSettings(),
 ) {
     val isProduction: Boolean get() = profile.split(",").map { it.trim() }.contains("prod")
 }
@@ -152,5 +155,25 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
         geocodeCache = GeocodeCacheSettings(
             ttlDays = env("APP_GEOCODE_CACHE_TTL_DAYS")?.toIntOrNull() ?: 90,
         ),
+        search = SearchSettings(
+            centrePrecision = searchPrecision(env("APP_SEARCH_CENTRE_DECIMALS")),
+            cacheMaxAgeSeconds = env("APP_SEARCH_CACHE_MAX_AGE_SECONDS")?.toLongOrNull() ?: 60,
+            sMaxAgeSeconds = env("APP_SEARCH_CACHE_S_MAXAGE_SECONDS")?.toLongOrNull() ?: 300,
+            staleWhileRevalidateSeconds = env("APP_SEARCH_CACHE_SWR_SECONDS")?.toLongOrNull() ?: 60,
+        ),
     )
 }
+
+/**
+ * SC-199 D-1: the centre precision is exactly 3 or 4 decimals. A malformed value
+ * fails startup rather than silently choosing a precision nobody ratified.
+ */
+private fun searchPrecision(raw: String?): CoordinatePrecision =
+    when (raw?.trim()?.takeIf { it.isNotEmpty() }) {
+        null -> CoordinatePrecision.FOUR_DECIMALS
+        "3" -> CoordinatePrecision.THREE_DECIMALS
+        "4" -> CoordinatePrecision.FOUR_DECIMALS
+        else -> throw IllegalArgumentException(
+            "APP_SEARCH_CENTRE_DECIMALS must be 3 or 4, got: $raw",
+        )
+    }

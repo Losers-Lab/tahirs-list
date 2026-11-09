@@ -106,7 +106,7 @@ fun Application.module(
         healthRoutes()
         authRoutes(auth)
         meRoutes()
-        listingRoutes(listings)
+        listingRoutes(listings, config.search)
         favoriteRoutes(favorites)
         verificationRoutes(verification)
     }
