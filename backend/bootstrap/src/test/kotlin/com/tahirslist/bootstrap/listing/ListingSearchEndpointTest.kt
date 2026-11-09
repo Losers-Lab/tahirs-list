@@ -75,6 +75,30 @@ class ListingSearchEndpointTest : KtorPostgresTest() {
             resp.jsonArray().size shouldBe 0
         }
 
+        test("a successful search advertises the freshness window (SC-199 AC-2)") {
+            val resp = get("/v1/listings/search?center=43.682921,-79.418493&radius=5.0")
+
+            resp.status shouldBe 200
+            resp.header("Cache-Control") shouldBe
+                "public, max-age=60, s-maxage=300, stale-while-revalidate=60"
+        }
+
+        test("an error response keeps no-store and advertises no freshness (SC-199 AC-5)") {
+            val resp = get("/v1/listings/search?center=not-a-latlong&radius=5.0")
+
+            resp.status shouldBe 400
+            resp.header("Cache-Control") shouldBe "no-store"
+        }
+
+        test("two centres in one 4 dp cell return the same body (SC-199 AC-4)") {
+            val first = get("/v1/listings/search?center=43.68292100,-79.41849300&radius=5.0")
+            val second = get("/v1/listings/search?center=43.68292140,-79.41849340&radius=5.0")
+
+            first.status shouldBe 200
+            second.status shouldBe 200
+            second.body shouldBe first.body
+        }
+
         test("search is public (no token required), like the rest of the read surface") {
             get("/v1/listings/search?center=43.682921,-79.418493&radius=5.0").status shouldBe 200
         }
