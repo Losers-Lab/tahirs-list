@@ -98,7 +98,7 @@ object HmaParser {
 
             val postalMatch = POSTAL_CODE.find(segment)
             if (postalMatch != null) {
-                if (postal == null) postal = postalMatch.value
+                if (postal == null) postal = normalizePostal(postalMatch.value)
                 segment = segment.removeRange(postalMatch.range).trim(' ', ',', '.')
             }
 
@@ -133,6 +133,21 @@ object HmaParser {
             break
         }
 
+        // A postal code can sit in its own segment before the city
+        // ("L5N 5Z2, Mississauga, Ontario"); the scan stops at the city, so
+        // look through what is left for it.
+        if (postal == null) {
+            val postalIndex = rest.indexOfFirst { POSTAL_CODE.containsMatchIn(it) }
+            if (postalIndex >= 0) {
+                val match = POSTAL_CODE.find(rest[postalIndex])
+                if (match != null) {
+                    postal = normalizePostal(match.value)
+                    val remainder = rest[postalIndex].removeRange(match.range).trim(' ', ',', '.')
+                    if (remainder.isEmpty()) rest.removeAt(postalIndex) else rest[postalIndex] = remainder
+                }
+            }
+        }
+
         return HmaAddress(
             line = rest.joinToString(", ").ifBlank { null },
             city = city,
@@ -158,6 +173,16 @@ object HmaParser {
     private fun provinceCode(value: String): String {
         val key = value.uppercase().replace(".", "").trim()
         return PROVINCES[key] ?: key
+    }
+
+    /** Upper-case, and a Canadian code always with its space ("L5N 5Z2"). */
+    private fun normalizePostal(value: String): String {
+        val compact = value.uppercase().replace(" ", "")
+        return if (compact.matches(Regex("""[A-Z]\d[A-Z]\d[A-Z]\d"""))) {
+            "${compact.take(3)} ${compact.drop(3)}"
+        } else {
+            compact
+        }
     }
 
     private fun iconValue(document: Document, iconClass: String): String? =

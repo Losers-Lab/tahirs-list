@@ -104,7 +104,7 @@ class HmaParserTest : FunSpec({
         HmaParser.parseAddress("55 Mountainash Rd, Brampton, ON L6R 1W4, Canada") shouldBe
             HmaAddress("55 Mountainash Rd", "Brampton", "ON", "L6R 1W4")
         HmaParser.parseAddress("7690 Markham Road, Markham, ON, Canada L3S3K1") shouldBe
-            HmaAddress("7690 Markham Road", "Markham", "ON", "L3S3K1")
+            HmaAddress("7690 Markham Road", "Markham", "ON", "L3S 3K1")
     }
 
     test("province abbreviations with a dot are recognised") {
@@ -114,7 +114,7 @@ class HmaParserTest : FunSpec({
 
     test("a postal code written before the city is lifted, not kept as the city") {
         HmaParser.parseAddress("5165 Dixie Road,L4W4G1 Mississauga") shouldBe
-            HmaAddress("5165 Dixie Road", "Mississauga", null, "L4W4G1")
+            HmaAddress("5165 Dixie Road", "Mississauga", null, "L4W 4G1")
     }
 
     test("a broken postal code is dropped rather than stored as the city") {
@@ -145,6 +145,15 @@ class HmaParserTest : FunSpec({
         // hyphens too, so the city survives intact.
         HmaParser.parseAddress("1 Main St, Niagara-on-the-Lake, ON L0S 1J0") shouldBe
             HmaAddress("1 Main St", "Niagara-on-the-Lake", "ON", "L0S 1J0")
+    }
+
+    test("a postal code in its own segment before the city is still read") {
+        HmaParser.parseAddress("1 Main St, L5N 5Z2, Mississauga, Ontario") shouldBe
+            HmaAddress("1 Main St", "Mississauga", "ON", "L5N 5Z2")
+    }
+
+    test("a postal code is normalised to upper case with its space") {
+        HmaParser.parseAddress("1 Main St, Mississauga, ON n1r7z1").postalCode shouldBe "N1R 7Z1"
     }
 
     test("malformed JSON is a parse failure") {
