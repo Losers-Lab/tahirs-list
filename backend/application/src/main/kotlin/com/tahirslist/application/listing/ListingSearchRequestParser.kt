@@ -1,5 +1,6 @@
 package com.tahirslist.application.listing
 
+import com.tahirslist.domain.restaurant.CoordinatePrecision
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.Price
 import com.tahirslist.domain.restaurant.Rating
@@ -58,6 +59,9 @@ object ListingSearchRequestParser {
 
     /** A coordinate pair, with [LatLng] enforcing the WGS84 ranges. */
     fun coordinates(lat: Double, lng: Double): LatLng = LatLng(lat = lat, lng = lng)
+
+    /** The search centre, snapped to the configured precision (SC-199). Radius is never snapped. */
+    fun centre(center: LatLng, precision: CoordinatePrecision): LatLng = precision.snap(center)
 
     /** Boolean filters are plain on/off flags; absent means false. */
     fun flag(value: Boolean?): Boolean = value ?: false

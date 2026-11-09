@@ -5,10 +5,23 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
+import com.tahirslist.domain.restaurant.CoordinatePrecision
+import com.tahirslist.domain.restaurant.LatLng
 import io.kotest.matchers.shouldBe
 import java.math.BigDecimal
 
 class ListingSearchRequestParserTest : FunSpec({
+
+    test("centre snaps the search centre before the query (SC-199 UC-01.3)") {
+        ListingSearchRequestParser.centre(
+            LatLng(40.71283741, -74.00601293),
+            CoordinatePrecision.FOUR_DECIMALS,
+        ) shouldBe LatLng(40.7128, -74.006)
+    }
+
+    test("centre leaves the radius untouched (SC-199 INV-7)") {
+        ListingSearchRequestParser.radius(2.123456789) shouldBe 2.123456789
+    }
 
     test("matchesRestSemantics") {
         ListingSearchRequestParser.cuisines(listOf("  Thai ", "thai", "PAKISTANI")) shouldContainExactly
