@@ -1082,7 +1082,7 @@
             "name": "center",
             "in": "query",
             "required": true,
-            "description": "`<lat>,<lng>` of the search centre.",
+            "description": "`<lat>,<lng>` of the search centre. Snapped to 4 decimal places (about 11 m) before the query, so two fixes in one cell return the same result; `distanceMiles` and radius membership are computed from the snapped centre. Configured by `APP_SEARCH_CENTRE_DECIMALS` (3 or 4).",
             "schema": {
               "type": "string"
             }
@@ -1190,6 +1190,14 @@
         "responses": {
           "200": {
             "description": "Search results (distance ascending)",
+            "headers": {
+              "Cache-Control": {
+                "description": "Freshness window for the public result. `public, max-age=60, s-maxage=300, stale-while-revalidate=60` by default; configured by `APP_SEARCH_CACHE_MAX_AGE_SECONDS`, `APP_SEARCH_CACHE_S_MAXAGE_SECONDS` and `APP_SEARCH_CACHE_SWR_SECONDS`. Every non-200 response keeps `no-store`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2757,7 +2765,8 @@
           },
           "distanceMiles": {
             "type": "number",
-            "format": "double"
+            "format": "double",
+            "description": "Straight-line miles from the snapped search centre; within about 0.005 mi of the distance from the requested centre."
           }
         },
         "required": [

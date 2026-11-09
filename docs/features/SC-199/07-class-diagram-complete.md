@@ -150,7 +150,8 @@ classDiagram
 
 | Element | Change | Notes |
 |---|---|---|
-| `frontend/src/lib/api/schema.d.ts` | regenerated (description only) | `pnpm codegen:api`; no type change |
+| `frontend/src/lib/api/openapi.json` | **unchanged** (corrected at implementation) | it is a curated subset, already stale for this path (no `required: true`, no `deliveryOnly`), and generates types only — nothing in it changes a type |
+| `frontend/src/lib/api/schema.d.ts` | unchanged | no type change, so no regeneration; regenerating a stale source would only add unrelated drift |
 | `frontend/src/hooks.server.ts` proxy | unchanged | it already forwards `Cache-Control` from upstream and adds no header to `/v1` responses |
 | Listing data layer (`lib/listings/data.ts`) | unchanged | the browse/search UI keeps its client-side filter |
 | Browser behaviour | observable | identical responses; a repeat search can be served from browser cache for `max-age` |
