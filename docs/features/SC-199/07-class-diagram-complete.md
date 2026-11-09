@@ -150,7 +150,8 @@ classDiagram
 
 | Element | Change | Notes |
 |---|---|---|
-| `frontend/src/lib/api/schema.d.ts` | regenerated (description only) | `pnpm codegen:api`; no type change |
+| `frontend/src/lib/api/openapi.json` | **unchanged** (corrected at implementation) | it is a curated subset, already stale for this path (no `required: true`, no `deliveryOnly`), and generates types only — nothing in it changes a type |
+| `frontend/src/lib/api/schema.d.ts` | unchanged | no type change, so no regeneration; regenerating a stale source would only add unrelated drift |
 | `frontend/src/hooks.server.ts` proxy | unchanged | it already forwards `Cache-Control` from upstream and adds no header to `/v1` responses |
 | Listing data layer (`lib/listings/data.ts`) | unchanged | the browse/search UI keeps its client-side filter |
 | Browser behaviour | observable | identical responses; a repeat search can be served from browser cache for `max-age` |
@@ -175,13 +176,13 @@ classDiagram
 
 | AC | Test (new) | Layer |
 |---|---|---|
-| AC-1 | `CoordinatePrecisionTest.snapsToConfiguredDecimals` · `ListingSearchRequestParserTest.centreSnapsBeforeQuery` | domain · application |
-| AC-2 | `ListingSearchEndpointTest.successCarriesFreshnessHeader` · `SearchCachePolicyTest.headerMatchesSettings` | bootstrap · boundary |
-| AC-3 | `ListingSearchEndpointTest.boundaryShiftBoundedToPrecision` (INV-8) | bootstrap |
-| AC-4 | `CoordinatePrecisionTest.sameCellSameCentre` · `ListingSearchEndpointTest.sameCellSameBody` | domain · bootstrap |
-| AC-5 | `ListingSearchEndpointTest.errorResponsesStayNoStore` · `SecurityHeadersTest` (existing) | bootstrap |
-| AC-6 | `ListingSearchEndpointTest.cacheKeyIsFullUrl` (documents the edge-key behaviour; asserts no rewrite of the request) | bootstrap |
-| INV-4 | `LatLngTest.roundedStaysInRange` | domain |
-| INV-7 | `ListingSearchRequestParserTest.radiusIsUntouched` | application |
-| INV-10 | `SearchSettingsTest.rejectsWindowAbove600` | application |
-| INV-11 | `ListingSearchEndpointTest.cacheableWithoutUserVariance` | bootstrap |
+| AC-1 | `CoordinatePrecisionTest.snap keeps the configured number of decimals` · `ListingSearchRequestParserTest.centre snaps the search centre` | domain · application |
+| AC-2 | `ListingSearchEndpointTest.a successful search advertises the freshness window` | bootstrap |
+| AC-3 | `CoordinatePrecisionTest.the snapped shift never exceeds the advertised maximum` (INV-8 covered by the QA spot check) | domain |
+| AC-4 | `CoordinatePrecisionTest.two centres in one rounding basin…` · `ListingSearchEndpointTest.two centres in one 4 dp rounding basin…` | domain · bootstrap |
+| AC-5 | `ListingSearchEndpointTest.an error response keeps no-store` · `ErrorMappingTest.an error replaces an opt-in cache policy` | bootstrap · web-api |
+| AC-6 | structural: the cache key is the client URL; stated in 00/08, no code to assert | design |
+| INV-4 | `LatLngRoundingTest.rounding near a pole / the antimeridian stays inside WGS84` | domain |
+| INV-7 | `ListingSearchRequestParserTest.centre leaves the radius untouched` | application |
+| INV-10 | `SearchSettingsTest` (per-channel and composed bounds) · `SearchSettingsFromEnvTest` | application · bootstrap |
+| INV-11 | `ListingSearchEndpointTest.the cacheable search response carries no cookie…` | bootstrap |

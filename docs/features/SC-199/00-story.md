@@ -52,9 +52,9 @@ design has something testable to approve. They are marked derived, not verbatim.
 | AC-1 | verbatim directive 1 | `center` is snapped to 3 or 4 decimal places before the filter is built (D-1) |
 | AC-2 | verbatim directive 2 | `GET /v1/listings/search` returns a `Cache-Control` header with a founder-ratified `maxAge` (D-2) |
 | AC-3 | derived from "PRODUCT-VISIBLE" | `distanceMiles` and radius-boundary membership are computed from the snapped centre, and the shift is documented |
-| AC-4 | derived | snapping is idempotent and cell-equal: two centres in one cell produce the same result body |
+| AC-4 | derived | snapping is idempotent and basin-equal: two centres that round to one grid point (a *rounding basin*, not a grid cell — see 01) produce the same result body |
 | AC-5 | derived | no non-200 response is cacheable; the uniform `no-store` default survives everywhere else |
-| AC-6 | derived | an over-precision request is never answered from a *different* cell's cache entry |
+| AC-6 | derived | an over-precision request is never answered from another URL's cache entry |
 
 ## What exists today (delta from the story's wording)
 
@@ -79,13 +79,13 @@ design has something testable to approve. They are marked derived, not verbatim.
 
 | # | Edge case | Handling |
 |---|---|---|
-| E-1 | Client sends 8 dp | Snapped; same body as any other centre in that cell (AC-4) |
+| E-1 | Client sends 8 dp | Snapped; same body as any other centre in the same rounding basin (AC-4) |
 | E-2 | Client sends exactly 4 dp | Unchanged value; the snap is a no-op (INV-1) |
 | E-3 | Centre near a pole/antimeridian (`89.99999`, `-179.99999`) | Snap stays inside WGS84 (`90.0`, `-180.0`) (INV-4) |
 | E-4 | `NaN` / `Infinity` as lat or lng | `LatLng` range check rejects → 400 `invalid_input`, `no-store` |
 | E-5 | Listing sits within `shiftMetres` of the radius boundary | May enter/leave; disclosed in the OpenAPI description (AC-3) |
 | E-6 | Empty result page | Still a 200 → still cacheable (no special case) |
-| E-7 | Two clients, different filters, one cell | Different URLs → different cache keys; both cached separately |
+| E-7 | Two clients, different filters, one basin | Different URLs → different cache keys; both cached separately |
 | E-8 | Listing delisted/revoked right after a response is cached | Visible for at most the freshness window; bound ratified (INV-10) |
 | E-9 | Origin error during a stale revalidation | Edge may serve stale for the SWR budget, then 5xx (UC-02 E-2) |
 | E-10 | Cloudflare Cache Rule absent | Header still gives browser cache hits; origin/DB unchanged — the hedge is partial |

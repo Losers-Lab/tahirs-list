@@ -24,9 +24,9 @@ sequenceDiagram
   SP-->>E: 7. 200 (cacheable)
 
   Note over E,SP: failure branch
-  R-->>SP: 500 / 400 (policy not applied)
-  SP->>SP: 6'. no Cache-Control → append no-store
-  SP-->>E: 6''. not stored at edge
+  R-->>SP: 500 / 400
+  SP->>SP: 6'. non-2xx → append no-store (also when a policy was already set)
+  SP-->>E: 6''. unstorable: RFC 9111 §5.2
 ```
 
 ## What this diagram pins

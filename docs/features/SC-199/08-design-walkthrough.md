@@ -27,7 +27,7 @@ flowchart LR
 
 ## 2. Use cases
 **Shows:** UC-01 search (modified) and UC-02 edge serving (new), with the edge's real key behaviour.
-**Locks in:** identical repeat URLs are the only edge hits; a different GPS fix in the same cell is a miss at the edge.
+**Locks in:** identical repeat URLs are the only edge hits; a different GPS fix, even in the same basin, is a miss at the edge.
 **Need:** approve; confirm D-3 and D-5.
 
 ## 3. Use case diagram
@@ -36,7 +36,7 @@ flowchart LR
 **Need:** approve.
 
 ## 4. Black-box sequences
-**Shows:** two GPS fixes in one cell return identical bodies, but the edge sends the second to the origin (steps 10–11).
+**Shows:** two GPS fixes in one rounding basin return identical bodies, but the edge sends the second to the origin (steps 10–11).
 **Locks in:** 400 and 500 never cached; a repeat URL is served with zero origin calls.
 **Need:** approve. **Read step 11 against D-3.** It is the honest limit of the as-filed design.
 
@@ -64,19 +64,20 @@ flowchart LR
 | D-3 | What snapping buys: **A** as filed (server snap + header; edge helps identical URLs only); **B** origin cache keyed on the snapped request; **C** client-side rounding | **A** | decided 2026-11-08 — **option A** (founder). B is **not** in this story; it is the follow-up that would cut PostGIS load for near-duplicate fixes and needs its own story and design |
 | D-4 | Snap on both REST and MCP through one parser function | Yes | decided 2026-11-08 — **yes** (founder) |
 | D-5 | Cloudflare Cache Rule for `/v1/listings/search*` (query string in the key) | Under option A the edge is the only thing the header buys beyond browsers, so the rule is in scope | decided 2026-11-08 — **yes, per D-3 / A** (founder). Operator applies it; the runbook note ships with the PR |
+| D-6 | **Verified-badge freshness.** The cached search body carries `verificationStatus`. KB `architecture/scalability-and-reliability-goals` §5.2 (still `status: draft`) sets approve/deny propagation at **5 s**; the ratified search window is 360 s. **Corrected premise (Omar round 2, N1):** the certificate and image proxies are already `public, max-age=86400` — 24 h — so the authoritative certificate surface does not meet a 5 s target either; that predates SC-199. Options were: **A** accept 360 s on search cards; **B** purge the edge on verification changes; **C** ship snapping only | **A** | decided 2026-11-09 — **A** (founder): there is no strict SLA, and stale verified state is accepted. B is not pursued |
+| D-7 | The pre-existing 24 h cache on the certificate and image proxies (`public, max-age=86400`) | File a follow-up story | decided 2026-11-09 — **accepted as-is; no follow-up, no change** (founder). Stale certificates for 24 h are acceptable to the product |
 
 ## Approval
 
 ```
-Decision items resolved by founder: 2026-11-08
+Approved by: founder · Date: 2026-11-08 · Design commit: 7934b73 · Design PR: #83
 D-1 4 dp · D-2 as proposed · D-3 option A · D-4 yes · D-5 yes (per A)
-Approved by: founder (decision items answered; formal "approved" reply pending)
-Design commit: 7934b73 · Design PR: #83
+D-6 decided 2026-11-09: option A — stale verified state accepted, no SLA
+D-7 decided 2026-11-09: the 24 h certificate/image cache is accepted as-is, no follow-up
 ```
 
-**Known limit, accepted under D-3 A:** distinct GPS fixes in the same cell still run PostGIS
-on every request. Only identical repeat URLs are served from the edge or browser. Filing option B as a
-follow-up story is recommended but not done here.
-
-Implementation starts only after the founder's `approved` reply. The work items (09) and
-traceability (10) are written on the design branch after that.
+**Accepted limits (founder):**
+- Distinct GPS fixes in the same rounding basin still run PostGIS on every request (D-3 A). Only
+  identical repeat URLs are served from the edge or browser.
+- A search card may show a stale verified badge for up to the freshness window (D-6 A).
+- The certificate and image proxies are cached for 24 h (D-7). No change is planned.

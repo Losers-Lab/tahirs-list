@@ -43,25 +43,29 @@ at most the freshness window.
 | 3 dp | 111.3 m | 80.5 m | 78.5 m | 0.0488 mi |
 | 4 dp | 11.1 m | 8.05 m | 7.85 m | 0.0049 mi |
 
-Snapping is plain rounding of each component to `decimals` places; the shift is bounded
-by half the cell diagonal, which is why the worst case is quoted at the equator.
+Snapping is plain rounding of each component to `decimals` places. Rounding maps a value
+to the **nearest** grid point, so the set of centres that share a snapped value is a
+*half-cell-wide neighbourhood around that grid point* (a rounding basin), not the grid
+square that starts at it: `43.68294` and `43.68299` sit in the same 4 dp grid square but
+snap to `43.6829` and `43.6830`. The shift is bounded by half the cell diagonal, which is
+why the worst case is quoted at the equator (QA finding F1).
 
 ## Invariants
 
 | # | Invariant | Becomes test |
 |---|---|---|
-| INV-1 | Snapping is idempotent: `snap(snap(c)) == snap(c)` for every valid centre | `CoordinatePrecisionTest.isIdempotent` |
-| INV-2 | Any two centres in the same cell snap to the identical `LatLng` | `CoordinatePrecisionTest.sameCellSameCentre` |
-| INV-3 | The shift never exceeds `maxShiftMetres` for the configured precision | `CoordinatePrecisionTest.shiftWithinHalfDiagonal` |
-| INV-4 | A valid centre within one cell of a boundary snaps to a still-valid coordinate (`89.99999 → 90.0`, `-179.99999 → -180.0`) | `LatLngTest.roundedStaysInRange` |
-| INV-5 | A snapped component has at most `decimals` fractional digits | `LatLngTest.roundedHasAtMostNDecimals` |
-| INV-6 | Snapping is deterministic and total: same input, same output, no exceptions for valid input | `CoordinatePrecisionTest.isDeterministic` |
-| INV-7 | The radius is never snapped — only the centre | `ListingSearchRequestParserTest.radiusIsUntouched` |
-| INV-8 | Every returned `distanceMiles` is within `maxShiftMetres` (converted) of the distance from the requested centre; radius membership can differ only for listings within `maxShiftMetres` of the boundary | `ListingSearchEndpointTest.boundaryShiftBoundedToPrecision` |
-| INV-9 | Every `200` on `/v1/listings/search` carries the freshness header; every `4xx`/`5xx` keeps `no-store` | `ListingSearchEndpointTest.cacheHeaderOnSuccessOnly` · `SecurityHeadersTest.errorResponsesStayNoStore` |
-| INV-10 | The advertised maximum staleness (edge + stale-while-revalidate) never exceeds **600 s**, so a delisting cannot be hidden longer | `SearchCachePolicyTest.windowWithinTrustBound` |
-| INV-11 | The cacheable body is user-invariant: no per-user data, no `Set-Cookie`, no `Vary: *` | `ListingSearchEndpointTest.cacheableWithoutUserVariance` |
-| INV-12 | Two requests in one cell with the same filters/paging produce byte-identical bodies | `ListingSearchEndpointTest.sameCellSameBody` |
+| INV-1 | Snapping is idempotent: `snap(snap(c)) == snap(c)` for every valid centre | `CoordinatePrecisionTest.snapping is idempotent` · `LatLngRoundingTest.a value already at the precision is unchanged` |
+| INV-2 | Any two centres in one **rounding basin** (each component within half a cell of the same grid point) snap to the identical `LatLng` | `CoordinatePrecisionTest.two centres in one rounding basin snap to the same centre` |
+| INV-3 | The shift never exceeds `maxShiftMetres` for the configured precision | `CoordinatePrecisionTest.the snapped shift never exceeds the advertised maximum` |
+| INV-4 | A valid centre within one cell of a boundary snaps to a still-valid coordinate (`89.99999 → 90.0`, `-179.99999 → -180.0`) | `LatLngRoundingTest.rounding near a pole / the antimeridian stays inside WGS84` |
+| INV-5 | A snapped component has at most `decimals` fractional digits | `LatLngRoundingTest.the rounded result has at most N fractional digits` |
+| INV-6 | Snapping is deterministic and total: same input, same output, no exceptions for valid input | `CoordinatePrecisionTest.snapping is deterministic` |
+| INV-7 | The radius is never snapped — only the centre | `ListingSearchRequestParserTest.centre leaves the radius untouched` |
+| INV-8 | Every returned `distanceMiles` is within `maxShiftMetres` (converted) of the distance from the requested centre; radius membership can differ only for listings within `maxShiftMetres` of the boundary | **QA spot check** (0.001458 mi against a 0.004892 mi bound) — no unit assertion |
+| INV-9 | Every `200` on `/v1/listings/search` carries the freshness header; every `4xx`/`5xx` is `no-store` | `ListingSearchEndpointTest.a successful search advertises the freshness window` · `…an error response keeps no-store` · `ErrorMappingTest.an error replaces an opt-in cache policy` |
+| INV-10 | The advertised staleness never exceeds **600 s** on either channel: `max-age + swr` and `s-maxage + swr` are each bounded, so a delisting cannot be hidden longer | `SearchSettingsTest` (both bounds and their composition) · `SearchSettingsFromEnvTest` |
+| INV-11 | The cacheable body is user-invariant: no per-user data, no `Set-Cookie`, no `Vary: *` | `ListingSearchEndpointTest.the cacheable search response carries no cookie and no per-caller variance` |
+| INV-12 | Two requests in one basin with the same filters/paging produce byte-identical bodies | `ListingSearchEndpointTest.two centres in one 4 dp rounding basin return the same body` |
 
 ## States
 
@@ -96,7 +100,8 @@ by half the cell diagonal, which is why the worst case is quoted at the equator.
 | Term | Meaning |
 |---|---|
 | Precision | Decimal places kept in each coordinate component (3 or 4) |
-| Cell | The `10⁻ⁿ`° × `10⁻ⁿ`° square a snapped centre belongs to |
+| Cell | The `10⁻ⁿ`° × `10⁻ⁿ`° grid square between two grid points; it is *not* the set that snaps together |
+| Rounding basin | The half-cell-wide neighbourhood **around one grid point**: every centre in it snaps to that point (this, not the cell, is what AC-4 means) |
 | Snap / quantize | Round both components to the configured precision — the only new domain rule |
 | Shift | Great-circle distance between the requested and the snapped centre (≤ half the cell diagonal) |
 | Cache key | The full request URL (path **and** query string) — what the edge hashes |
