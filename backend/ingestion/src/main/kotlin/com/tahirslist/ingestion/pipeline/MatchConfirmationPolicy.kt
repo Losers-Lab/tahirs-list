@@ -89,7 +89,9 @@ class MatchConfirmationPolicy {
 
         // Address evidence replaces the old city-only acceptance.
         val houseHit = query.houseNumber?.let { houseNumberHit(labelled, it) } ?: false
-        val streetHit = query.streetTokens.any { it in labelTokens }
+        val streetHit = query.streetTokens.any { token ->
+            labelTokens.any { label -> streetTokenHit(token, label) }
+        }
         val localityHit = (query.city == null && query.postalCode == null) || cityHit || postalHit
         if (houseHit && streetHit && localityHit) return MatchDecision.Confirmed(place)
 
@@ -155,6 +157,19 @@ class MatchConfirmationPolicy {
         return tokens.zipWithNext().any { (first, second) -> compact(first + second) == wanted }
     }
 
+    /**
+     * A street word matches itself, and a numeric street name also matches its
+     * ordinal form: the directory writes "274 West 40 Street", Photon's label
+     * says "274 West 40th Street".
+     */
+    private fun streetTokenHit(token: String, label: String): Boolean {
+        if (token == label) return true
+        if (token.isEmpty() || token.any { !it.isDigit() }) return false
+        val digits = label.takeWhile { it.isDigit() }
+        if (digits != token) return false
+        return label.drop(digits.length) in ORDINAL_SUFFIXES
+    }
+
     private fun compact(value: String): String =
         value.lowercase().replace(Regex("""[^a-z0-9-]"""), "")
 
@@ -182,5 +197,7 @@ class MatchConfirmationPolicy {
             "kitchen", "food", "foods", "house", "halal", "bar", "bakery",
             "market", "express", "shop", "store", "inc", "ltd",
         )
+
+        val ORDINAL_SUFFIXES = setOf("st", "nd", "rd", "th")
     }
 }

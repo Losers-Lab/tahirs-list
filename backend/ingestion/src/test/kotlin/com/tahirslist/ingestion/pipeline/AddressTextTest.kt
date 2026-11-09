@@ -75,6 +75,13 @@ class AddressTextTest : FunSpec({
         address.streetTokens shouldBe listOf("gerrard")
     }
 
+    test("a numeric street name is kept, only the house number is dropped") {
+        val address = AddressText.parse(listOf("274 West 40 Street"), city = "New York")
+
+        address.houseNumber shouldBe "274"
+        address.streetTokens shouldBe listOf("40")
+    }
+
     test("a line with only a locality does not become the street") {
         val address = AddressText.parse(listOf("Dallas, TX"), city = "Dallas", region = "TX")
 

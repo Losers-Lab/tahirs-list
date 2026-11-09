@@ -85,7 +85,8 @@ object AddressText {
             ?.filterNot { it in GENERIC_STREET_WORDS }
             ?.filterNot { it in SUFFIX_ABBREVIATIONS }   // a suffix the expansion left in place
             ?.filterNot { it in DIRECTIONAL_ABBREVIATIONS }
-            ?.filterNot { it.matches(Regex("""\d+[a-z]?(-\d+[a-z]?)?""")) }
+            // Keep numeric street names ("40 Street"); only the house number goes.
+            ?.filterNot { houseNumber != null && it == houseNumber.lowercase() }
             ?.filter { it.length > 1 }
             ?.distinct()
             .orEmpty()

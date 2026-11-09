@@ -162,6 +162,22 @@ class MatchConfirmationPolicyTest : FunSpec({
             .shouldBeInstanceOf<MatchDecision.Confirmed>()
     }
 
+    test("a numeric street name matches its ordinal form") {
+        val burgermania = MatchQuery(
+            name = "Burgermania 40 Street",
+            city = "New York",
+            region = "NY",
+            country = "United States",
+            street = "274 West 40 Street",
+            houseNumber = "274",
+            streetTokens = listOf("40"),
+        )
+        policy.confirm(
+            burgermania,
+            place("Kiss My Slice, 274 West 40th Street, 10018 New York, NY, United States"),
+        ).shouldBeInstanceOf<MatchDecision.Confirmed>()
+    }
+
     test("a name token that is just the city is not a name match") {
         val dallas = MatchQuery(
             name = "Dallas Grill",
