@@ -105,7 +105,9 @@ class ListingSearchEndpointTest : KtorPostgresTest() {
             get("/v1/listings/search?center=Infinity,-Infinity&radius=5.0").status shouldBe 400
         }
 
-        test("two centres in one 4 dp cell return the same body (SC-199 AC-4)") {
+        test("two centres in one 4 dp rounding basin return the same body (SC-199 AC-4)") {
+            // Both round to 43.6829,-79.4185: each component is within half a
+            // 4 dp cell (0.00005) of that grid point.
             val first = get("/v1/listings/search?center=43.68292100,-79.41849300&radius=5.0")
             val second = get("/v1/listings/search?center=43.68292140,-79.41849340&radius=5.0")
 

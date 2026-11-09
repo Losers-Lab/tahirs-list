@@ -27,7 +27,7 @@ flowchart LR
 
 ## 2. Use cases
 **Shows:** UC-01 search (modified) and UC-02 edge serving (new), with the edge's real key behaviour.
-**Locks in:** identical repeat URLs are the only edge hits; a different GPS fix in the same cell is a miss at the edge.
+**Locks in:** identical repeat URLs are the only edge hits; a different GPS fix, even in the same basin, is a miss at the edge.
 **Need:** approve; confirm D-3 and D-5.
 
 ## 3. Use case diagram
@@ -36,7 +36,7 @@ flowchart LR
 **Need:** approve.
 
 ## 4. Black-box sequences
-**Shows:** two GPS fixes in one cell return identical bodies, but the edge sends the second to the origin (steps 10–11).
+**Shows:** two GPS fixes in one rounding basin return identical bodies, but the edge sends the second to the origin (steps 10–11).
 **Locks in:** 400 and 500 never cached; a repeat URL is served with zero origin calls.
 **Need:** approve. **Read step 11 against D-3.** It is the honest limit of the as-filed design.
 
@@ -64,6 +64,7 @@ flowchart LR
 | D-3 | What snapping buys: **A** as filed (server snap + header; edge helps identical URLs only); **B** origin cache keyed on the snapped request; **C** client-side rounding | **A** | decided 2026-11-08 — **option A** (founder). B is **not** in this story; it is the follow-up that would cut PostGIS load for near-duplicate fixes and needs its own story and design |
 | D-4 | Snap on both REST and MCP through one parser function | Yes | decided 2026-11-08 — **yes** (founder) |
 | D-5 | Cloudflare Cache Rule for `/v1/listings/search*` (query string in the key) | Under option A the edge is the only thing the header buys beyond browsers, so the rule is in scope | decided 2026-11-08 — **yes, per D-3 / A** (founder). Operator applies it; the runbook note ships with the PR |
+| D-6 | **Verified-badge freshness.** The cached body carries `verificationStatus`. KB `architecture/scalability-and-reliability-goals` §5.2 sets approve/deny propagation at **5 s** and says a stale Verified badge is worse than a 5xx; the ratified window is 360 s. Options: **A** accept 360 s on search *cards* only (the detail page and certificate proxy stay uncached, so the authoritative surfaces keep the 5 s target) and record the deviation; **B** purge the search cache on every verification transition (tag or wildcard purge — plan-dependent, unverified) so status propagates in seconds while the TTL stands; **C** ship snapping now, hold the header until B exists | **A now, B as the follow-up.** A is the only option that keeps this story shippable; B is the correct structural answer and needs its own story. C wastes the ratified work | **open — founder** |
 
 ## Approval
 
@@ -74,7 +75,7 @@ Approved by: founder (decision items answered; formal "approved" reply pending)
 Design commit: 7934b73 · Design PR: #83
 ```
 
-**Known limit, accepted under D-3 A:** distinct GPS fixes in the same cell still run PostGIS
+**Known limit, accepted under D-3 A:** distinct GPS fixes in the same basin still run PostGIS
 on every request. Only identical repeat URLs are served from the edge or browser. Filing option B as a
 follow-up story is recommended but not done here.
 

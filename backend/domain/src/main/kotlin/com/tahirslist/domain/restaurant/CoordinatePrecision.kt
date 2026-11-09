@@ -5,7 +5,9 @@ import kotlin.math.sqrt
 
 /**
  * Decimal places a search centre is snapped to (SC-199, D-1). A snapped centre
- * is an ordinary [LatLng]; the snap only merges centres that fall in one cell.
+ * is an ordinary [LatLng]; rounding merges every centre in one *rounding basin*
+ * (the half-cell neighbourhood of one grid point), not every centre in one grid
+ * cell — the two differ at a cell edge.
  */
 enum class CoordinatePrecision(val decimals: Int) {
     THREE_DECIMALS(3),

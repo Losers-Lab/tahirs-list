@@ -33,7 +33,7 @@ flowchart LR
 | BR-5 | The response is public and user-invariant: no personalization, no cookies, no `Vary: *` (INV-11). |
 | BR-6 | The advertised window is bounded by the delisting bound (≤ 600 s): a cached body may not hide a delisting longer than the ratified window (INV-10). |
 | BR-7 | A cache hit is indistinguishable from a miss in body and status; caching never changes an answer, only who produced it. |
-| BR-8 | An over-precision request is never answered from another cell's entry: the key is still the client's URL, so this is guaranteed by construction (AC-6). |
+| BR-8 | An over-precision request is never answered from another URL's entry: the key is still the client's URL, so this is guaranteed by construction (AC-6). |
 | BR-9 | No Cache Rule means no edge caching: the header still benefits browsers, and the search semantics are unchanged (E-10). |
 | BR-10 | Latency/cost claims in the story are hedges, not requirements: the design does not promise a hit rate. |
 
@@ -91,7 +91,7 @@ flowchart LR
 
 **Alternate flows**
 
-- **A1 (from 2)** — the URL differs by any filter or by a different cell: a miss; UC-01 runs and the response is stored under the new URL.
+- **A1 (from 2)** — the URL differs by any filter or by a different basin: a miss; UC-01 runs and the response is stored under the new URL.
 - **A2 (from 2)** — no Cache Rule (D-5 declined): every request is a miss; browsers may still reuse a response for `max-age`.
 - **A3 (from 5)** — the origin returns `400`/`500`: the error is **not** stored; the stale copy is discarded when the SWR budget ends.
 

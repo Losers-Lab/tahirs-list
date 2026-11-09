@@ -27,7 +27,7 @@ class CoordinatePrecisionTest : FunSpec({
         }
     }
 
-    test("two centres in one cell snap to the same centre (INV-2)") {
+    test("two centres in one rounding basin snap to the same centre (INV-2)") {
         CoordinatePrecision.FOUR_DECIMALS.snap(LatLng(40.71283741, -74.00601293)) shouldBe
             CoordinatePrecision.FOUR_DECIMALS.snap(LatLng(40.71284999, -74.00603001))
     }

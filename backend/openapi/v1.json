@@ -1082,7 +1082,7 @@
             "name": "center",
             "in": "query",
             "required": true,
-            "description": "`<lat>,<lng>` of the search centre. Snapped to 4 decimal places (about 11 m) before the query, so two fixes in one cell return the same result; `distanceMiles` and radius membership are computed from the snapped centre. Configured by `APP_SEARCH_CENTRE_DECIMALS` (3 or 4).",
+            "description": "`<lat>,<lng>` of the search centre. Snapped to the configured 3 or 4 decimal places (4 by default, about 11 m) before the query, so fixes that round to the same grid point return the same result; `distanceMiles` and radius membership are computed from the snapped centre. Configured by `APP_SEARCH_CENTRE_DECIMALS`.",
             "schema": {
               "type": "string"
             }
