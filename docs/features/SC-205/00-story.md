@@ -10,7 +10,7 @@
 | Epic | M1 Accounts & User Features |
 | Iteration | none assigned — backlog position after SC-53/54 |
 | Type · state | feature · In Development |
-| Personas | **RO**, **VRO** (acts); **U** (sees the result); no new persona |
+| Personas | **RO**, **VRO** (acts); **Admin** — the founder/operator, a new *system role*, not a PRD persona (Q-6); **U** (sees the result) |
 | Workflow | `@tahirs-feature-workflow`; founder approval before implementation |
 
 ## Story (verbatim from Shortcut)
@@ -48,8 +48,9 @@ The parent story's flow, still authoritative as context:
 | AC-3 | A signed-in owner can add **or replace** the listing image from the restaurant page | page test with a stubbed API: PUT called with the file, 204 → success state |
 | AC-4 | The new image is shown after upload (and stays shown after a reload) | test: success triggers a re-read whose URLs carry the new photo version |
 | AC-5 | A non-owner cannot change the photo | test: 403 `not_listing_owner` → explicit message, photo unchanged |
+| AC-6 | An **admin** can add or replace the photo on **any** listing, including one they do not own | test: `ADMIN` token + foreign listing → 204; owner path unaffected |
 
-AC-1…AC-3 are the story's own text. AC-4 makes "show the new image" durable rather than session-only (D-1). AC-5 is the server rule the UI must not hide.
+AC-1…AC-3 are the story's own text. AC-4 makes "show the new image" durable rather than session-only (D-1). AC-5 is the server rule the UI must not hide. AC-6 is the founder's 2026-11-09 addition: the operator must be able to correct any listing, and by extension its images. **The system has no admin role today** (six MVP roles, enforced by `ck_users_role`), so AC-6 pulls in D-10.
 
 ## Edge cases
 
@@ -64,6 +65,9 @@ AC-1…AC-3 are the story's own text. AC-4 makes "show the new image" durable ra
 | E-7 | Object storage or DB fails after some variants are written | The operation reports failure; the previous photo remains the one the page serves (known partial-write limitation, see Q-2) |
 | E-8 | Repeat upload | Last write wins; exactly one hero photo, version strictly increases |
 | E-9 | Listing deleted between page load and upload | 404 → "this listing was removed"; control disappears |
+| E-10 | Admin acts on a listing with **no owner** (seed/ingest row) | Allowed; the same write path, attributed to the admin |
+| E-11 | Admin's token was minted **before** their promotion | Role comes from the token, so the write is 403 until the next refresh; the UI says "sign in again to apply your new access" |
+| E-12 | A user tries to make themselves admin | No endpoint grants roles; promotion is an operator action outside the app (Q-6) |
 
 ## Open questions
 
@@ -74,3 +78,6 @@ AC-1…AC-3 are the story's own text. AC-4 makes "show the new image" durable ra
 | Q-3 | Is a photo a single hero (current) or a gallery? | — | **resolved** by SC-53 delivered scope: one hero, last-write-wins; gallery deferred |
 | Q-4 | May a non-owner submit a photo (the folded SC-33 wording says "a user")? | — | **resolved** by the delivered backend: owner only (SC-53) |
 | Q-5 | Do we transcode HEIC client-side? | founder | not in this story; explicit rejection copy instead |
+| Q-6 | **How does an account become `ADMIN`?** No endpoint grants roles today; the six MVP roles are fixed by `ck_users_role`. Options: documented operator SQL (plus a migration extending the CHECK), a bootstrap CLI, or a role-management surface (large, security-sensitive). | founder + Omar | **D-10** in `08` |
+| Q-7 | How far does admin attribution go for an override — a structured log line, or a persisted audit row (who, when, previous version)? | founder + Omar | **D-11** in `08` |
+| Q-8 | Does "admin can modify listings freely" (content edit, not just photos) belong here? | founder | **not this story** — images only (D-12); the wider admin-edit story is a follow-up |

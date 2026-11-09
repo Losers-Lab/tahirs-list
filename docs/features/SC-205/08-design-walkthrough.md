@@ -1,7 +1,12 @@
 # Design walkthrough — SC-205 owner photo upload
 
-> **Purpose:** the founder review surface · **Derived from:** 00–07 · **Delta:** 1 column, 1 endpoint, 3 frontend classes
+> **Purpose:** the founder review surface · **Derived from:** 00–07 · **Delta:** 2 columns/constraints, 1 endpoint, 3 frontend classes, 1 new role
 > Design commit: `95ba328` · Date: 2026-11-09 · Design PR: #88 · **Status: awaiting approval**
+
+| Date | Change | Phases re-run |
+|---|---|---|
+| 2026-11-09 | Initial walkthrough | — |
+| 2026-11-09 | **Admin override added (AC-6)**: `Role.ADMIN` (V26) + `PhotoWritePolicy` + attribution; add/replace written as two named flows (D-5); D-10…D-13 added | 00, 01, 02, 03, 04, 05, 06, 07 |
 
 ```mermaid
 flowchart LR
@@ -13,59 +18,63 @@ flowchart LR
 
 ## 1. Story and domain model
 
-**Shows:** one owner-initiated goal; `RestaurantListing` gains `imageVersion`; the photo is a derived `ListingPhoto` of FULL + four thumbnail variants, not a new aggregate.
-**Locks in:** one hero photo per listing (last write wins), strictly increasing version, owner-only writes, and a rejected upload never moves the version.
-**Need:** approve D-1 (durable version) — without it, "show the new image" is only true until the next reload.
+**Shows:** one goal with two actors (owner, admin) — `RestaurantListing` gains `imageVersion`, and a single `Actor` value plus `PhotoWritePolicy` expresses who may write.
+**Locks in:** one hero photo (last write wins), strictly increasing version, `role == ADMIN || accountId == ownerId` as the only rule, the role coming from the verified token, and an admin override being attributable.
+**Need:** D-1 (durable version), D-10 (how an account becomes admin — **the role does not exist today**), D-13 (token claim vs database read).
 
 ## 2. Use cases
 
-**Shows:** UC-01 as 14 numbered steps with three alternates (replace, camera, cancel) and eight exception branches, each mapped to a resulting state.
-**Locks in:** the UI never writes directly; every failure path leaves the published photo untouched; the ACs map to specific steps.
-**Need:** confirm D-2 (who sees the control) and D-8 (HEIC is rejected, not transcoded).
+**Shows:** UC-01 with two actors and two named flows — **add** (no photo) and **replace** (photo exists, destructive, confirmed at 3b) — plus admin branches A4/A5 and the stale-role case E9.
+**Locks in:** replace is not merely an add with a different label; it discloses that the old photo is destroyed. Every failure leaves the published photo untouched.
+**Need:** confirm D-5 (one use case, two flows — not two use cases) and D-2.
 
 ## 3. Use case diagram
 
-**Shows:** *Add Image* reached from the web app for the first time, `«include»`-ing *View Restaurant*; no new actor, and *Remove Image* deliberately stays untouched (SC-206).
-**Locks in:** scope — no gallery, no delete UI, no new persona.
+**Shows:** *Set the listing photo* reached by RO, VRO **and Admin**, `«include»`-ing *View Restaurant*; no new bubble for the admin, because the goal and contract are identical.
+**Locks in:** scope — photos only for the admin (D-12); *Remove Image* stays SC-206.
 **Need:** approve.
 
 ## 4. Black-box sequences
 
-**Shows:** the owner's view with the device (library/camera) as the only external participant, plus one fragment per exception in the failure diagram.
-**Locks in:** the observable contract — control only when allowed, uploading state, success announcement, and exactly one photo after any number of attempts.
+**Shows:** the owner's flow with the device as the only external participant, the replace confirmation, one fragment per exception, and a separate admin path where the page looks identical but the write is attributed to the admin.
+**Locks in:** the admin sees no different UI; the ownerless listing case is invisible at this level.
 **Need:** approve.
 
 ## 5. System class diagram
 
-**Shows:** `PhotoUploadController` (browser) and `AddListingImage` (server) as the two controls; `GetListingManage` as the one new backend control; `ImagePort` and the object store untouched.
-**Locks in:** the manage signal is a boolean for the caller only — no `owner_id` leaves the server; the upload endpoint's shape does not change.
-**Need:** confirm D-2 and D-7 (204 + re-read, rather than a richer PUT response).
+**Shows:** `PhotoUploadController` and `AddListingImage` as the two controls, `PhotoWritePolicy` as the single rule, `GetListingManage` as the one new read, `AuditRecorder` as the attribution seam.
+**Locks in:** the button and the server ask the same policy object, so they cannot disagree; `owner_id` never leaves the server.
+**Need:** D-2 (owner-or-admin signal) and D-11 (log vs table).
 
 ## 6. White-box sequences
 
-**Shows:** the real operations with the **authz point** (JWT → `AddListingImage` owner guard) and the **transaction boundary** (one `UPDATE … RETURNING`, after all object writes).
-**Locks in:** the error table (401/403/413/400/404/500), the generic-400 copy rule, and that no DB transaction wraps object storage.
-**Need:** confirm D-6 (accept the partial-variant window on storage failure).
+**Shows:** the real calls with the authz point now `authenticate → Actor(sub, role) → PhotoWritePolicy`, the audit call only on an override, and the transaction boundary (one `UPDATE … RETURNING` after the object writes).
+**Locks in:** the 401/403/413/400/404/500 table including E9, and the stated staleness bound for a role change.
+**Need:** D-13 and D-6.
 
 ## 7. Complete class diagram (the design being approved)
 
-**Shows:** the layer map, final names, V25 schema, endpoint contract, frontend files, and the test that proves each invariant.
-**Locks in:** `image_version` is the only schema change; one new endpoint; image URLs gain an opaque `&v=`; existing endpoints' shape is unchanged.
-**Need:** approve, including D-1 … D-8.
+**Shows:** the layer map, final names, V25 (`image_version`) and V26 (`ck_users_role` + `ADMIN`), the `/manage` contract, every frontend file, and the test that proves each invariant.
+**Locks in:** V26 promotes nobody; there is no role-granting route; the frontend contains no role logic at all.
+**Need:** approve, including D-1 … D-13.
 
 ## Decision items
 
 | # | Question | Recommendation | Decision |
 |---|---|---|---|
 | D-1 | Make the photo version **durable** (`restaurant_listings.image_version`, V25, `&v=` on image URLs) instead of only cache-busting in the browser after upload | Yes — otherwise the owner refreshes and their new photo is invisible for up to 24 h (`max-age=86400`). Also fixes stale images after seed/ingest refreshes | _open_ |
-| D-2 | Gate the control on a dedicated authenticated `GET /v1/listings/{id}/manage → {canManage}` instead of showing it to every signed-in user and mapping the 403 | Yes — the edit screen (SC-47/48) shows its control to everyone and fails late; a boolean is cheap, leaks no owner id, and can later gate Edit too | _open_ |
-| D-3 | Two inputs in one dialog — file picker (`accept="image/*"`) and camera (`accept="image/*" capture="environment"`) — rather than `getUserMedia` | Yes — `getUserMedia` needs a permission prompt and a live preview component; the file input with `capture` is the documented mobile path and needs no new code path on desktop | _open_ |
-| D-4 | Native `<dialog>` + `showModal()` for the upload sheet | Yes — built-in focus trap and Esc handling, no dependency; shadcn-svelte is disabled and this screen needs none of its parts | _open_ |
-| D-5 | One use case, with *replace* as an alternate flow | Yes — same actor goal and same server operation; a second UC would duplicate 12 steps | _open_ |
-| D-6 | Accept that a storage failure can leave some variants newer than others; no revert work item | Accept for now — object storage has no transaction; the version stamp still does not advance, so clients keep the old URL, and a retry overwrites every variant. Logged as a follow-up candidate | _open_ |
-| D-7 | `PUT` keeps `204`; the client re-reads `GET /v1/listings/{id}` to obtain the new versioned URLs | Yes — no response-schema change, and the re-read refreshes any other field that changed | _open_ |
-| D-8 | HEIC uploads (iPhone default) are rejected with explicit copy; no client-side transcoding | Yes, for this story — `ImageResizer` (JDK ImageIO) cannot decode HEIC; transcoding needs a WASM dependency in the bundle. Offer "Choose a photo" copy that names JPEG/PNG | _open_ |
-| D-9 | Implementation needs the `svelte` MCP (registered but disabled, and absent from this worktree's session catalog) | Enable it before the frontend WIs; otherwise the component work is written against repo convention alone | _open_ |
+| D-2 | Gate the control on a dedicated authenticated `GET /v1/listings/{id}/manage → {canManage}` instead of showing it to every signed-in user and mapping the 403 | Yes — the signal now answers *owner or admin*, leaks no owner id, and stops offering a control that will fail | _open_ |
+| D-3 | Two inputs in one dialog — file picker (`accept="image/*"`) and camera (`accept="image/*" capture="environment"`) — rather than `getUserMedia` | Yes — no permission prompt, no preview component, documented mobile path | _open_ |
+| D-4 | Native `<dialog>` + `showModal()` for the upload sheet | Yes — built-in focus trap and Esc handling; shadcn-svelte is disabled | _open_ |
+| D-5 | **One use case with two named flows** (add, replace) rather than two use cases | Yes — same actor goal and same `PUT` contract; replace is destructive but mechanically identical. Split only if replace later gains history, review or a different actor | _open_ |
+| D-6 | Accept that a storage failure can leave some variants newer than others; no revert work item | Accept — the version stamp does not advance, and a retry overwrites every variant | _open_ |
+| D-7 | `PUT` keeps `204`; the client re-reads the detail for the new versioned URLs | Yes — no response-schema change | _open_ |
+| D-8 | HEIC uploads (iPhone default) are rejected with explicit copy; no client transcoding | Yes, for this story | _open_ |
+| D-9 | Enable the `svelte` MCP before the frontend work items | Yes — it was absent from this worktree's catalog | _open_ |
+| D-10 | **Create the `ADMIN` role.** Add it to `Role`, extend `ck_users_role` (V26), promote the founder's account by a documented operator step. No promotion endpoint, no self-service, no default admin | Yes — with the promotion runbook written before implementation, because without it AC-6 cannot be exercised in production | _open_ |
+| D-11 | Attribution for an admin override: structured log line now, or a persisted `listing_image_audit` row (V27) from the start | Log now, table if the founder wants a durable trail — a log is cheap but not queryable by the committee | _open_ |
+| D-12 | Does "admin may freely modify **listings**" belong in this story? | No — this story covers photos only. Content edit (`PATCH`), removal and claims are a separate story with their own guards and audit | _open_ |
+| D-13 | Role authority: the verified JWT `role` claim (bounded staleness: effective at the next refresh) vs reading `users.role` on every write (immediate, one extra query) | Token claim — consistent with the committee route and the existing auth model; the bound is documented in INV-13 | _open_ |
 
 ## Environment note
 
@@ -74,8 +83,8 @@ This design was produced in the `sc-201-location-search` worktree; the `basic-me
 ## Approval
 
 ```
-Approved by: ________ · Date: ________ · Design commit: ________ · Design PR: #____
-Decision items: D-1 … D-9 resolved as tabled / amended: ________
+Approved by: ________ · Date: ________ · Design commit: ________ · Design PR: #88
+Decision items: D-1 … D-13 resolved as tabled / amended: ________
 ```
 
 Work items (`09`) and traceability (`10`) are written only after this line exists, and append to this PR. Implementation starts on `feat/SC-205-photo-upload` from `main` once the design PR merges.

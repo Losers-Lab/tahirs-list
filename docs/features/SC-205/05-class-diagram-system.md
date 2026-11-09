@@ -45,8 +45,24 @@ classDiagram
     UNVERIFIED
     VERIFIED
   }
+  class Actor {
+    +accountId: Uuid
+    +role: Role
+  }
+  class Role {
+    <<enumeration>>
+    USER
+    RESTAURANT_OWNER
+    VERIFIED_RESTAURANT_OWNER
+    VERIFICATION_COMMITTEE
+    ISSUES_COMMITTEE
+    EXTENSION_TRIGGER
+    ADMIN
+  }
   RestaurantListing --> ListingPhoto : derives
   RestaurantListing --> VerificationStatus
+  Actor --> Role
+  Actor ..> RestaurantListing : write policy input
 ```
 
 ## Application (frontend)
@@ -90,11 +106,19 @@ classDiagram
 classDiagram
   class AddListingImage {
     <<control, existing SC-53>>
-    +execute(listingId, ownerId, original) void
+    +execute(listingId, actor, original) void
   }
   class GetListingManage {
     <<control, new>>
-    +execute(listingId, viewerId) ManageOutcome
+    +execute(listingId, actor) ManageOutcome
+  }
+  class PhotoWritePolicy {
+    <<policy, new>>
+    +mayManage(actor, listing) Boolean
+  }
+  class AuditRecorder {
+    <<interface, new>>
+    +imageSet(listingId, actor, previousVersion, newVersion)
   }
   class IngestHeroImage {
     <<existing>>
@@ -114,6 +138,9 @@ classDiagram
   class NotListingOwnerException
   class ListingNotFoundException
 
+  AddListingImage --> PhotoWritePolicy
+  AddListingImage --> AuditRecorder
+  GetListingManage --> PhotoWritePolicy
   AddListingImage --> ImagePort
   AddListingImage --> RestaurantListingRepository
   AddListingImage ..> IngestHeroImage
@@ -121,6 +148,8 @@ classDiagram
   AddListingImage ..> ListingNotFoundException
   GetListingManage --> RestaurantListingRepository
 ```
+
+`PhotoWritePolicy` is the only place the rule `role == ADMIN || accountId == ownerId` exists; both the manage read and the write call it, so the button and the server can never disagree. `AddListingImage` takes an `Actor` (verified JWT `sub` + `role`), not a bare owner id; the audit call is made only when the actor is not the owner (INV-12).
 
 `AddListingImage` keeps its guard order (exists → owner → decode → store → **stamp**). The stamp is last, so every failure path leaves the version untouched (INV-5).
 
@@ -171,6 +200,7 @@ classDiagram
 | `RestaurantListingRepository` | `bumpImageVersion(id): Long?` | `ExposedRestaurantListingRepository` | PostgreSQL `restaurant_listings.image_version` |
 | `ImagePort` (existing) | `save` / `load` / `delete` | `S3ImageStorage` | MinIO / S3 |
 | `ImagePort` (existing) | same | `InMemoryImageStorage` (tests) | in-memory |
+| `AuditRecorder` | `imageSet(listingId, actor, previousVersion, newVersion)` | `LoggingAuditRecorder` now; `ExposedAuditRecorder` if D-11 chooses a table | structured log / PostgreSQL |
 | `Clock` | `now()` | `kotlin.time.Clock` | — |
 
 ## Operation coverage
@@ -183,16 +213,18 @@ classDiagram
 | 6–7 | `PhotoUploadDialog.onChooseFile` / `onTakePhoto` |
 | 8 | `PhotoUploadController.selectFile` → client size/type pre-check |
 | 9 | `ApiClient.uploadListingImage` → `PUT /v1/listings/{id}/image` |
-| 10 | Ktor `authenticate(JWT_AUTH_PROVIDER)` → `AddListingImage.execute` guard 1–2 |
+| 10 | Ktor `authenticate(JWT_AUTH_PROVIDER)` → `Actor(sub, role)` → `AddListingImage.execute` → `PhotoWritePolicy.mayManage` |
 | 11 | `IngestHeroImage.ingest` → `ImageResizer` → `ImagePort.save` ×5 |
-| 12 | `RestaurantListingRepository.bumpImageVersion` → `204` |
+| 12 | `RestaurantListingRepository.bumpImageVersion` → `AuditRecorder.imageSet` on an override → `204` |
 | 13 | `ApiClient.getListing` re-read; versioned URLs from the DTO |
 | 14 | `ListingPhotoPanel` shows the new URL; dialog closes; focus restored |
 | A1 | step 3 label only; same operations |
 | A2 | `onTakePhoto` uses the `capture="environment"` input |
 | A3 | `PhotoUploadController.reset`; no request |
 | E1 / E7 | `401` → controller `auth` error; sign-in link with `redirect` |
-| E2 | `403 not_listing_owner` → controller `forbidden` error |
+| E2 | policy false (`USER` non-owner) → `403 not_listing_owner` |
+| E9 | policy false because the token's role predates promotion → `403`; UI asks for a fresh sign-in |
+| A4 / A5 | policy true on `role == ADMIN`; `AuditRecorder.imageSet` records the acting admin; owner check skipped |
 | E3 | client pre-check, or `413 payload_too_large` |
 | E4 | `400 invalid_input` from `ImageResizer.contentType` |
 | E5 | `404 not_found` |

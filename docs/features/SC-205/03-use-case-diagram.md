@@ -8,9 +8,10 @@
 flowchart LR
   RO([Restaurant Owner])
   VRO([Verified Restaurant Owner])
+  AD([Admin])
   U([User])
   subgraph S["Tahir's List"]
-    UC1([Add or replace the listing photo])
+    UC1([Set the listing photo])
     UC2([View Restaurant])
   end
   OBJ[("MinIO / S3<br/>hero + variants")]
@@ -18,6 +19,7 @@ flowchart LR
 
   RO --> UC1
   VRO --> UC1
+  AD --> UC1
   U --> UC2
   UC1 -. include .-> UC2
   UC1 --> OBJ
@@ -27,13 +29,15 @@ flowchart LR
   class UC1 changed
 ```
 
-`«include»`: the owner can only add a photo *from the restaurant page*, so the photo goal always includes rendering the listing. There is no `«extend»` — replacing a photo is an alternate flow inside the same goal, not a variant use case (and SC-206's delete is a separate goal, drawn below as untouched).
+`«include»`: the photo goal always needs the restaurant page rendered, so it includes *View Restaurant*. There is no `«extend»` — replace is a stored flow inside the same goal, not a variant use case (D-5), and SC-206's delete stays a separate goal.
+
+**Two actors, one goal.** The owner sets their own listing's photo; the admin sets any listing's photo (AC-6). They are not separate bubbles because the goal and the system contract are identical — only the authorization differs, and that lives inside the use case. The admin role is new to the system (D-10), which is why this is a small product change, not just a UI one.
 
 ## System-wide (changed item amber; everything else unchanged)
 
 ```mermaid
 flowchart LR
-  RO([Restaurant Owner]); VRO([Verified Restaurant Owner]); U([User]); VC([Verification Committee]); IC([Issues Committee]); ET([Extension Trigger])
+  RO([Restaurant Owner]); VRO([Verified Restaurant Owner]); AD([Admin]); U([User]); VC([Verification Committee]); IC([Issues Committee]); ET([Extension Trigger])
 
   subgraph System["Tahir's List"]
     S1([Search for Halal Restaurants]); S2([Filter Results by Distance]); S3([Filter by Food Cutting Method]); S4([Filter Results by Price]); S5([Filter Results by Cuisine]); S6([Filter Results by Rating])
@@ -48,7 +52,7 @@ flowchart LR
   PG[("PostgreSQL")]
 
   U --> S1; U --> V1; U --> A1; U --> A2; U --> F1; U --> F2; U --> F3; U --> I3
-  RO --> I1; VRO --> I1; VRO --> I2; VRO --> R3; RO --> R1
+  RO --> I1; VRO --> I1; AD --> I1; VRO --> I2; VRO --> R3; RO --> R1
   VC --> C1; VC --> C2; IC --> I3
   ET --> S1; ET --> E1; ET --> E2
   S1 -. include .-> S2; S1 -. include .-> S3; S1 -. include .-> S4; S1 -. include .-> S5; S1 -. include .-> S6

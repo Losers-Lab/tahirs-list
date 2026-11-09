@@ -15,11 +15,11 @@ flowchart TB
   end
   subgraph BE["backend (Ktor, hexagon)"]
     ROUTE["web-api · ListingRoutes<br/>modified (manage route)"]
-    APP["application · AddListingImage<br/>modified · GetListingManage new"]
+    APP["application · AddListingImage<br/>modified (Actor) · GetListingManage new<br/>PhotoWritePolicy new · AuditRecorder new"]
     PORT["application · RestaurantListingRepository<br/>new operation"]
     PERS["adapters/persistence · ExposedRestaurantListingRepository<br/>modified"]
     STOR["application · ImagePort → adapters/storage-s3<br/>unchanged"]
-    DOM["domain · RestaurantListing<br/>+ imageVersion"]
+    DOM["domain · RestaurantListing + imageVersion<br/>Role + ADMIN"]
   end
   DB[("PostgreSQL<br/>restaurant_listings.image_version")]
   S3[("MinIO / S3<br/>hero + 4 variants")]
@@ -39,10 +39,15 @@ The frontend reaches the backend only through the same-origin `/v1` proxy; no ke
 | Object | Change | Final name / shape |
 |---|---|---|
 | `restaurant_listings.image_version` | **new column** | `BIGINT NOT NULL DEFAULT 0`; `V25__sc_205_image_version.sql` sets `image_version = 1` on every existing row so old cached URLs are re-fetched once |
+| `users.role` | **modified constraint** | `V26__add_admin_role.sql` replaces `ck_users_role` with the same six values **plus `'ADMIN'`**. No data change; no account is promoted by the migration |
+| `Role` | **modified enum** | `ADMIN` appended (append-only; `Role.DEFAULT` stays `USER`) |
+| `Account` / signup | **unchanged** | sign-up still grants `USER`; there is no promotion path in the app (D-10) |
 | `RestaurantListing` | **modified** | `val imageVersion: Long = 0`; `fromStorage(imageVersion: Long = 0)` |
 | `RestaurantListingRepository` | **modified** | `suspend fun bumpImageVersion(id: Uuid): Long?` — returns the new version, `null` when the listing is gone |
 | `ExposedRestaurantListingRepository` | **modified** | `LISTING_COLUMNS` + `toListing` read `image_version`; new `UPDATE … RETURNING image_version` |
-| `AddListingImage` | **modified** | after `IngestHeroImage.ingest`, call `bumpImageVersion`; a `null` result means the listing vanished mid-write → `ListingNotFoundException` |
+| `AddListingImage` | **modified** | takes `Actor` instead of `ownerId`; calls `PhotoWritePolicy.mayManage`; after `IngestHeroImage.ingest` calls `bumpImageVersion` and, on an override, `AuditRecorder.imageSet` |
+| `PhotoWritePolicy` | **new** | `mayManage(actor, listing) = actor.role == ADMIN \|\| actor.accountId == listing.ownerId` — one implementation, used by both the read and the write |
+| `AuditRecorder` | **new port** | `imageSet(listingId, actor, previousVersion, newVersion)`; `LoggingAuditRecorder` unless D-11 chooses a table (then `V27` + `listing_image_audit`) |
 | `restaurant_listings` other columns | **unchanged** | photo bytes never enter PostgreSQL |
 | existing migrations V1–V24 | **unchanged** | V25 is the next free number |
 
@@ -50,7 +55,7 @@ The frontend reaches the backend only through the same-origin `/v1` proxy; no ke
 
 | Endpoint | Change | Contract |
 |---|---|---|
-| `GET /v1/listings/{id}/manage` | **new** | auth required · `200 {canManage: boolean}` · `401`, `404 listing_not_found`. Returns no owner id. |
+| `GET /v1/listings/{id}/manage` | **new** | auth required · `200 {canManage: boolean}` where `canManage = owner \|\| ADMIN` · `401`, `404 listing_not_found`. Returns no owner id. |
 | `GET /v1/listings/{id}` | **modified (values only)** | `imageUrl` and every `imageSrcset[].url` gain `&v=<imageVersion>` when the version is non-zero; field names, types and the schema are unchanged |
 | `PUT /v1/listings/{id}/image` | **unchanged** | owner-only multipart, 204 |
 | `DELETE /v1/listings/{id}/image` | **unchanged** | owner-only, 204 (SC-206 UI is out of scope) |
@@ -64,7 +69,7 @@ The frontend reaches the backend only through the same-origin `/v1` proxy; no ke
 |---|---|---|
 | `frontend/src/lib/components/listing/ListingPhotoPanel.svelte` | **new** | the images section: hero photo or labelled empty frame; Add/Replace control; success announcement |
 | `frontend/src/lib/components/listing/PhotoUploadDialog.svelte` | **new** | native `<dialog>`; *Choose a photo* / *Take a photo*; uploading, error and retry states; focus return |
-| `frontend/src/lib/listings/photo-upload.svelte.ts` | **new** | `PhotoUploadController`: `canManage`, `state`, `lastError`, `open`, `selectFile`, `reset` |
+| `frontend/src/lib/listings/photo-upload.svelte.ts` | **new** | `PhotoUploadController`: `canManage`, `state`, `lastError`, `open`, `selectFile`, `reset` — **unchanged by AC-6**: the admin case arrives as `canManage = true`, so no role logic exists in the browser |
 | `frontend/src/lib/api/client.ts` | **modified** | `uploadListingImage(id, file)` (FormData, no JSON content-type), `getManage(id)`, `ApiErrorCode` += `payload_too_large` / `unauthorized` |
 | `frontend/src/routes/restaurants/[id]/+page.svelte` | **modified** | render `ListingPhotoPanel` in place of the bare hero frame; pass `canManage` |
 | `frontend/src/lib/api/schema.d.ts` | **regenerated** | `pnpm codegen:api` after the OpenAPI change — never hand-edited |
@@ -78,6 +83,10 @@ The frontend reaches the backend only through the same-origin `/v1` proxy; no ke
 | `PersistenceSchemaMigrationTest` (extension) | V25 column exists, defaults to 0, backfills 1 |
 | `ExposedRestaurantListingRepositoryTest.bumpImageVersion*` | version increases; unknown id → null |
 | `AddListingImageTest.bumpsVersionOnSuccess` / `failedUploadLeavesVersionAndBytes` | INV-2, INV-5 |
+| `PhotoWritePolicyTest` | INV-11 — `ADMIN` on a foreign listing, `USER` on a foreign listing, owner, admin on an ownerless listing |
+| `AddListingImageTest.adminOverrideIsAttributed` | INV-12 |
+| `UsersRoleMigrationTest` | V26 admits `ADMIN`, keeps all six existing values, promotes nobody |
+| `ListingImageEndpointTest.staleRoleTokenIsRefused` | INV-13 |
 | `ListingReadEndpointTest.srcsetSharesOneVersion` | INV-6, AC-4 |
 | `ListingManageEndpointTest` | 200 owner / 200 non-owner `{canManage:false}` / 401 / 404 |
 | `PhotoUploadController.test.ts` | state machine, 8 MiB pre-check, each error mapping |
@@ -87,4 +96,8 @@ The frontend reaches the backend only through the same-origin `/v1` proxy; no ke
 
 ## Names that must not drift
 
-`imageVersion`, `image_version`, `v` (query param), `canManage`, `PhotoUploadController`, `ListingPhotoPanel`, `PhotoUploadDialog`, `uploadListingImage`, `getManage`, `bumpImageVersion`, `GetListingManage`, `V25__sc_205_image_version.sql`. No counter-category vocabulary appears anywhere; the feature touches no halal attribute.
+`imageVersion`, `image_version`, `v` (query param), `canManage`, `ADMIN`, `Actor`, `PhotoWritePolicy`, `AuditRecorder`, `PhotoUploadController`, `ListingPhotoPanel`, `PhotoUploadDialog`, `uploadListingImage`, `getManage`, `bumpImageVersion`, `GetListingManage`, `V25__sc_205_image_version.sql`, `V26__add_admin_role.sql`. No counter-category vocabulary appears anywhere; the feature touches no halal attribute.
+
+## Scope boundary
+
+AC-6 says the admin may change any listing's **photo**. The founder's wider statement — *admin can freely modify listings* — is **not** this story: it touches `PATCH /v1/listings/{id}`, `DELETE`, claim handling and the verification fields, each with its own guard and audit needs. It is recorded as a follow-up story in D-12 so the capability is not silently half-built.

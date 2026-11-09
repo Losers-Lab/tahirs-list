@@ -29,15 +29,29 @@ classDiagram
     THUMBNAIL_1280
     THUMBNAIL_1920
   }
-  class OwnerRef {
+  class Actor {
     +accountId: Uuid
-    +mayManage(listing) Boolean
+    +role: Role
+    +mayManagePhoto(listing) Boolean
+  }
+  class Role {
+    <<enumeration>>
+    USER
+    RESTAURANT_OWNER
+    VERIFIED_RESTAURANT_OWNER
+    VERIFICATION_COMMITTEE
+    ISSUES_COMMITTEE
+    EXTENSION_TRIGGER
+    ADMIN
   }
 
   RestaurantListing --> ListingPhoto : composes
   ListingPhoto --> ImageVariant
-  RestaurantListing ..> OwnerRef : guard
+  RestaurantListing ..> Actor : write policy
+  Actor --> Role
 ```
+
+`Actor` is the *verified* caller: `accountId` is the JWT `sub` and `role` its `role` claim. `mayManagePhoto(listing)` is the single policy expression — `role == ADMIN || accountId == listing.ownerId` — and it is the only place that decides who may write a photo. `Role` gains `ADMIN`; that is a new system role, not a PRD persona (D-10), and it is persisted in `users.role`, so the CHECK constraint must admit it.
 
 `ListingPhoto` is derived, not stored as a row: it exists only when the listing has a non-zero `imageVersion` and the stored variants exist. `imageVersion` is a monotonically increasing stamp (epoch millis of the last successful ingest), not a content hash — it exists so a URL changes when the bytes change.
 
@@ -55,6 +69,10 @@ classDiagram
 | INV-8 | A photo URL's version is opaque and never changes after a successful commit | DTO test: two reads of an unchanged listing return identical URLs |
 | INV-9 | A listing with no photo renders a labelled empty state, never a broken image | `PhotoSection.test.ts` empty state |
 | INV-10 | Uploading again is idempotent in effect: one photo, one current version, no orphan rows | `AddListingImageTest.repeatUploadKeepsOnePhoto` |
+| INV-11 | The write policy is exactly `role == ADMIN \|\| accountId == listing.ownerId`, evaluated from the verified JWT — never from request data | `PhotoWritePolicyTest.adminMayManageForeignListing` · `userMayNotManageForeignListing` |
+| INV-12 | An admin override on a listing they do not own is attributable to the acting admin | `AddListingImageTest.adminOverrideIsAttributed` |
+| INV-13 | A role change takes effect no later than the next access-token refresh (the claim is the authority) | `ListingImageEndpointTest.staleRoleTokenIsRefused` |
+| INV-14 | No API grants a role; an account cannot promote itself | endpoint inventory test — no role-mutating route |
 
 ## States
 
@@ -76,4 +94,9 @@ classDiagram
 | Empty state | The labelled frame shown when a listing has no photo |
 | Manage signal | The server's answer to "may this viewer change this listing's photo?" (D-2) |
 | Owner | The account recorded in `restaurant_listings.owner_id` — never the client's claim |
+| Admin | An account whose verified token carries `role = ADMIN`; may manage any listing's photo (AC-6). Not a PRD persona — a new system role (D-10) |
+| Actor | The verified caller: JWT `sub` + `role`. The only input to the write policy |
+| Write policy | `role == ADMIN \|\| accountId == ownerId` — one expression, one place, server-side |
+| Override | An admin write on a listing they do not own; must be attributable (INV-12) |
+| Promotion | Changing an account's `role` in `users.role`; an operator action, not an app feature (Q-6) |
 | Last write wins | A second successful upload replaces the first; there is no gallery in this story |
