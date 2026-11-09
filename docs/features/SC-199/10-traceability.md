@@ -71,7 +71,7 @@
 | F4 | yusuf | traceability drift (PR number, test names, non-existent OpenAPI test) — **fixed** |
 | F5 | yusuf | no proof the config reaches the route — **fixed** (`ListingSearchWiringTest` boots at 3 dp) |
 | F6 | yusuf | INV-8 evidence — **recorded above** |
-| N1 | omar (round 2) | D-6's premise was false: the certificate/image proxies are `public, max-age=86400`, so the authoritative certificate surface already exceeds the 5 s target by 24 h — **corrected**; the 24 h cache is a pre-existing gap that needs its own story |
+| N1 | omar (round 2) | D-6's premise was false: the certificate/image proxies are `public, max-age=86400` — **corrected** in D-6; the 24 h cache is now **accepted as-is with no follow-up** (D-7, founder 2026-11-09) |
 | N2 | omar (round 2) | `max-age + swr` could exceed 600 s under extreme config — **fixed** (both channels bounded together, test added) |
 | N3 | omar (round 2) | docs said an error carries no freshness header — **fixed** in 02 BR-4 and 06/UC-02 (a late 500 carries both; `no-store` wins) |
 | N4 | omar (round 2) | stale test-name citations in 01/07/09 — **fixed** to the names that exist |
