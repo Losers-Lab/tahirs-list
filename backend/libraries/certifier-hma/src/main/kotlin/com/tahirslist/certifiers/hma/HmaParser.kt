@@ -62,7 +62,17 @@ object HmaParser {
         return HmaParseResult(outlets = outlets, skipped = pages.size - outlets.size)
     }
 
-    /** Splits `street, city, province, postal` without guessing missing parts. */
+    /**
+     * Splits `street, city, province, postal` without guessing missing parts.
+     *
+     * HMA writes the same parts in many shapes: a trailing `Canada`, a province
+     * glued to the postal code (`ON L6R 1W4`), an abbreviation with a dot
+     * (`Ont. L7L 0B6`), the postal before the city (`L4W4G1 Mississauga`) and
+     * outright typos (`L6Z2WL`, `L4W 4GI`). Reading from the end and stripping
+     * the parts it recognises keeps a country name or a broken postal code out
+     * of the city field; when the shape cannot be read, the city stays null
+     * rather than holding garbage.
+     */
     internal fun parseAddress(raw: String?): HmaAddress {
         val parts = raw?.split(',')
             ?.map { it.trim() }
@@ -75,22 +85,52 @@ object HmaParser {
         var region: String? = null
         var city: String? = null
 
-        val combined = rest.lastOrNull()?.let { TRAILING_REGION_POSTAL.matchEntire(it) }
-            ?.takeIf { PROVINCE.matches(it.groupValues[1]) }
-        if (combined != null) {
-            region = combined.groupValues[1]
-            postal = combined.groupValues[2]
-            rest.removeAt(rest.lastIndex)
-        } else {
-            if (rest.isNotEmpty() && POSTAL_CODE.matches(rest.last())) {
-                postal = rest.removeAt(rest.lastIndex)
+        var index = rest.lastIndex
+        while (index >= 0) {
+            var segment = rest[index]
+
+            segment = COUNTRY_WORD.replace(segment, " ").trim(' ', ',', '.')
+            if (segment.isEmpty()) {
+                rest.removeAt(index)
+                index--
+                continue
             }
-            if (rest.isNotEmpty() && PROVINCE.matches(rest.last())) {
-                region = rest.removeAt(rest.lastIndex)
+
+            val postalMatch = POSTAL_CODE.find(segment)
+            if (postalMatch != null) {
+                if (postal == null) postal = postalMatch.value
+                segment = segment.removeRange(postalMatch.range).trim(' ', ',', '.')
             }
-        }
-        if (rest.isNotEmpty()) {
-            city = rest.removeAt(rest.lastIndex)
+
+            val provinceMatch = PROVINCE_WORD.find(segment)
+            if (provinceMatch != null) {
+                if (region == null) region = provinceCode(provinceMatch.value)
+                segment = segment.removeRange(provinceMatch.range).trim(' ', ',', '.')
+            }
+
+            if (segment.isEmpty()) {
+                rest.removeAt(index)
+                index--
+                continue
+            }
+
+            // A broken postal code ("L6Z2WL") or a unit ("Unit 7A") is not a
+            // city; skip it and keep reading towards the street.
+            if (looksLikePostalOrUnit(segment)) {
+                rest.removeAt(index)
+                index--
+                continue
+            }
+
+            if (isCity(segment)) {
+                city = segment
+                rest.removeAt(index)
+                break
+            }
+
+            // The street itself, or something unreadable: keep it in the line.
+            rest[index] = segment
+            break
         }
 
         return HmaAddress(
@@ -99,6 +139,25 @@ object HmaParser {
             region = region,
             postalCode = postal,
         )
+    }
+
+    private fun isCity(value: String): Boolean =
+        value.length in 2..60 &&
+            value.none { it.isDigit() } &&
+            value.any { it.isLetter() } &&
+            value.uppercase() !in PROVINCES &&
+            !value.equals("Canada", ignoreCase = true)
+
+    /** A short alphanumeric token that is not a valid postal code: a typo or a unit. */
+    private fun looksLikePostalOrUnit(value: String): Boolean =
+        value.length <= 8 &&
+            value.any { it.isDigit() } &&
+            value.any { it.isLetter() } &&
+            value.count { it == ' ' } <= 1
+
+    private fun provinceCode(value: String): String {
+        val key = value.uppercase().replace(".", "").trim()
+        return PROVINCES[key] ?: key
     }
 
     private fun iconValue(document: Document, iconClass: String): String? =
@@ -118,14 +177,35 @@ object HmaParser {
     private fun text(html: String?): String? =
         html?.takeIf { it.isNotBlank() }?.let { Jsoup.parse(it).text().trim() }?.ifBlank { null }
 
-    private val POSTAL_CODE = Regex("(?i)^[A-Z]\\d[A-Z][ -]?\\d[A-Z]\\d$")
+    private val POSTAL_CODE = Regex("(?i)(?<![A-Za-z0-9])[A-Z]\\d[A-Z][ -]?\\d[A-Z]\\d(?![A-Za-z0-9])")
 
-    private val TRAILING_REGION_POSTAL = Regex("(?i)^(.+?)\\s+([A-Z]\\d[A-Z][ -]?\\d[A-Z]\\d)$")
+    private val COUNTRY_WORD = Regex("(?i)(?<![A-Za-z])(Canada|CAN)(?![A-Za-z])")
 
-    private val PROVINCE = Regex(
-        "(?i)^(ON|Ontario|QC|Quebec|BC|British Columbia|AB|Alberta|MB|Manitoba|SK|Saskatchewan|" +
-            "NS|Nova Scotia|NB|New Brunswick|NL|Newfoundland and Labrador|PE|Prince Edward Island|" +
-            "YT|Yukon|NT|Northwest Territories|NU|Nunavut)$",
+    private val PROVINCE_WORD = Regex(
+        "(?i)(?<![A-Za-z])(" +
+            "Ontario|Ont\\.|ONT|ON|Quebec|Québec|Que\\.|QUE|QC|British Columbia|B\\.C\\.|BC|" +
+            "Alberta|Alta\\.|ALTA|AB|Manitoba|Man\\.|MAN|MB|Saskatchewan|Sask\\.|SASK|SK|" +
+            "Nova Scotia|N\\.S\\.|NS|New Brunswick|N\\.B\\.|NB|" +
+            "Newfoundland and Labrador|Newfoundland|Nfld\\.|NL|" +
+            "Prince Edward Island|P\\.E\\.I\\.|PE|Yukon|YT|" +
+            "Northwest Territories|N\\.W\\.T\\.|NWT|NT|Nunavut|NU" +
+            ")(?![A-Za-z])",
+    )
+
+    private val PROVINCES = mapOf(
+        "ONTARIO" to "ON", "ONT" to "ON",
+        "QUEBEC" to "QC", "QUÉBEC" to "QC", "QUE" to "QC", "QC" to "QC",
+        "BRITISH COLUMBIA" to "BC", "BC" to "BC",
+        "ALBERTA" to "AB", "ALTA" to "AB", "AB" to "AB",
+        "MANITOBA" to "MB", "MAN" to "MB", "MB" to "MB",
+        "SASKATCHEWAN" to "SK", "SASK" to "SK", "SK" to "SK",
+        "NOVA SCOTIA" to "NS", "NS" to "NS",
+        "NEW BRUNSWICK" to "NB", "NB" to "NB",
+        "NEWFOUNDLAND AND LABRADOR" to "NL", "NEWFOUNDLAND" to "NL", "NFLD" to "NL", "NL" to "NL",
+        "PRINCE EDWARD ISLAND" to "PE", "PEI" to "PE", "PE" to "PE",
+        "YUKON" to "YT", "YT" to "YT",
+        "NORTHWEST TERRITORIES" to "NT", "NWT" to "NT", "NT" to "NT",
+        "NUNAVUT" to "NU", "NU" to "NU",
     )
 
     @Serializable
