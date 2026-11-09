@@ -3,6 +3,8 @@ package com.tahirslist.application.agent
 import com.tahirslist.application.geo.GeocodedPlace
 import com.tahirslist.application.geo.GeocoderPort
 import com.tahirslist.application.listing.ListingSearchQuery
+import com.tahirslist.application.listing.ListingSearchRequestParser
+import com.tahirslist.domain.restaurant.CoordinatePrecision
 import com.tahirslist.domain.restaurant.LatLng
 
 /**
@@ -18,13 +20,17 @@ import com.tahirslist.domain.restaurant.LatLng
 class SearchListingsForAgent(
     private val search: ListingSearchQuery,
     private val geocoder: GeocoderPort,
+    private val precision: CoordinatePrecision = CoordinatePrecision.FOUR_DECIMALS,
 ) {
     suspend fun execute(request: AgentSearchRequest): AgentSearchResult {
-        val center: LatLng = when (val location = request.location) {
-            is SearchLocation.Coordinates -> location.center
-            is SearchLocation.Place -> geocoder.geocode(location.text)?.location
-                ?: throw PlaceNotResolvedException()
-        }
+        val center: LatLng = ListingSearchRequestParser.centre(
+            center = when (val location = request.location) {
+                is SearchLocation.Coordinates -> location.center
+                is SearchLocation.Place -> geocoder.geocode(location.text)?.location
+                    ?: throw PlaceNotResolvedException()
+            },
+            precision = precision,
+        )
         val results = search.searchNearby(
             center = center,
             radiusMiles = request.radiusMiles,
