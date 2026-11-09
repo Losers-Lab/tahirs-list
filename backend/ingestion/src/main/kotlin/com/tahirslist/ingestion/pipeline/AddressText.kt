@@ -181,14 +181,23 @@ object AddressText {
         """\b(\d{5}(?:-\d{4})?|[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d)\b""",
     )
 
+    /**
+     * A unit marker inside a street line — but only when a unit **value**
+     * follows it. Without that the word alone is not a unit: "123 Ste. Anne
+     * Avenue" is a street named Sainte-Anne, and cutting at " Ste" would leave
+     * the house number as the whole street.
+     */
     private val UNIT_MARKER = Regex(
-        """(?i)(\s+(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b|\s*#)""",
+        """(?i)(\s+(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b\.?\s*#?\s*${UNIT_VALUE}|\s*#)""",
     )
 
     /** A unit word at the very start of a segment, followed by a unit value. */
     private val LEADING_UNIT = Regex(
-        """(?i)^\s*(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b\.?\s*#?\s*(?=[A-Za-z]?\d)""",
+        """(?i)^\s*(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b\.?\s*#?\s*${UNIT_VALUE}""",
     )
+
+    /** Looks ahead for a unit value: "500", "7A", "C200" or a bare "B". */
+    private const val UNIT_VALUE = """(?=[A-Za-z]?\d|[A-Za-z]{1,2}\b)"""
 
     private val COUNTRY_ONLY = setOf(
         "usa", "u s a", "us", "united states", "united states of america",

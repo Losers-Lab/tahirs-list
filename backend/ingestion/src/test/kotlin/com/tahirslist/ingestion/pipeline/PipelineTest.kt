@@ -260,6 +260,54 @@ class MatchConfirmationPolicyTest : FunSpec({
             .shouldBeInstanceOf<MatchDecision.Rejected>()
     }
 
+    test("one shared word is not the same business") {
+        // Both rows were accepted on a single shared token and landed on a
+        // different chain ~1 km away: "Texas King Irving" on Burger King,
+        // "Slappin Chick Hicksville" on Chick-fil-A.
+        val texasKing = MatchQuery(
+            name = "Texas King Irving",
+            city = "Irving",
+            region = "TX",
+            country = "United States",
+            street = "3455 North Belt Line Road",
+            houseNumber = "3455",
+            streetTokens = listOf("belt", "line"),
+        )
+        policy.confirm(texasKing, place("Burger King, 100 Airport Freeway, Irving, TX", name = "Burger King"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+
+        val slappin = MatchQuery(
+            name = "Slappin Chick Hicksville",
+            city = "Hicksville",
+            region = "NY",
+            country = "United States",
+            street = "100 Broadway",
+            houseNumber = "100",
+            streetTokens = listOf("broadway"),
+        )
+        policy.confirm(slappin, place("Chick-fil-A, 200 Old Country Road, Hicksville, NY", name = "Chick-fil-A"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("a single-word name is confirmed only when the whole name appears") {
+        val burgermania = MatchQuery(
+            name = "Burgermania",
+            city = "New York",
+            region = "NY",
+            country = "United States",
+            street = "274 West 40 Street",
+            houseNumber = "274",
+            streetTokens = listOf("40"),
+        )
+        policy.confirm(burgermania, place("Burgermania, 274 West 40th Street, New York, NY", name = "Burgermania"))
+            .shouldBeInstanceOf<MatchDecision.Confirmed>()
+    }
+
+    test("two shared words confirm a name match") {
+        policy.confirm(query, place("Paramount Fine Foods, 253 Yonge St, Toronto", name = "Paramount Fine Foods"))
+            .shouldBeInstanceOf<MatchDecision.Confirmed>()
+    }
+
     test("a Canadian postal code written as two tokens still confirms the address") {
         val toronto = MatchQuery(
             name = "Paramount Fine Foods",

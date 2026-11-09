@@ -117,4 +117,29 @@ class AddressTextTest : FunSpec({
         address.street shouldBe "Ste. Anne Avenue"
         address.houseNumber shouldBe null
     }
+
+    test("a house-numbered Ste. Anne street keeps its street, not just the number") {
+        // The unit marker must not cut at " Ste" when the word after it is a
+        // street name, not a unit value.
+        val numbered = AddressText.parse(listOf("123 Ste. Anne Avenue"), city = "Winnipeg")
+        numbered.street shouldBe "123 Ste. Anne Avenue"
+        numbered.houseNumber shouldBe "123"
+        numbered.streetTokens shouldBe listOf("ste", "anne")
+
+        val hyphenated = AddressText.parse(listOf("1500 Ste-Catherine Street West"), city = "Montreal")
+        hyphenated.street shouldBe "1500 Ste-Catherine Street West"
+        hyphenated.houseNumber shouldBe "1500"
+    }
+
+    test("a real unit is still cut when a Ste. street precedes it") {
+        val address = AddressText.parse(listOf("123 Ste. Anne Avenue Suite 500"), city = "Winnipeg")
+
+        address.street shouldBe "123 Ste. Anne Avenue"
+        address.houseNumber shouldBe "123"
+    }
+
+    test("a letter-only unit is still cut") {
+        AddressText.parse(listOf("1200 Main St Suite B"), city = "Dallas")
+            .street shouldBe "1200 Main Street"
+    }
 })

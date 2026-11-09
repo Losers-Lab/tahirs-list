@@ -45,7 +45,9 @@ restaurants at the wrong address.
 
 `AddressText` parses one directory address into:
 
-- `street` — unit/suite/`#` noise removed, suffix abbreviations expanded
+- `street` — unit/suite/`#` noise removed **only when a unit value follows the
+  marker** ("Suite 500", "Unit 7A", "#5"); a street named `Ste. Anne Avenue`
+  is kept, with or without a house number. Suffix abbreviations are expanded
   (`Rd` → `Road`, `Pkwy` → `Parkway`, `Ave` → `Avenue`, …), directions expanded
   (`N` → `North`), a street named "St Marks" left alone;
 - `houseNumber` — `18111`, `258-03`;
@@ -67,10 +69,19 @@ bought with precision. A row that is asked once is still asked once.
 
 `MatchConfirmationPolicy` now accepts a hit only when the label carries either:
 
-- a distinctive **name** token that is not also the city/region/street
-  ("Dallas Grill" must not match every Dallas POI); or
+- a **name** with at least **two** distinctive tokens in common with the
+  provider's own name for the hit — or the row's whole name is the single token
+  that agrees ("Burgermania"). Tokens that are also the city/region/postal/street
+  do not count ("Dallas Grill" must not match every Dallas POI); or
 - the row's **house number** *and* a distinctive street token, with the city or
   postal code agreeing.
+
+Two tokens rather than one is the rule that stops a partial name matching a
+different business. Measured on the four-metro run: `Texas King Irving` was
+accepted at a **Burger King 1.2 km away** and `Slappin Chick Hicksville` at a
+**Chick-fil-A 681 m away** — one shared word each (`king`, `chick`). Both are now
+rejected; the same change drops exactly those two candidates and no others (121
+→ 119, venue-key diff).
 
 A shared city alone is no longer evidence. A street-level hit without the house
 number is rejected (measured: Photon's street centroid was 1.3–3.1 km from the
@@ -96,12 +107,18 @@ Same four metros, same caps, same sources:
 | after stricter name evidence (`…20261109g`) | 118 | 92 |
 | after numeric street names (`…20261109h`) | 121 | 89 |
 | after provider-name requirement (`…20261109j`) | 121 | 89 |
+| after street-vs-suite and one-word fixes (`…20261109m`) | 119 | 91 |
 
-Toronto went from 12 candidates to 35 of 35 fetched. Of the 91 remaining
-rejects, 70 are `AMBIGUOUS_GEOCODER_MATCH` and 17 `WRONG_REGION` — mostly rows
-that are **not in any selected metro** and are geocoded only to decide their
-metro (Chicago, Ohio, Missouri), plus rows whose house number Photon genuinely
-does not have.
+Run `m` is the head of this branch: 119 candidates, 91 rejected
+(`AMBIGUOUS_GEOCODER_MATCH` 87, `NO_GEOCODER_MATCH` 4), 0 rows left out by caps
+at `--caps=100`. Its candidate set is run `j`'s minus the two wrong-business
+rows (`Texas King Irving`, `Slappin Chick Hicksville`); every other venue key
+keeps its coordinate, and one row (`Jaffy's Premium Grill`) moved 60 m after the
+suite fix. The reviewed load applied 119 upgrades with 0 conflicts.
+
+Toronto went from 12 candidates to 35 of 35 fetched. Most remaining rejects are
+rows whose house number Photon genuinely does not have, or whose address matched
+a street but not the house number.
 
 ## Other defects the real run exposed
 
@@ -139,9 +156,9 @@ the pipeline tests:
 
 ## Tests
 
-`AddressTextTest` (11) pins the parse, `MatchConfirmationPolicyTest` (15) pins
+`AddressTextTest` (14) pins the parse, `MatchConfirmationPolicyTest` (18) pins
 the confirmation evidence, `CandidateFactoryTest` covers the ladder and the
 unconfirmed-answer reject, `PhotonGeocoderTest` covers the richer label, the
 provider name and the street/venue distinction, and `LocalityNamesTest` pins the
-country/state maps. Whole backend at the head: 131 suites, 979 tests, 0
+country/state maps. Whole backend at the head: 131 suites, 985 tests, 0
 failures, 1 deliberate skip.

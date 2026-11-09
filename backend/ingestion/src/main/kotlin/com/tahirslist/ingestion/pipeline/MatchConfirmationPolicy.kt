@@ -31,7 +31,10 @@ sealed interface MatchDecision {
  * Photon returns the *best* hit, not necessarily the right one. A hit is
  * accepted only when the resolved label carries evidence for this row:
  *
- *  1. **the name** — a distinctive trade-name token appears in the label; or
+ *  1. **the name** — two distinctive trade-name tokens appear in the provider's
+ *     own name for the hit, or the row's whole name is the one token that
+ *     appears ("Burgermania" vs "Burger King" is one word in common, not the
+ *     same business); or
  *  2. **the address** — the label carries the row's house number *and* a
  *     distinctive street token, and the city or postal code agrees.
  *
@@ -83,7 +86,13 @@ class MatchConfirmationPolicy {
             addAll(query.streetTokens)
         }
         // Whole-token match: "ham" must not match "Birmingham".
-        val nameHit = nameTokens.any { it in labelNameTokens && it !in placeTokens }
+        val nameHits = nameTokens.filter { it in labelNameTokens && it !in placeTokens }
+        // One word in common is not the same business: "Texas King Irving" once
+        // matched "Burger King" 1.2 km away, and "Slappin Chick Hicksville"
+        // matched "Chick-fil-A". Two distinctive tokens must agree, or the row's
+        // whole name must be the single token that agrees ("Burgermania").
+        val nameHit = nameHits.size >= 2 ||
+            (nameHits.size == 1 && nameTokens.size == 1)
 
         if (nameHit) return MatchDecision.Confirmed(place)
 
