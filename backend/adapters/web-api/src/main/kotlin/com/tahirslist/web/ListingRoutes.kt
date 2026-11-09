@@ -64,8 +64,11 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
             offset = call.intQueryParameter("offset", default = 0).coerceAtLeast(0),
             limit = call.intQueryParameter("limit", default = 50).coerceIn(1, 100),
         )
+        // Build the body before opting into caching, so a mapping failure cannot
+        // leave a public policy on an error response.
+        val cards = results.map { call.toSearchCard(it) }
         SearchCachePolicy.applyTo(call, search)
-        call.respond(HttpStatusCode.OK, results.map { call.toSearchCard(it) })
+        call.respond(HttpStatusCode.OK, cards)
     }
 
     get("/v1/listings") {

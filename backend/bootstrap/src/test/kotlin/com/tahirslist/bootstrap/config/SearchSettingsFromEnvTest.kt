@@ -46,6 +46,19 @@ class SearchSettingsFromEnvTest : FunSpec({
         shouldThrow<IllegalArgumentException> { config("APP_SEARCH_CENTRE_DECIMALS" to "four") }
     }
 
+    test("rejects a non-numeric cache age instead of silently defaulting (finding 7)") {
+        val ex = shouldThrow<IllegalArgumentException> {
+            config("APP_SEARCH_CACHE_MAX_AGE_SECONDS" to "5m")
+        }
+        (ex.message.orEmpty().contains("APP_SEARCH_CACHE_MAX_AGE_SECONDS")) shouldBe true
+    }
+
+    test("rejects a browser max-age above the 600 s bound (finding 1)") {
+        shouldThrow<IllegalArgumentException> {
+            config("APP_SEARCH_CACHE_MAX_AGE_SECONDS" to "86400")
+        }
+    }
+
     test("rejects a freshness window above the 600 s delisting bound (INV-10)") {
         shouldThrow<IllegalArgumentException> {
             config(

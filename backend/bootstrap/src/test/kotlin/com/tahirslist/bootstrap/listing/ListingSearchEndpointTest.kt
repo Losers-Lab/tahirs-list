@@ -90,6 +90,21 @@ class ListingSearchEndpointTest : KtorPostgresTest() {
             resp.header("Cache-Control") shouldBe "no-store"
         }
 
+        test("the cacheable search response carries no cookie and no per-caller variance (INV-11)") {
+            val first = get("/v1/listings/search?center=43.682921,-79.418493&radius=5.0")
+            val second = get("/v1/listings/search?center=43.682921,-79.418493&radius=5.0")
+
+            first.status shouldBe 200
+            first.header("Set-Cookie") shouldBe null
+            first.header("Vary") shouldBe null
+            second.body shouldBe first.body
+        }
+
+        test("a non-finite centre returns 400 rather than reaching the query (finding 9)") {
+            get("/v1/listings/search?center=NaN,NaN&radius=5.0").status shouldBe 400
+            get("/v1/listings/search?center=Infinity,-Infinity&radius=5.0").status shouldBe 400
+        }
+
         test("two centres in one 4 dp cell return the same body (SC-199 AC-4)") {
             val first = get("/v1/listings/search?center=43.68292100,-79.41849300&radius=5.0")
             val second = get("/v1/listings/search?center=43.68292140,-79.41849340&radius=5.0")

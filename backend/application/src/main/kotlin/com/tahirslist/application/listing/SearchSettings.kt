@@ -17,8 +17,14 @@ data class SearchSettings(
         require(cacheMaxAgeSeconds >= 0) { "cache max-age must not be negative" }
         require(sMaxAgeSeconds >= 0) { "cache s-maxage must not be negative" }
         require(staleWhileRevalidateSeconds >= 0) { "cache stale-while-revalidate must not be negative" }
-        require(sMaxAgeSeconds + staleWhileRevalidateSeconds <= MAX_STALENESS_SECONDS) {
+        // Both channels are advertised on the same response, so both are bounded:
+        // a browser must not hold a delisted badge longer than the edge may.
+        // Subtraction (not addition) so a huge value cannot wrap negative.
+        require(sMaxAgeSeconds <= MAX_STALENESS_SECONDS - staleWhileRevalidateSeconds) {
             "s-maxage plus stale-while-revalidate must not exceed $MAX_STALENESS_SECONDS seconds"
+        }
+        require(cacheMaxAgeSeconds <= MAX_STALENESS_SECONDS) {
+            "max-age must not exceed $MAX_STALENESS_SECONDS seconds"
         }
     }
 

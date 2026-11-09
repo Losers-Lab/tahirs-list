@@ -26,6 +26,18 @@ class SearchSettingsTest : FunSpec({
         }
     }
 
+    test("a browser max-age above 600 s is rejected (Omar round 1, finding 1)") {
+        shouldThrow<IllegalArgumentException> {
+            SearchSettings(cacheMaxAgeSeconds = 86_400)
+        }
+    }
+
+    test("an overflowing s-maxage is rejected rather than wrapping negative (finding 3)") {
+        shouldThrow<IllegalArgumentException> {
+            SearchSettings(sMaxAgeSeconds = Long.MAX_VALUE, staleWhileRevalidateSeconds = 60)
+        }
+    }
+
     test("a window of exactly 600 s is accepted (INV-10 boundary)") {
         SearchSettings(sMaxAgeSeconds = 540, staleWhileRevalidateSeconds = 60).sMaxAgeSeconds shouldBe 540
     }

@@ -157,9 +157,9 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
         ),
         search = SearchSettings(
             centrePrecision = searchPrecision(env("APP_SEARCH_CENTRE_DECIMALS")),
-            cacheMaxAgeSeconds = env("APP_SEARCH_CACHE_MAX_AGE_SECONDS")?.toLongOrNull() ?: 60,
-            sMaxAgeSeconds = env("APP_SEARCH_CACHE_S_MAXAGE_SECONDS")?.toLongOrNull() ?: 300,
-            staleWhileRevalidateSeconds = env("APP_SEARCH_CACHE_SWR_SECONDS")?.toLongOrNull() ?: 60,
+            cacheMaxAgeSeconds = seconds(env("APP_SEARCH_CACHE_MAX_AGE_SECONDS"), 60, "APP_SEARCH_CACHE_MAX_AGE_SECONDS"),
+            sMaxAgeSeconds = seconds(env("APP_SEARCH_CACHE_S_MAXAGE_SECONDS"), 300, "APP_SEARCH_CACHE_S_MAXAGE_SECONDS"),
+            staleWhileRevalidateSeconds = seconds(env("APP_SEARCH_CACHE_SWR_SECONDS"), 60, "APP_SEARCH_CACHE_SWR_SECONDS"),
         ),
     )
 }
@@ -168,6 +168,17 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
  * SC-199 D-1: the centre precision is exactly 3 or 4 decimals. A malformed value
  * fails startup rather than silently choosing a precision nobody ratified.
  */
+/**
+ * A trust-relevant duration: absent means the ratified default, but a malformed
+ * value fails startup instead of silently becoming the default (SC-199 review,
+ * finding 7).
+ */
+private fun seconds(raw: String?, default: Long, name: String): Long {
+    val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return default
+    return value.toLongOrNull()
+        ?: throw IllegalArgumentException("$name must be a whole number of seconds, got: $value")
+}
+
 private fun searchPrecision(raw: String?): CoordinatePrecision =
     when (raw?.trim()?.takeIf { it.isNotEmpty() }) {
         null -> CoordinatePrecision.FOUR_DECIMALS
