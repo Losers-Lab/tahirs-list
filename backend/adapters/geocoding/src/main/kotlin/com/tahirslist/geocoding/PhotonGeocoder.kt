@@ -234,12 +234,27 @@ class PhotonGeocoder(
         )
     }
 
-    /** Best-effort human label: the OSM name, else a "street, city" fallback. */
+    /**
+     * A label that carries every part the match policy can check: the OSM name,
+     * the house number and street, and the postal code and city. Photon answers
+     * a business-name query with the POI and an address query with a house; the
+     * caller needs both the name and the address evidence to confirm either.
+     */
     private fun displayName(props: JsonObject?): String {
         val name = text(props, "name")
-        if (!name.isNullOrBlank()) return name
-        return listOfNotNull(text(props, "street"), text(props, "city"))
-            .filter { it.isNotBlank() }
+        val street = listOfNotNull(
+            text(props, "housenumber"),
+            text(props, "street"),
+        ).filter { it.isNotBlank() }.joinToString(" ").ifBlank { null }
+        val locality = listOfNotNull(
+            text(props, "postcode"),
+            text(props, "city"),
+        ).filter { it.isNotBlank() }.joinToString(" ").ifBlank { null }
+
+        return listOfNotNull(name, street, locality, text(props, "state"), text(props, "country"))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinctBy { it.lowercase() }
             .joinToString(", ")
     }
 

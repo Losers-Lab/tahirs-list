@@ -106,7 +106,7 @@ class RunSampleIngestion(
                         val place = factory.locate(listing)
                         locatable = place != null
                         if (place == null) {
-                            rejects += IngestReject(
+                            rejects += factory.rejectionFor(listing) ?: IngestReject(
                                 reason = RejectReason.NO_GEOCODER_MATCH,
                                 detail = "no geocoder match for '${listing.name}'",
                                 source = feed.sourceId,

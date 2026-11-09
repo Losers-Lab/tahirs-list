@@ -49,7 +49,9 @@ fun sourceListing(
 )
 
 class FakeGeocoder(
-    private val byAddress: (String) -> GeocodedPlace? = { place("Toronto, ON, Canada") },
+    private val byAddress: (String) -> GeocodedPlace? = {
+        place("Paramount Fine Foods, 253 Yonge Street, Toronto, ON, Canada")
+    },
 ) : GeocoderPort {
     val queries = mutableListOf<String>()
     override suspend fun geocode(address: String): GeocodedPlace? {
@@ -104,26 +106,82 @@ class MetroFilterTest : FunSpec({
 class MatchConfirmationPolicyTest : FunSpec({
 
     val policy = MatchConfirmationPolicy()
-    val query = MatchQuery("Paramount Fine Foods", "Toronto", "ON", "Canada")
+    val query = MatchQuery(
+        name = "Paramount Fine Foods",
+        city = "Toronto",
+        region = "ON",
+        country = "Canada",
+        street = "253 Yonge Street",
+        houseNumber = "253",
+        streetTokens = listOf("yonge"),
+    )
 
     test("a resolved label that shares a meaningful name token is confirmed") {
         policy.confirm(query, place("Paramount Fine Foods, 253 Yonge St, Toronto"))
             .shouldBeInstanceOf<MatchDecision.Confirmed>()
     }
 
-    test("a city hit is enough when the label omits the trade name") {
-        policy.confirm(query, place("253 Yonge Street, Toronto, Ontario"))
+    test("a house number and street are enough when the label omits the trade name") {
+        policy.confirm(query, place("253 Yonge Street, Toronto, ON, Canada"))
             .shouldBeInstanceOf<MatchDecision.Confirmed>()
     }
 
-    test("generic words alone never confirm a match") {
+    test("a city alone is not evidence: any POI in the city would pass") {
+        policy.confirm(
+            MatchQuery("Cloud Naan", "Richardson", "TX", "United States", street = "888 South Greenville Avenue", houseNumber = "888", streetTokens = listOf("greenville")),
+            place("Muslim Legal Fund of America, 100 North Central Expressway, Richardson, TX"),
+        ).shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("a street-level hit without the house number is rejected as imprecise") {
         val decision = policy.confirm(
+            MatchQuery("SPICE WOK", "Dallas", "TX", "United States", street = "13340 Audelia Road", houseNumber = "13340", streetTokens = listOf("audelia")),
+            place("Audelia Road, 75243 Dallas, TX, United States"),
+        )
+        decision.shouldBeInstanceOf<MatchDecision.Rejected>()
+        decision.shouldBeInstanceOf<MatchDecision.Rejected>().detail.contains("house 13340") shouldBe true
+    }
+
+    test("a different house number on the same street is rejected") {
+        policy.confirm(query, place("255 Yonge Street, Toronto, ON, Canada"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("the same block of a Queens hyphenated number is confirmed") {
+        val queens = MatchQuery(
+            name = "Filli Cafe Floral Park",
+            city = "Queens",
+            region = "NY",
+            country = "United States",
+            street = "258-03 Hillside Avenue",
+            houseNumber = "258-03",
+            streetTokens = listOf("hillside"),
+            postalCode = "11004",
+        )
+        policy.confirm(queens, place("Hillside Avenue 258-01, 11004 New York, NY, United States"))
+            .shouldBeInstanceOf<MatchDecision.Confirmed>()
+    }
+
+    test("a name token that is just the city is not a name match") {
+        val dallas = MatchQuery(
+            name = "Dallas Grill",
+            city = "Dallas",
+            region = "TX",
+            country = "United States",
+            street = "1200 Main Street",
+            houseNumber = "1200",
+            streetTokens = listOf("main"),
+        )
+        // The label names the city but not the venue.
+        policy.confirm(dallas, place("Some Other Restaurant, 900 Commerce Street, Dallas, TX"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("generic words alone never confirm a match") {
+        policy.confirm(
             MatchQuery("The Halal Grill", "Toronto", "ON", "Canada"),
             place("Some Other Restaurant, Toronto"),
-        )
-        // The city still matches, so this is confirmed by city; drop the city to
-        // prove the generic-only path is rejected.
-        decision.shouldBeInstanceOf<MatchDecision.Confirmed>()
+        ).shouldBeInstanceOf<MatchDecision.Rejected>()
         policy.confirm(
             MatchQuery("The Halal Grill", null, null, null),
             place("Some Other Restaurant"),
@@ -193,6 +251,32 @@ class CandidateFactoryTest : FunSpec({
         factory.build(sourceListing(), "Toronto")
             .shouldBeInstanceOf<CandidateBuild.Rejected>()
             .reject.reason shouldBe RejectReason.NO_GEOCODER_MATCH
+    }
+
+    test("a row is asked for by name first, then by address, with unit noise stripped") {
+        val geocoder = FakeGeocoder { query ->
+            if (query.startsWith("Paramount")) null else place("253 Yonge Street, Toronto, ON, Canada")
+        }
+
+        CandidateFactory(geocoder)
+            .build(sourceListing(address = "253 Yonge St, Suite 500"), "Toronto")
+            .shouldBeInstanceOf<CandidateBuild.Built>()
+
+        geocoder.queries shouldBe listOf(
+            "Paramount Fine Foods, 253 Yonge Street, Toronto, ON",
+            "253 Yonge Street, Toronto, ON",
+        )
+    }
+
+    test("an unconfirmed geocoder answer is a reject, not an accepted location") {
+        // Photon answered, but only with a street-level point somewhere on it.
+        val geocoder = FakeGeocoder { place("Yonge Street, Toronto, ON, Canada") }
+        val reject = CandidateFactory(geocoder)
+            .build(sourceListing(), "Toronto")
+            .shouldBeInstanceOf<CandidateBuild.Rejected>()
+            .reject
+
+        reject.reason shouldBe RejectReason.AMBIGUOUS_GEOCODER_MATCH
     }
 
     test("a geocoder outage aborts the run instead of becoming a reject") {

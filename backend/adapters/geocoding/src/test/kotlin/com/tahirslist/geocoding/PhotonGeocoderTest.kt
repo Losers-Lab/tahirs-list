@@ -159,7 +159,8 @@ class PhotonGeocoderTest : FunSpec({
 
             result shouldNotBe null
             result!!.location shouldBe LatLng(40.7128, -74.006) // GeoJSON [lon, lat]
-            result.displayName shouldBe "Halal Grill"
+            // The label keeps every part a caller can check, not just the name.
+            result.displayName shouldBe "Halal Grill, New York, United States"
             result.providerRef shouldBe "N/123456"
         }
     }
@@ -221,6 +222,35 @@ class PhotonGeocoderTest : FunSpec({
             result shouldNotBe null
             result!!.displayName shouldBe "Main St, Springfield"
             result.providerRef shouldBe null
+        }
+    }
+
+    test("an address hit keeps the house number, street, postal code and city in the label") {
+        runTest {
+            setResponse(200, """
+                {
+                  "type": "FeatureCollection",
+                  "features": [
+                    {
+                      "type": "Feature",
+                      "geometry": { "type": "Point", "coordinates": [-96.6639, 33.0148] },
+                      "properties": {
+                        "name": "Chan Massage",
+                        "housenumber": "3611",
+                        "street": "14th Street",
+                        "postcode": "75074",
+                        "city": "Plano",
+                        "state": "TX",
+                        "country": "United States"
+                      }
+                    }
+                  ]
+                }
+            """.trimIndent())
+
+            val result = geocoder().geocode("3611 14th Street, Plano, TX")
+
+            result!!.displayName shouldBe "Chan Massage, 3611 14th Street, 75074 Plano, TX, United States"
         }
     }
 
