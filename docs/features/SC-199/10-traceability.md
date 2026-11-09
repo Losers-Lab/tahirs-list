@@ -37,7 +37,7 @@
 | INV-7 radius untouched | `ListingSearchRequestParserTest.centre leaves the radius untouched` |
 | INV-8 returned distance within the shift | **QA spot check**, no unit assertion: delta 0.001458 mi against a 0.004892 mi bound |
 | INV-9 header on 200 only | `ListingSearchEndpointTest.a successful search…` · `…an error response keeps no-store` · `ErrorMappingTest` |
-| INV-10 staleness bound | `SearchSettingsTest` (browser max-age and s-maxage+swr, both ≤ 600, overflow rejected) · `SearchSettingsFromEnvTest` |
+| INV-10 staleness bound | `SearchSettingsTest` (max-age+swr and s-maxage+swr each ≤ 600, overflow rejected) · `SearchSettingsFromEnvTest` |
 | INV-11 user-invariant body | `ListingSearchEndpointTest.the cacheable search response carries no cookie and no per-caller variance` |
 | INV-12 basin-equal bodies | `ListingSearchEndpointTest.two centres in one 4 dp rounding basin…` |
 
@@ -49,7 +49,7 @@
 | `ListingSearchEndpointTest`, forced `--rerun-tasks` | 30/30, then 32/32 after the review fixes |
 | `:mcp` `:application` `:web-api` `:domain` after WI-6 | green |
 | Full suite `--rerun-tasks`, merged with `main` (pre-review head) | **958 tests, 0 failures, 0 errors, 1 skipped**, 8m46s |
-| Full suite after the review fixes (QA, head `c152e57`) | **965 tests, 0 failures, 0 errors, 1 skipped** |
+| Full suite on the review-fix tree (committed as `0bdc7b8`) | **966 tests, 0 failures, 0 errors, 1 skipped**, 6m40s |
 | Red evidence | QA reverted each implementation file in turn and observed 14 targeted failures before restoring |
 
 ## Review findings
@@ -71,6 +71,12 @@
 | F4 | yusuf | traceability drift (PR number, test names, non-existent OpenAPI test) — **fixed** |
 | F5 | yusuf | no proof the config reaches the route — **fixed** (`ListingSearchWiringTest` boots at 3 dp) |
 | F6 | yusuf | INV-8 evidence — **recorded above** |
+| N1 | omar (round 2) | D-6's premise was false: the certificate/image proxies are `public, max-age=86400`, so the authoritative certificate surface already exceeds the 5 s target by 24 h — **corrected**; the 24 h cache is a pre-existing gap that needs its own story |
+| N2 | omar (round 2) | `max-age + swr` could exceed 600 s under extreme config — **fixed** (both channels bounded together, test added) |
+| N3 | omar (round 2) | docs said an error carries no freshness header — **fixed** in 02 BR-4 and 06/UC-02 (a late 500 carries both; `no-store` wins) |
+| N4 | omar (round 2) | stale test-name citations in 01/07/09 — **fixed** to the names that exist |
+| N5 | omar (round 2) | the 966-test run was not tied to a commit — **fixed** above |
+| N6 | omar (round 2) | orphaned KDoc in `AppConfig` — **fixed** |
 
 ## Not done
 

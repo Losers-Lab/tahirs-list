@@ -54,18 +54,18 @@ why the worst case is quoted at the equator (QA finding F1).
 
 | # | Invariant | Becomes test |
 |---|---|---|
-| INV-1 | Snapping is idempotent: `snap(snap(c)) == snap(c)` for every valid centre | `CoordinatePrecisionTest.isIdempotent` |
-| INV-2 | Any two centres in one **rounding basin** (each component within half a cell of the same grid point) snap to the identical `LatLng` | `CoordinatePrecisionTest.twoCentresInOneBasinSnapTogether` |
-| INV-3 | The shift never exceeds `maxShiftMetres` for the configured precision | `CoordinatePrecisionTest.shiftWithinHalfDiagonal` |
-| INV-4 | A valid centre within one cell of a boundary snaps to a still-valid coordinate (`89.99999 → 90.0`, `-179.99999 → -180.0`) | `LatLngTest.roundedStaysInRange` |
-| INV-5 | A snapped component has at most `decimals` fractional digits | `LatLngTest.roundedHasAtMostNDecimals` |
-| INV-6 | Snapping is deterministic and total: same input, same output, no exceptions for valid input | `CoordinatePrecisionTest.isDeterministic` |
-| INV-7 | The radius is never snapped — only the centre | `ListingSearchRequestParserTest.radiusIsUntouched` |
-| INV-8 | Every returned `distanceMiles` is within `maxShiftMetres` (converted) of the distance from the requested centre; radius membership can differ only for listings within `maxShiftMetres` of the boundary | `ListingSearchEndpointTest.boundaryShiftBoundedToPrecision` |
-| INV-9 | Every `200` on `/v1/listings/search` carries the freshness header; every `4xx`/`5xx` keeps `no-store` | `ListingSearchEndpointTest.cacheHeaderOnSuccessOnly` · `SecurityHeadersTest.errorResponsesStayNoStore` |
-| INV-10 | The advertised maximum staleness (edge + stale-while-revalidate) never exceeds **600 s**, so a delisting cannot be hidden longer | `SearchCachePolicyTest.windowWithinTrustBound` |
-| INV-11 | The cacheable body is user-invariant: no per-user data, no `Set-Cookie`, no `Vary: *` | `ListingSearchEndpointTest.cacheableWithoutUserVariance` |
-| INV-12 | Two requests in one basin with the same filters/paging produce byte-identical bodies | `ListingSearchEndpointTest.sameBasinSameBody` |
+| INV-1 | Snapping is idempotent: `snap(snap(c)) == snap(c)` for every valid centre | `CoordinatePrecisionTest.snapping is idempotent` · `LatLngRoundingTest.a value already at the precision is unchanged` |
+| INV-2 | Any two centres in one **rounding basin** (each component within half a cell of the same grid point) snap to the identical `LatLng` | `CoordinatePrecisionTest.two centres in one rounding basin snap to the same centre` |
+| INV-3 | The shift never exceeds `maxShiftMetres` for the configured precision | `CoordinatePrecisionTest.the snapped shift never exceeds the advertised maximum` |
+| INV-4 | A valid centre within one cell of a boundary snaps to a still-valid coordinate (`89.99999 → 90.0`, `-179.99999 → -180.0`) | `LatLngRoundingTest.rounding near a pole / the antimeridian stays inside WGS84` |
+| INV-5 | A snapped component has at most `decimals` fractional digits | `LatLngRoundingTest.the rounded result has at most N fractional digits` |
+| INV-6 | Snapping is deterministic and total: same input, same output, no exceptions for valid input | `CoordinatePrecisionTest.snapping is deterministic` |
+| INV-7 | The radius is never snapped — only the centre | `ListingSearchRequestParserTest.centre leaves the radius untouched` |
+| INV-8 | Every returned `distanceMiles` is within `maxShiftMetres` (converted) of the distance from the requested centre; radius membership can differ only for listings within `maxShiftMetres` of the boundary | **QA spot check** (0.001458 mi against a 0.004892 mi bound) — no unit assertion |
+| INV-9 | Every `200` on `/v1/listings/search` carries the freshness header; every `4xx`/`5xx` is `no-store` | `ListingSearchEndpointTest.a successful search advertises the freshness window` · `…an error response keeps no-store` · `ErrorMappingTest.an error replaces an opt-in cache policy` |
+| INV-10 | The advertised staleness never exceeds **600 s** on either channel: `max-age + swr` and `s-maxage + swr` are each bounded, so a delisting cannot be hidden longer | `SearchSettingsTest` (both bounds and their composition) · `SearchSettingsFromEnvTest` |
+| INV-11 | The cacheable body is user-invariant: no per-user data, no `Set-Cookie`, no `Vary: *` | `ListingSearchEndpointTest.the cacheable search response carries no cookie and no per-caller variance` |
+| INV-12 | Two requests in one basin with the same filters/paging produce byte-identical bodies | `ListingSearchEndpointTest.two centres in one 4 dp rounding basin return the same body` |
 
 ## States
 

@@ -165,10 +165,6 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
 }
 
 /**
- * SC-199 D-1: the centre precision is exactly 3 or 4 decimals. A malformed value
- * fails startup rather than silently choosing a precision nobody ratified.
- */
-/**
  * A trust-relevant duration: absent means the ratified default, but a malformed
  * value fails startup instead of silently becoming the default (SC-199 review,
  * finding 7).
@@ -179,6 +175,10 @@ private fun seconds(raw: String?, default: Long, name: String): Long {
         ?: throw IllegalArgumentException("$name must be a whole number of seconds, got: $value")
 }
 
+/**
+ * SC-199 D-1: the centre precision is exactly 3 or 4 decimals. A malformed value
+ * fails startup rather than silently choosing a precision nobody ratified.
+ */
 private fun searchPrecision(raw: String?): CoordinatePrecision =
     when (raw?.trim()?.takeIf { it.isNotEmpty() }) {
         null -> CoordinatePrecision.FOUR_DECIMALS

@@ -29,7 +29,7 @@ flowchart LR
 | BR-1 | `center` is untrusted input: validated against WGS84 first, then snapped; only the snapped value reaches the query. |
 | BR-2 | Snapping applies on **both** search channels (REST and MCP) through one shared parser, so the same query returns the same answer (D-4). |
 | BR-3 | The radius is never snapped; only the centre moves (INV-7). |
-| BR-4 | Exactly one freshness header is advertised, and only on a `200`. Every error keeps the platform `no-store` (INV-9). |
+| BR-4 | The freshness header is advertised only on a `200`. Every error is `no-store`: the route builds its body before opting in, and the security-headers plugin adds `no-store` to any non-2xx, so a late failure carries both directives and RFC 9111 §5.2 makes it unstorable (INV-9). |
 | BR-5 | The response is public and user-invariant: no personalization, no cookies, no `Vary: *` (INV-11). |
 | BR-6 | The advertised window is bounded by the delisting bound (≤ 600 s): a cached body may not hide a delisting longer than the ratified window (INV-10). |
 | BR-7 | A cache hit is indistinguishable from a miss in body and status; caching never changes an answer, only who produced it. |

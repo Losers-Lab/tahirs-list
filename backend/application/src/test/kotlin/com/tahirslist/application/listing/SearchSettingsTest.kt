@@ -32,6 +32,16 @@ class SearchSettingsTest : FunSpec({
         }
     }
 
+    test("max-age and stale-while-revalidate are bounded together, not separately (round 2, N2)") {
+        shouldThrow<IllegalArgumentException> {
+            SearchSettings(
+                cacheMaxAgeSeconds = 600,
+                sMaxAgeSeconds = 0,
+                staleWhileRevalidateSeconds = 600,
+            )
+        }
+    }
+
     test("an overflowing s-maxage is rejected rather than wrapping negative (finding 3)") {
         shouldThrow<IllegalArgumentException> {
             SearchSettings(sMaxAgeSeconds = Long.MAX_VALUE, staleWhileRevalidateSeconds = 60)

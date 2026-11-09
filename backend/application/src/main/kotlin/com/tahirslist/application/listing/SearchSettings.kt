@@ -17,14 +17,16 @@ data class SearchSettings(
         require(cacheMaxAgeSeconds >= 0) { "cache max-age must not be negative" }
         require(sMaxAgeSeconds >= 0) { "cache s-maxage must not be negative" }
         require(staleWhileRevalidateSeconds >= 0) { "cache stale-while-revalidate must not be negative" }
-        // Both channels are advertised on the same response, so both are bounded:
-        // a browser must not hold a delisted badge longer than the edge may.
-        // Subtraction (not addition) so a huge value cannot wrap negative.
+        // Both channels are advertised on the same response, so both are bounded,
+        // and each is bounded *together with* stale-while-revalidate: a browser
+        // that honours SWR may serve max-age + swr, the edge s-maxage + swr. A
+        // delisted badge must not outlive either. Subtraction (not addition) so a
+        // huge value cannot wrap negative.
         require(sMaxAgeSeconds <= MAX_STALENESS_SECONDS - staleWhileRevalidateSeconds) {
             "s-maxage plus stale-while-revalidate must not exceed $MAX_STALENESS_SECONDS seconds"
         }
-        require(cacheMaxAgeSeconds <= MAX_STALENESS_SECONDS) {
-            "max-age must not exceed $MAX_STALENESS_SECONDS seconds"
+        require(cacheMaxAgeSeconds <= MAX_STALENESS_SECONDS - staleWhileRevalidateSeconds) {
+            "max-age plus stale-while-revalidate must not exceed $MAX_STALENESS_SECONDS seconds"
         }
     }
 
