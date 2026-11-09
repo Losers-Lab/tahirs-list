@@ -1,5 +1,8 @@
 package com.tahirslist.ingestion.artifacts
 
+import com.tahirslist.application.ingestion.ClaimDecision
+import com.tahirslist.application.ingestion.ClaimResolution
+import com.tahirslist.application.ingestion.Resolutions
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -192,5 +195,54 @@ class FileRunArtifactsTest : FunSpec({
         Files.writeString(pending.directory.resolve("run.json"), "{ not json")
 
         store.findPending().map { it.runId } shouldBe listOf("run-1")
+    }
+
+    test("a loaded run refuses a second read before any load can start") {
+        val store = artifacts()
+        complete(store)
+        store.markLoaded("run-1", "load-1")
+
+        shouldThrow<RunAlreadyLoadedException> { store.refuseIfLoaded("run-1") }
+        shouldThrow<RunAlreadyLoadedException> { store.readCandidates("run-1") }
+    }
+
+    test("decisions round-trip through the run directory and are checksummed on load") {
+        val root = createTempDirectory("run-artifacts")
+        val store = artifacts(root)
+        complete(store)
+        store.readResolutions("run-1") shouldBe null
+
+        val decisions = Resolutions(
+            runId = "run-1",
+            claims = listOf(
+                ClaimResolution(
+                    source = "hms",
+                    record = "H-1",
+                    decision = ClaimDecision.SAME_VENUE,
+                    listingId = "00000000-0000-0000-0000-000000000001",
+                    reason = "same sign and address",
+                ),
+            ),
+        )
+        store.writeResolutions("run-1", decisions)
+        store.readResolutions("run-1")?.claims?.single()?.decision shouldBe ClaimDecision.SAME_VENUE
+
+        store.markLoaded("run-1", "load-1")
+        val marker = Files.readString(root.resolve("runs/run-1/loaded.json"))
+        marker.contains("resolutionsSha256") shouldBe true
+    }
+
+    test("a loaded run refuses a late decision write, and a foreign run id is refused") {
+        val store = artifacts()
+        complete(store)
+        shouldThrow<IllegalArgumentException> {
+            store.writeResolutions("run-1", Resolutions.empty("run-2"))
+        }
+
+        store.writeResolutions("run-1", Resolutions.empty("run-1"))
+        store.markLoaded("run-1", "load-1")
+        shouldThrow<RunAlreadyLoadedException> {
+            store.writeResolutions("run-1", Resolutions.empty("run-1"))
+        }
     }
 })

@@ -1,5 +1,8 @@
 package com.tahirslist.ingestion.artifacts
 
+import com.tahirslist.application.ingestion.InvalidResolutionException
+import com.tahirslist.application.ingestion.Resolutions
+import com.tahirslist.application.ingestion.ResolutionsJson
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -82,13 +85,13 @@ class RunAlreadyLoadedException(val runId: String) : RuntimeException(
 class FileRunArtifacts(
     private val root: Path,
     private val clock: Clock = Clock.systemUTC(),
-) {
+) : ArtifactStore {
     private val json = Json {
         prettyPrint = true
         encodeDefaults = true
     }
 
-    fun begin(runId: String, onPending: PendingRunPolicy = PendingRunPolicy.ABORT): Path {
+    override fun begin(runId: String, onPending: PendingRunPolicy): Path {
         requireValidRunId(runId)
         val runsDir = root.resolve(RUNS)
         Files.createDirectories(runsDir)
@@ -112,16 +115,19 @@ class FileRunArtifacts(
         return directory
     }
 
+    /** Convenience for the default (abort) pending-run policy. */
+    fun begin(runId: String): Path = begin(runId, PendingRunPolicy.ABORT)
+
     /**
      * Writes the run's artifacts and, last, the manifest that marks the run
      * complete and awaiting review. A directory without `run.json` is
      * incomplete and is never reported as pending.
      */
-    fun complete(
+    override fun complete(
         runId: String,
         candidatesJson: String,
         reportMarkdown: String,
-        snapshots: Map<String, ByteArray> = emptyMap(),
+        snapshots: Map<String, ByteArray>,
     ): PendingRun {
         val directory = runDirectory(runId)
         require(Files.isDirectory(directory)) { "run $runId was not started" }
@@ -152,6 +158,10 @@ class FileRunArtifacts(
         return PendingRun(runId, directory, now, candidatesHash, reportHash)
     }
 
+    /** Convenience for a run with no snapshots to archive. */
+    fun complete(runId: String, candidatesJson: String, reportMarkdown: String): PendingRun =
+        complete(runId, candidatesJson, reportMarkdown, emptyMap())
+
     fun findPending(): List<PendingRun> =
         listRunDirectories()
             .filter { Files.isRegularFile(it.resolve(MANIFEST)) }
@@ -170,12 +180,51 @@ class FileRunArtifacts(
     fun readCandidates(runId: String): String {
         val directory = runDirectory(runId)
         val manifest = readManifest(directory) ?: error("run $runId has no manifest")
+        refuseIfLoaded(runId)
         val bytes = Files.readAllBytes(directory.resolve(CANDIDATES))
         val actual = sha256(bytes)
         if (actual != manifest.candidatesSha256) {
             throw ArtifactChecksumMismatchException(runId, manifest.candidatesSha256, actual)
         }
         return String(bytes, StandardCharsets.UTF_8)
+    }
+
+    /**
+     * A loaded run must never be read for a second load: the check happens
+     * before any write, so a replay cannot commit and then fail (BR-18/A2).
+     */
+    fun refuseIfLoaded(runId: String) {
+        if (Files.exists(runDirectory(runId).resolve(LOADED))) {
+            throw RunAlreadyLoadedException(runId)
+        }
+    }
+
+    /**
+     * The curator's decision record for the run. The run's evidence files stay
+     * immutable; this file is the mutable, reviewed input the load reads, and
+     * it is written only by the load tool.
+     */
+    fun resolutionsPath(runId: String): Path = runDirectory(runId).resolve(RESOLUTIONS)
+
+    fun readResolutions(runId: String): Resolutions? {
+        val path = resolutionsPath(runId)
+        if (!Files.isRegularFile(path)) return null
+        return runCatching { ResolutionsJson.decode(Files.readString(path, StandardCharsets.UTF_8)) }
+            .getOrElse {
+                throw InvalidResolutionException(
+                    "$RESOLUTIONS for run $runId is not readable (${it.message}); fix or delete it and re-run",
+                )
+            }
+    }
+
+    fun writeResolutions(runId: String, resolutions: Resolutions) {
+        val directory = runDirectory(runId)
+        require(Files.isRegularFile(directory.resolve(MANIFEST))) { "run $runId has no manifest" }
+        require(resolutions.runId == runId) {
+            "refusing to write decisions for run ${resolutions.runId} into run $runId"
+        }
+        refuseIfLoaded(runId)
+        writeAtomically(directory.resolve(RESOLUTIONS), ResolutionsJson.encode(resolutions).toByteArray(StandardCharsets.UTF_8))
     }
 
     /** Marks a run loaded after the catalogue transaction committed. */
@@ -196,12 +245,15 @@ class FileRunArtifacts(
         if (actual != manifest.candidatesSha256) {
             throw ArtifactChecksumMismatchException(runId, manifest.candidatesSha256, actual)
         }
+        val decisions = resolutionsPath(runId).takeIf { Files.isRegularFile(it) }
+            ?.let { sha256(Files.readAllBytes(it)) }
         val body = json.encodeToString(
             LoadMarker(
                 runId = runId,
                 loadRunId = loadRunId,
                 loadedAt = clock.instant().toString(),
                 candidatesSha256 = manifest.candidatesSha256,
+                resolutionsSha256 = decisions,
             ),
         )
         createNew(marker, body.toByteArray(StandardCharsets.UTF_8))
@@ -332,6 +384,7 @@ class FileRunArtifacts(
         const val MANIFEST = "run.json"
         const val CANDIDATES = "candidates.json"
         const val REPORT = "report.md"
+        const val RESOLUTIONS = "resolutions.json"
         const val LOADED = "loaded.json"
         const val ABANDONED = "abandoned.json"
         const val ARCHIVE_RECORD = "archive.json"
@@ -354,6 +407,8 @@ private data class LoadMarker(
     val loadRunId: String,
     val loadedAt: String,
     val candidatesSha256: String,
+    /** Checksum of the decisions the load applied, when the run had any. */
+    val resolutionsSha256: String? = null,
 )
 
 @Serializable

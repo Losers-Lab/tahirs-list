@@ -5,6 +5,14 @@ dependencies {
     implementation(project(":certifier-hms"))
     implementation(project(":certifier-hfsaa"))
     implementation(project(":certifier-hma"))
+
+    // The pipeline builds application-layer candidates and calls the geocoder
+    // port; the application layer never depends on a certifier library.
+    implementation(project(":application"))
+    implementation(project(":domain"))
+
+    // Metro catalogues and resolution sheets are JSON data files.
+    implementation(libs.kotlinx.serialization.json)
 }
 
 /**

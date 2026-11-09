@@ -1,0 +1,24 @@
+{
+  "metros": [
+    {
+      "name": "Dallas",
+      "center": { "lat": 32.7767, "lng": -96.7970 },
+      "radiusKm": 80.0
+    },
+    {
+      "name": "Austin",
+      "center": { "lat": 30.2672, "lng": -97.7431 },
+      "radiusKm": 60.0
+    },
+    {
+      "name": "NYC",
+      "center": { "lat": 40.7128, "lng": -74.0060 },
+      "radiusKm": 45.0
+    },
+    {
+      "name": "Toronto",
+      "center": { "lat": 43.6532, "lng": -79.3832 },
+      "radiusKm": 50.0
+    }
+  ]
+}
