@@ -139,8 +139,9 @@ the pipeline tests:
 
 ## Tests
 
-`AddressTextTest` (10) pins the parse, `MatchConfirmationPolicyTest` (13) pins
+`AddressTextTest` (11) pins the parse, `MatchConfirmationPolicyTest` (15) pins
 the confirmation evidence, `CandidateFactoryTest` covers the ladder and the
-unconfirmed-answer reject, `PhotonGeocoderTest` covers the richer label and the
-provider name, and `LocalityNamesTest` pins the country/state maps. Whole
-backend at the head: 131 suites, 975 tests, 0 failures, 1 deliberate skip.
+unconfirmed-answer reject, `PhotonGeocoderTest` covers the richer label, the
+provider name and the street/venue distinction, and `LocalityNamesTest` pins the
+country/state maps. Whole backend at the head: 131 suites, 979 tests, 0
+failures, 1 deliberate skip.
