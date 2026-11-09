@@ -52,6 +52,22 @@
 | Full suite on the round-2 fixes (commit `c968c31`) | **967 tests, 0 failures, 0 errors, 1 skipped**, 7m14s |
 | Red evidence | QA reverted each implementation file in turn and observed 14 targeted failures before restoring |
 
+## Dev verification (`https://dev.tahirslist.com`, 2026-11-09)
+
+| Check | Result |
+|---|---|
+| Merge | PR #85 merged as `5427ccc` |
+| Backend restart on merged `main` | container recreated from the repo mount; build green; `Application started in 9.774 seconds` |
+| Migrations | `Current version of schema "public": 24`, `up to date. No migration necessary` (SC-199 adds none) |
+| `GET /v1/health` via the public URL | `200 {"status":"ok"}` |
+| `GET /v1/listings/search` with an 8 dp centre | `200`, `Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=60`, `cf-cache-status: DYNAMIC` |
+| Two centres in one 4 dp basin | byte-identical bodies |
+| Adjacent basin | different body |
+| Malformed centre | `400 {"code":"invalid_input"}` + `Cache-Control: no-store` |
+| Non-finite centre (`NaN,NaN`) | same 400 envelope |
+| Backend log | no `ERROR` / `Exception` after boot |
+| **Not verified** | the Cloudflare Cache Rule (WI-8) is not applied, so `cf-cache-status` stays `DYNAMIC` — expected under D-3 A |
+
 ## Review findings
 
 | # | Reviewer | Outcome |
