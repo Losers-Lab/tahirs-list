@@ -93,6 +93,8 @@ Same four metros, same caps, same sources:
 | before (`…20261109`) | 36 | 202 |
 | after query + match (`…20261109c`) | 118 | 93 |
 | after HMA city parse (`…20261109d`) | 120 | 91 |
+| after stricter name evidence (`…20261109g`) | 118 | 92 |
+| after numeric street names (`…20261109h`) | 121 | 89 |
 
 Toronto went from 12 candidates to 35 of 35 fetched. Of the 91 remaining
 rejects, 70 are `AMBIGUOUS_GEOCODER_MATCH` and 17 `WRONG_REGION` — mostly rows
@@ -136,8 +138,8 @@ the pipeline tests:
 
 ## Tests
 
-`AddressTextTest` (7) pins the parse, `MatchConfirmationPolicyTest` (9) pins the
-confirmation evidence, `CandidateFactoryTest` covers the ladder and the
-unconfirmed-answer reject, and `PhotonGeocoderTest` covers the richer label.
-Whole backend at the head of this change: 130 suites, 956 tests, 0 failures,
-1 deliberate skip.
+`AddressTextTest` (8) pins the parse, `MatchConfirmationPolicyTest` (13) pins
+the confirmation evidence, `CandidateFactoryTest` covers the ladder and the
+unconfirmed-answer reject, `PhotonGeocoderTest` covers the richer label, and
+`LocalityNamesTest` pins the country/state maps. Whole backend at the head:
+131 suites, 973 tests, 0 failures, 1 deliberate skip.
