@@ -57,11 +57,11 @@
 | # | Reviewer | Outcome |
 |---|---|---|
 | 1 | omar | max-age outside the 600 s bound — **fixed** (`SearchSettings`, env test) |
-| 2 | omar | cached `verificationStatus` vs the KB's 5 s verified-freshness target — **open: founder decision D-6** |
+| 2 | omar | cached `verificationStatus` vs the KB's 5 s verified-freshness target — **decided 2026-11-09: D-6 option A**, stale verified state accepted, no SLA |
 | 3 | omar | Long overflow in the guard — **fixed** (subtraction check + test) |
 | 4 | omar | an opted-in header surviving onto an error — **fixed** (body first, plugin adds `no-store` on non-2xx + test) |
 | 5 | omar | no variance assertions — **fixed** (`Set-Cookie`/`Vary`/body-equality test) |
-| 6 | omar | absolute URLs from the request Host in a public body — **accepted**: the edge keys on host; recorded in the runbook note |
+| 6 | omar | absolute URLs from the request Host in a public body — **accepted**: the edge keys on host; recorded in the KB runbook note `operations/search-edge-cache-runbook` (TW-8 caveat) |
 | 7 | omar | unparseable cache env values defaulted silently — **fixed** (`seconds()`, test) |
 | 8 | omar / yusuf | `radius=Infinity` accepted (pre-existing) — **not fixed**; follow-up story |
 | 9 | omar | no NaN centre test — **fixed** (`a non-finite centre returns 400`) |
@@ -74,7 +74,7 @@
 | N1 | omar (round 2) | D-6's premise was false: the certificate/image proxies are `public, max-age=86400` — **corrected** in D-6; the 24 h cache is now **accepted as-is with no follow-up** (D-7, founder 2026-11-09) |
 | N2 | omar (round 2) | `max-age + swr` could exceed 600 s under extreme config — **fixed** (both channels bounded together, test added) |
 | N3 | omar (round 2) | docs said an error carries no freshness header — **fixed** in 02 BR-4 and 06/UC-02 (a late 500 carries both; `no-store` wins) |
-| N4 | omar (round 2) | stale test-name citations in 01/07/09 — **fixed** to the names that exist |
+| N4 | omar (round 3) | `09-work-items.md` still cited test names that do not exist and credited WI-1…4 to the design PR — **fixed** to the real names and #85 |
 | N5 | omar (round 2) | the 966-test run was not tied to a commit — **fixed** above |
 | N6 | omar (round 2) | orphaned KDoc in `AppConfig` — **fixed** |
 
