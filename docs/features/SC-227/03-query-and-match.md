@@ -69,10 +69,12 @@ bought with precision. A row that is asked once is still asked once.
 
 `MatchConfirmationPolicy` now accepts a hit only when the label carries either:
 
-- a **name** with at least **two** distinctive tokens in common with the
-  provider's own name for the hit — or the row's whole name is the single token
-  that agrees ("Burgermania"). Tokens that are also the city/region/postal/street
-  do not count ("Dallas Grill" must not match every Dallas POI); or
+- a **name** where at least **two** distinct distinctive tokens agree with the
+  provider's own name for the hit — or the provider's name contains the row's
+  whole name ("Burgermania" vs "Burgermania", "Noor" vs "Noor Restaurant").
+  Tokens that are also the city/region/postal/street do not count ("Dallas
+  Grill" must not match every Dallas POI), and a repeated word is one word
+  ("Pizza Pizza" is not two matches); or
 - the row's **house number** *and* a distinctive street token, with the city or
   postal code agreeing.
 
@@ -82,6 +84,23 @@ accepted at a **Burger King 1.2 km away** and `Slappin Chick Hicksville` at a
 **Chick-fil-A 681 m away** — one shared word each (`king`, `chick`). Both are now
 rejected; the same change drops exactly those two candidates and no others (121
 → 119, venue-key diff).
+
+Review round 3 closed three loopholes in the first version of that rule: a
+repeated word counted as two (`Pizza Pizza` matched `Pizza Hut`), generic words
+could shrink a name to one token (`The Halal Guys` → `guys`, `Bombay Grill` →
+`bombay`), and the saint prefix `ste` survived as a *street* token, so the
+address path confirmed any `Ste-*` street at the same house number. The name
+rule now compares distinct tokens and falls back to the row's whole name as a
+phrase; `saint`/`sainte`/`ste` are generic street words, and a hyphenated name
+is split into its words (`Ste-Catherine` → `catherine`) while a hyphenated house
+number (`258-03`) stays whole.
+
+The unit-marker regexes also bound every whitespace quantifier. An unbounded
+`\s*` around a lookahead that fails lets an unanchored scan re-partition the
+same run of spaces, which is quadratic — measured on the same strings: a 5 KB
+line of marker words and spaces took **199 s** unbounded and **3 ms** bounded,
+with identical results on ten real address lines. Directory rows are third-party
+text, so that matters even though no current source sends such a line.
 
 A shared city alone is no longer evidence. A street-level hit without the house
 number is rejected (measured: Photon's street centroid was 1.3–3.1 km from the
@@ -108,13 +127,27 @@ Same four metros, same caps, same sources:
 | after numeric street names (`…20261109h`) | 121 | 89 |
 | after provider-name requirement (`…20261109j`) | 121 | 89 |
 | after street-vs-suite and one-word fixes (`…20261109m`) | 119 | 91 |
+| after review round 3 (`…20261109n`) | 118 | 92 |
 
-Run `m` is the head of this branch: 119 candidates, 91 rejected
-(`AMBIGUOUS_GEOCODER_MATCH` 87, `NO_GEOCODER_MATCH` 4), 0 rows left out by caps
-at `--caps=100`. Its candidate set is run `j`'s minus the two wrong-business
-rows (`Texas King Irving`, `Slappin Chick Hicksville`); every other venue key
-keeps its coordinate, and one row (`Jaffy's Premium Grill`) moved 60 m after the
-suite fix. The reviewed load applied 119 upgrades with 0 conflicts.
+Run `n` is the head of this branch: 118 candidates, 92 rejected
+(`AMBIGUOUS_GEOCODER_MATCH` 88, `NO_GEOCODER_MATCH` 4), 0 rows left out by caps
+at `--caps=100`. The cap matters: the default is 25 rows per metro, and the run
+only says `rows left out by caps` in its totals — pass `--caps=100` for the full
+four-metro sample or the batch silently shrinks.
+
+Against run `j` (121), run `n` drops exactly three rows and adds none:
+
+| dropped row | why |
+|---|---|
+| `Texas King Irving` | matched a Burger King 1 199 m away on the single word `king` |
+| `Slappin Chick Hicksville` | matched a Chick-fil-A 681 m away on `chick` |
+| `Mannan Bakery & Restaurant` (`New York, NY, USA`, no street) | name-only, and it resolved to the exact coordinate of the real `Mannan Bakery` row (71-14 35 Ave, Jackson Heights) |
+
+Every other venue key keeps its coordinate; `Jaffy's Premium Grill` moved about
+70 m within the same block, and `Dhaka Restaurant` moved ~200 m along the same
+avenue when the address query replaced a name-only confirmation. The reviewed
+load applied 118 upgrades with 0 conflicts, and the three dropped rows with their
+claims were removed in the same change.
 
 Toronto went from 12 candidates to 35 of 35 fetched. Most remaining rejects are
 rows whose house number Photon genuinely does not have, or whose address matched
@@ -156,9 +189,9 @@ the pipeline tests:
 
 ## Tests
 
-`AddressTextTest` (14) pins the parse, `MatchConfirmationPolicyTest` (18) pins
+`AddressTextTest` (16) pins the parse, `MatchConfirmationPolicyTest` (22) pins
 the confirmation evidence, `CandidateFactoryTest` covers the ladder and the
 unconfirmed-answer reject, `PhotonGeocoderTest` covers the richer label, the
 provider name and the street/venue distinction, and `LocalityNamesTest` pins the
-country/state maps. Whole backend at the head: 131 suites, 985 tests, 0
+country/state maps. Whole backend at the head: 131 suites, 991 tests, 0
 failures, 1 deliberate skip.

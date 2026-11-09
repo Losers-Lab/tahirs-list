@@ -72,7 +72,9 @@ class MatchConfirmationPolicy {
         val labelNameTokens = normalize(place.name.orEmpty())
             .split(' ')
             .filter { it.isNotBlank() }
-        val nameTokens = normalize(query.name).split(' ').filter { it.length >= 3 && it !in GENERIC }
+        val nameTokens = normalize(query.name).split(' ')
+            .filter { it.length >= 3 && it !in GENERIC }
+            .distinct()
         // A name token that is also the city, region, postal code or street says
         // nothing about identity: "Dallas Grill" must not match every Dallas POI.
         val placeTokens = buildSet {
@@ -89,10 +91,13 @@ class MatchConfirmationPolicy {
         val nameHits = nameTokens.filter { it in labelNameTokens && it !in placeTokens }
         // One word in common is not the same business: "Texas King Irving" once
         // matched "Burger King" 1.2 km away, and "Slappin Chick Hicksville"
-        // matched "Chick-fil-A". Two distinctive tokens must agree, or the row's
-        // whole name must be the single token that agrees ("Burgermania").
+        // matched "Chick-fil-A". Two distinct words must agree, unless the
+        // provider's own name contains the row's whole name ("Burgermania",
+        // "Noor" vs "Noor Restaurant"). Filtering generic words first means
+        // "The Halal Guys" reduces to "guys", which must never be the whole of
+        // it — hence the phrase test on the unfiltered name.
         val nameHit = nameHits.size >= 2 ||
-            (nameHits.size == 1 && nameTokens.size == 1)
+            containsPhrase(labelNameTokens, normalize(query.name))
 
         if (nameHit) return MatchDecision.Confirmed(place)
 

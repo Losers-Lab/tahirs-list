@@ -82,6 +82,10 @@ object AddressText {
             ?.map { fold(it).lowercase() }
             ?.map { it.trim('.', ',') }
             ?.filter { it.isNotEmpty() }
+            // A hyphenated street name ("Ste-Catherine") is two words for
+            // matching; a hyphenated house number ("258-03") is one.
+            ?.flatMap { token -> if (token.any { it.isDigit() }) listOf(token) else token.split('-') }
+            ?.filter { it.isNotEmpty() }
             ?.filterNot { it in GENERIC_STREET_WORDS }
             ?.filterNot { it in SUFFIX_ABBREVIATIONS }   // a suffix the expansion left in place
             ?.filterNot { it in DIRECTIONAL_ABBREVIATIONS }
@@ -181,23 +185,31 @@ object AddressText {
         """\b(\d{5}(?:-\d{4})?|[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d)\b""",
     )
 
+    /** A unit value: "500", "7A", "C200", "BC200" or a bare "B"/"AB". */
+    private const val UNIT_VALUE = """(?=[A-Za-z]{0,2}\d|[A-Za-z]{1,2}\b)"""
+
+    private const val UNIT_WORD =
+        """(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)"""
+
     /**
      * A unit marker inside a street line — but only when a unit **value**
      * follows it. Without that the word alone is not a unit: "123 Ste. Anne
      * Avenue" is a street named Sainte-Anne, and cutting at " Ste" would leave
      * the house number as the whole street.
+     *
+     * Every quantifier is bounded on purpose: an unbounded `\s*` around a
+     * lookahead that fails lets an unanchored scan re-partition the same run of
+     * spaces, which is quadratic on a long address line. Ids are not the only
+     * input here — directory rows are third-party text.
      */
     private val UNIT_MARKER = Regex(
-        """(?i)(\s+(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b\.?\s*#?\s*${UNIT_VALUE}|\s*#)""",
+        """(?i)(\s{1,8}${UNIT_WORD}\b\.?\s{0,8}#?\s{0,8}${UNIT_VALUE}|\s{0,8}#)""",
     )
 
     /** A unit word at the very start of a segment, followed by a unit value. */
     private val LEADING_UNIT = Regex(
-        """(?i)^\s*(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b\.?\s*#?\s*${UNIT_VALUE}""",
+        """(?i)^\s{0,8}${UNIT_WORD}\b\.?\s{0,8}#?\s{0,8}${UNIT_VALUE}""",
     )
-
-    /** Looks ahead for a unit value: "500", "7A", "C200" or a bare "B". */
-    private const val UNIT_VALUE = """(?=[A-Za-z]?\d|[A-Za-z]{1,2}\b)"""
 
     private val COUNTRY_ONLY = setOf(
         "usa", "u s a", "us", "united states", "united states of america",
@@ -248,5 +260,8 @@ object AddressText {
         "north", "south", "east", "west",
         "northeast", "northwest", "southeast", "southwest",
         "the", "and", "of",
+        // A saint prefix is not the street's name: "Ste. Anne" and
+        // "Ste-Catherine" must be told apart by the word after it.
+        "saint", "sainte", "ste",
     )
 }

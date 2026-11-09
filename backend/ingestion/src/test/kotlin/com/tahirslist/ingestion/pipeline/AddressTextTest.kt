@@ -124,7 +124,9 @@ class AddressTextTest : FunSpec({
         val numbered = AddressText.parse(listOf("123 Ste. Anne Avenue"), city = "Winnipeg")
         numbered.street shouldBe "123 Ste. Anne Avenue"
         numbered.houseNumber shouldBe "123"
-        numbered.streetTokens shouldBe listOf("ste", "anne")
+        // The saint prefix carries no identity; "anne" is what tells the street
+        // apart. Without this, any Ste-* street confirms at the same number.
+        numbered.streetTokens shouldBe listOf("anne")
 
         val hyphenated = AddressText.parse(listOf("1500 Ste-Catherine Street West"), city = "Montreal")
         hyphenated.street shouldBe "1500 Ste-Catherine Street West"
@@ -141,5 +143,19 @@ class AddressTextTest : FunSpec({
     test("a letter-only unit is still cut") {
         AddressText.parse(listOf("1200 Main St Suite B"), city = "Dallas")
             .street shouldBe "1200 Main Street"
+    }
+
+    test("a letter-prefixed unit value is still cut") {
+        AddressText.parse(listOf("1200 Main St Suite BC200"), city = "Dallas")
+            .street shouldBe "1200 Main Street"
+        AddressText.parse(listOf("1200 Main St Unit AB12"), city = "Dallas")
+            .street shouldBe "1200 Main Street"
+    }
+
+    test("a saint-prefixed street keeps only its distinguishing word") {
+        AddressText.parse(listOf("1500 Ste-Catherine Street West"), city = "Montreal")
+            .streetTokens shouldBe listOf("catherine")
+        AddressText.parse(listOf("12 St. Marks Place"), city = "New York")
+            .streetTokens shouldBe listOf("marks")
     }
 })

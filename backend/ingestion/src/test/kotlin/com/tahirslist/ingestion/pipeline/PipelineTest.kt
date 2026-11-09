@@ -308,6 +308,78 @@ class MatchConfirmationPolicyTest : FunSpec({
             .shouldBeInstanceOf<MatchDecision.Confirmed>()
     }
 
+    test("a repeated word is one word, not two") {
+        val pizza = MatchQuery(
+            name = "Pizza Pizza",
+            city = "Toronto",
+            region = "ON",
+            country = "Canada",
+            street = "100 Queen Street West",
+            houseNumber = "100",
+            streetTokens = listOf("queen"),
+        )
+        policy.confirm(pizza, place("Pizza Hut, 900 King Street West, Toronto, ON, Canada", name = "Pizza Hut"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("generic words cannot shrink a name to one token") {
+        // "The Halal Guys" filters to "guys"; "Bombay Grill" to "bombay".
+        // Neither may match on that word alone.
+        val halalGuys = MatchQuery(
+            name = "The Halal Guys",
+            city = "New York",
+            region = "NY",
+            country = "United States",
+            street = "1 Main Street",
+            houseNumber = "1",
+            streetTokens = listOf("main"),
+        )
+        policy.confirm(halalGuys, place("Smart Guys Auto Repair, 99 Broadway, New York, NY", name = "Smart Guys Auto Repair"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+
+        val bombay = MatchQuery(
+            name = "Bombay Grill",
+            city = "Toronto",
+            region = "ON",
+            country = "Canada",
+            street = "1 Main Street",
+            houseNumber = "1",
+            streetTokens = listOf("main"),
+        )
+        policy.confirm(bombay, place("Bombay Palace, 99 Yonge Street, Toronto, ON", name = "Bombay Palace"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("a one-word name still matches the whole name") {
+        val noor = MatchQuery(
+            name = "Noor",
+            city = "Toronto",
+            region = "ON",
+            country = "Canada",
+            street = "1 Main Street",
+            houseNumber = "1",
+            streetTokens = listOf("main"),
+        )
+        policy.confirm(noor, place("Noor Restaurant, 500 Bloor Street West, Toronto, ON", name = "Noor Restaurant"))
+            .shouldBeInstanceOf<MatchDecision.Confirmed>()
+    }
+
+    test("a saint prefix is not street evidence") {
+        // Same house number, same city, different Ste-* street: the shared
+        // prefix must not confirm it.
+        val steAnne = MatchQuery(
+            name = "Afghan Bbq",
+            city = "Winnipeg",
+            region = "MB",
+            country = "Canada",
+            street = "123 Ste. Anne Avenue",
+            houseNumber = "123",
+            streetTokens = listOf("anne"),
+        )
+        policy.confirm(steAnne, place("123 Ste. Catherine Street, Winnipeg, MB, Canada"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
     test("a Canadian postal code written as two tokens still confirms the address") {
         val toronto = MatchQuery(
             name = "Paramount Fine Foods",
