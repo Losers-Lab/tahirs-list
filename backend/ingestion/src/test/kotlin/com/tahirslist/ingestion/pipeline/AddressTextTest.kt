@@ -110,4 +110,11 @@ class AddressTextTest : FunSpec({
         address.postalCode shouldBe null
         address.street shouldBe "1 Main Street"
     }
+
+    test("a street named Ste. Anne is not mistaken for a unit") {
+        val address = AddressText.parse(listOf("Ste. Anne Avenue"), city = "Winnipeg")
+
+        address.street shouldBe "Ste. Anne Avenue"
+        address.houseNumber shouldBe null
+    }
 })

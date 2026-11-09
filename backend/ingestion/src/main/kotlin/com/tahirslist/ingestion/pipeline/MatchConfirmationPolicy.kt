@@ -196,6 +196,12 @@ class MatchConfirmationPolicy {
             "the", "and", "restaurant", "restaurants", "grill", "grills", "cafe",
             "kitchen", "food", "foods", "house", "halal", "bar", "bakery",
             "market", "express", "shop", "store", "inc", "ltd",
+            // Road words: a street feature's name must not pass for a venue.
+            "street", "st", "road", "rd", "avenue", "ave", "boulevard", "blvd",
+            "drive", "dr", "lane", "ln", "parkway", "pkwy", "highway", "hwy",
+            "court", "ct", "place", "pl", "circle", "cir", "terrace", "ter",
+            "square", "sq", "way", "trail", "trl", "crescent", "cres",
+            "route", "expressway", "expy", "turnpike", "tpke",
         )
 
         val ORDINAL_SUFFIXES = setOf("st", "nd", "rd", "th")

@@ -127,6 +127,7 @@ class PhotonGeocoderTest : FunSpec({
               "geometry": { "type": "Point", "coordinates": [-74.006, 40.7128] },
               "properties": {
                 "name": "Halal Grill",
+                "osm_key": "amenity",
                 "osm_id": 123456,
                 "osm_type": "N",
                 "city": "New York",
@@ -238,6 +239,7 @@ class PhotonGeocoderTest : FunSpec({
                       "geometry": { "type": "Point", "coordinates": [-96.6639, 33.0148] },
                       "properties": {
                         "name": "Chan Massage",
+                        "osm_key": "shop",
                         "housenumber": "3611",
                         "street": "14th Street",
                         "postcode": "75074",
@@ -253,6 +255,36 @@ class PhotonGeocoderTest : FunSpec({
             val result = geocoder().geocode("3611 14th Street, Plano, TX")
 
             result!!.displayName shouldBe "Chan Massage, 3611 14th Street, 75074 Plano, TX, United States"
+        }
+    }
+
+    test("a street feature's name is not venue evidence") {
+        runTest {
+            setResponse(200, """
+                {
+                  "type": "FeatureCollection",
+                  "features": [
+                    {
+                      "type": "Feature",
+                      "geometry": { "type": "Point", "coordinates": [-96.8, 32.9] },
+                      "properties": {
+                        "name": "Elm Street",
+                        "osm_key": "highway",
+                        "osm_value": "residential",
+                        "street": "Elm Street",
+                        "city": "Dallas",
+                        "state": "Texas",
+                        "country": "United States"
+                      }
+                    }
+                  ]
+                }
+            """.trimIndent())
+
+            val result = geocoder().geocode("123 Elm Street, Dallas, TX")
+
+            result!!.name shouldBe null
+            result.displayName shouldBe "Elm Street, Dallas, Texas, United States"
         }
     }
 

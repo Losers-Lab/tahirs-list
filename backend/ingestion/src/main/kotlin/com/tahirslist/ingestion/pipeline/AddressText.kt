@@ -185,9 +185,9 @@ object AddressText {
         """(?i)(\s+(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b|\s*#)""",
     )
 
-    /** A unit word at the very start of a segment (no leading space to match). */
+    /** A unit word at the very start of a segment, followed by a unit value. */
     private val LEADING_UNIT = Regex(
-        """(?i)^\s*(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b""",
+        """(?i)^\s*(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b\.?\s*#?\s*(?=[A-Za-z]?\d)""",
     )
 
     private val COUNTRY_ONLY = setOf(

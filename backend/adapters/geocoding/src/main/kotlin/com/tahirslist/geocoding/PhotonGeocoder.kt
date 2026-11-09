@@ -231,8 +231,21 @@ class PhotonGeocoder(
             location = location,
             displayName = displayName(props),
             providerRef = providerRef(props),
-            name = text(props, "name")?.takeIf { it.isNotBlank() },
+            name = venueName(props),
         )
+    }
+
+    /**
+     * The provider's name is **venue evidence** only for a POI. Photon also
+     * names streets, localities and administrative areas, and the match policy
+     * must not accept "Elm Street" as a restaurant name. `osm_key` is the only
+     * reliable discriminator in the response; without it, or for a road/place
+     * feature, the hit is an address, not a venue.
+     */
+    private fun venueName(props: JsonObject?): String? {
+        val key = text(props, "osm_key")?.lowercase()?.trim() ?: return null
+        if (key !in VENUE_OSM_KEYS) return null
+        return text(props, "name")?.takeIf { it.isNotBlank() }
     }
 
     /**
@@ -288,5 +301,14 @@ class PhotonGeocoder(
 
         /** Retry only what a later attempt can plausibly fix. */
         val TRANSIENT_STATUSES = setOf(408, 429, 500, 502, 503, 504)
+
+        /**
+         * OSM keys that name a *venue*. Roads (`highway`), places (`place`),
+         * boundaries and waterways carry names too, but those are addresses or
+         * areas, not businesses.
+         */
+        val VENUE_OSM_KEYS = setOf(
+            "amenity", "shop", "tourism", "leisure", "craft", "office", "healthcare",
+        )
     }
 }

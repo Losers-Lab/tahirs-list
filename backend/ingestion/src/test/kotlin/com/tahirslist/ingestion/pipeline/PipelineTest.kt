@@ -195,6 +195,40 @@ class MatchConfirmationPolicyTest : FunSpec({
             .shouldBeInstanceOf<MatchDecision.Rejected>()
     }
 
+    test("a street feature's name cannot be confirmed as a venue name") {
+        val mainStreet = MatchQuery(
+            name = "Main Street Grill",
+            city = "Dallas",
+            region = "TX",
+            country = "United States",
+            street = "123 Elm Street",
+            houseNumber = "123",
+            streetTokens = listOf("elm"),
+        )
+        // Photon can return a road as a hit, with the road name in `name`.
+        policy.confirm(
+            mainStreet,
+            place("Elm Street, Dallas, TX, United States", name = "Elm Street"),
+        ).shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
+    test("a road word alone is not a name match") {
+        val roadHouse = MatchQuery(
+            name = "Road House Halal",
+            city = "Dallas",
+            region = "TX",
+            country = "United States",
+            street = "5 Runner Road",
+            houseNumber = "5",
+            streetTokens = listOf("runner"),
+        )
+        // Every distinctive word in the row's name is a generic road word.
+        policy.confirm(
+            roadHouse,
+            place("Runner Road, Dallas, TX, United States", name = "Runner Road"),
+        ).shouldBeInstanceOf<MatchDecision.Rejected>()
+    }
+
     test("a name token that is just the city is not a name match") {
         val dallas = MatchQuery(
             name = "Dallas Grill",
