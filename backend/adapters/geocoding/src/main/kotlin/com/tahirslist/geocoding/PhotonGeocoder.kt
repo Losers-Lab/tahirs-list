@@ -83,6 +83,7 @@ class PhotonGeocoder(
     init {
         require(minInterval >= Duration.ZERO) { "minInterval must not be negative" }
         require(maxAttempts >= 1) { "maxAttempts must be at least 1" }
+        require(maxRetryAfter > Duration.ZERO) { "maxRetryAfter must be positive" }
     }
 
     /** Owned client (when not injected); plain GET only, explicit status handling. */
@@ -108,14 +109,17 @@ class PhotonGeocoder(
                 is Attempt.Success -> return outcome.place
 
                 is Attempt.Fatal -> throw GeocodingException(
-                    "Photon geocoder ${outcome.reason} for address: $address",
+                    failureMessage(outcome.reason, address),
                     outcome.cause,
                 )
 
                 is Attempt.Retryable -> {
                     if (attemptNumber >= maxAttempts) {
                         throw GeocodingException(
-                            "Photon geocoder ${outcome.reason} after $attemptNumber attempt(s) for address: $address",
+                            failureMessage(
+                                "${outcome.reason} after $attemptNumber attempt(s)",
+                                address,
+                            ),
                             outcome.cause,
                         )
                     }
@@ -168,6 +172,7 @@ class PhotonGeocoder(
             return try {
                 Attempt.Success(parse(body, address))
             } catch (e: GeocodingException) {
+                // parse() already names the provider and address; do not prefix twice.
                 Attempt.Fatal(e.message ?: "returned a malformed response", e)
             }
         }
@@ -186,6 +191,13 @@ class PhotonGeocoder(
 
     private fun backoff(attemptNumber: Int): Duration =
         (1L shl (attemptNumber - 1).coerceAtMost(6)).seconds
+
+    /**
+     * One clear sentence. A reason that already names the provider is used as-is,
+     * so a parse failure is not wrapped as "Photon geocoder Photon geocoder …".
+     */
+    private fun failureMessage(reason: String, address: String): String =
+        if (reason.startsWith("Photon geocoder")) reason else "Photon geocoder $reason for address: $address"
 
     /** Maps Photon's GeoJSON FeatureCollection to a [GeocodedPlace] (or null for no match). */
     private fun parse(body: String, address: String): GeocodedPlace? {
@@ -259,6 +271,6 @@ class PhotonGeocoder(
             "TahirsListBot/0.1 (+https://github.com/Losers-Lab/tahirs-list; data-curation)"
 
         /** Retry only what a later attempt can plausibly fix. */
-        val TRANSIENT_STATUSES = setOf(429, 500, 502, 503, 504)
+        val TRANSIENT_STATUSES = setOf(408, 429, 500, 502, 503, 504)
     }
 }

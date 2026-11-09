@@ -340,6 +340,32 @@ class PhotonGeocoderTest : FunSpec({
         }
     }
 
+    test("retries a 408 request timeout") {
+        runTest {
+            respond(408, "")
+            respond(200, validGeoJson)
+            val clock = FakeClock()
+
+            politeGeocoder(clock).geocode("Halal Grill, New York") shouldNotBe null
+
+            requests shouldBe 2
+            clock.millis shouldBe 1_000
+        }
+    }
+
+    test("a malformed 200 error names the provider once") {
+        runTest {
+            respond(200, "{ not json")
+
+            val error = shouldThrowSuspend<GeocodingException> {
+                politeGeocoder(FakeClock()).geocode("Halal Grill, New York")
+            }
+
+            error.message!!.startsWith("Photon geocoder ") shouldBe true
+            error.message!!.contains("Photon geocoder Photon geocoder") shouldBe false
+        }
+    }
+
     test("does not retry a permanent client error") {
         runTest {
             respond(400, """{"message":"bad request"}""")
