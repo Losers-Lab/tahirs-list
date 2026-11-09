@@ -84,6 +84,42 @@ The reject detail says which evidence was missing.
 city, state, country` — so the policy can check the address and an error message
 shows what was matched. The label is also what the geocode cache stores.
 
+## Result after the fix
+
+Same four metros, same caps, same sources:
+
+| run | candidates | rejected |
+|---|---:|---:|
+| before (`…20261109`) | 36 | 202 |
+| after query + match (`…20261109c`) | 118 | 93 |
+| after HMA city parse (`…20261109d`) | 120 | 91 |
+
+Toronto went from 12 candidates to 35 of 35 fetched. Of the 91 remaining
+rejects, 70 are `AMBIGUOUS_GEOCODER_MATCH` and 17 `WRONG_REGION` — mostly rows
+that are **not in any selected metro** and are geocoded only to decide their
+metro (Chicago, Ohio, Missouri), plus rows whose house number Photon genuinely
+does not have.
+
+## Other defects the real run exposed
+
+Both were found only when the batch was fed through the reviewed load, not by
+the pipeline tests:
+
+1. **HMA city fields held garbage.** `HmaParser` assumed the last
+   comma-separated segment was the city and only understood one
+   province/postal shape, so candidates carried `Canada`, `L6Z2WL`,
+   `L4W 4GI`, `Ont. L7L 0B6` or `ON L4T 1A8 Canada` as the city. The parser now
+   reads back from the end, strips country/province/postal wherever they sit,
+   lifts a postal written before the city, and leaves the city null when the
+   source glues it to the street. Fixed in `81bf80d`.
+2. **HMS's country name did not fit the catalogue.** HMS publishes
+   `United States Of America` (23 chars) and the domain caps country at 16, so
+   the load aborted the whole batch on
+   `IllegalArgumentException: Listing country must be 16 characters or fewer`.
+   The HMS translator now maps it to `United States`, the form HFSAA already
+   uses, and drops an unexpected long name with a warning instead of
+   truncating it.
+
 ## What this does not solve
 
 - Photon's OSM coverage of US business addresses is incomplete. Rows whose exact
