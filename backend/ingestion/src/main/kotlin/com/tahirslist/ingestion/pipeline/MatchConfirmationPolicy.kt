@@ -62,11 +62,11 @@ class MatchConfirmationPolicy {
 
         val cityHit = query.city?.let { containsPhrase(labelTokens, normalize(it)) } ?: false
         val postalHit = query.postalCode?.let { containsPostal(labelled, it) } ?: false
-        // Name evidence compares the row's name with the label's name slot — the
-        // first part before the adapter's ", " join. The label also carries the
-        // street, city, state and country, and a row called "Texas King" must
-        // not match the state "Texas".
-        val labelNameTokens = normalize(place.displayName.substringBefore(", "))
+        // Name evidence compares the row's name with the provider's own name for
+        // the hit. displayName also carries the street, city, state and country,
+        // so it is never used for this: a hit with no name is an address, and a
+        // street must not pass for a venue name.
+        val labelNameTokens = normalize(place.name.orEmpty())
             .split(' ')
             .filter { it.isNotBlank() }
         val nameTokens = normalize(query.name).split(' ').filter { it.length >= 3 && it !in GENERIC }

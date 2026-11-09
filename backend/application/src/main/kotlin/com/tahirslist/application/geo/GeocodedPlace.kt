@@ -12,9 +12,14 @@ import com.tahirslist.domain.restaurant.LatLng
  * @param providerRef the provider's identifier for this place (e.g. `N/123456`
  *        for an OSM node), used for dedupe/reference — may be null if the
  *        provider returns none.
+ * @param name the provider's own **name** for this place (an OSM POI name),
+ *        or null when the hit is an address only. Name evidence is read from
+ *        this field, never from [displayName], so a street cannot pass for a
+ *        venue name.
  */
 data class GeocodedPlace(
     val location: LatLng,
     val displayName: String,
     val providerRef: String?,
+    val name: String? = null,
 )

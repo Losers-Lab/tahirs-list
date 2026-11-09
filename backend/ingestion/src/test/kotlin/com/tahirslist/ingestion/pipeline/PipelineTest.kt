@@ -50,7 +50,7 @@ fun sourceListing(
 
 class FakeGeocoder(
     private val byAddress: (String) -> GeocodedPlace? = {
-        place("Paramount Fine Foods, 253 Yonge Street, Toronto, ON, Canada")
+        place("Paramount Fine Foods, 253 Yonge Street, Toronto, ON, Canada", name = "Paramount Fine Foods")
     },
 ) : GeocoderPort {
     val queries = mutableListOf<String>()
@@ -60,11 +60,13 @@ class FakeGeocoder(
     }
 }
 
-fun place(displayName: String, lat: Double = 43.665206, lng: Double = -79.384523) = GeocodedPlace(
-    location = LatLng(lat, lng),
-    displayName = displayName,
-    providerRef = "N/1",
-)
+fun place(displayName: String, lat: Double = 43.665206, lng: Double = -79.384523, name: String? = null) =
+    GeocodedPlace(
+        location = LatLng(lat, lng),
+        displayName = displayName,
+        providerRef = "N/1",
+        name = name,
+    )
 
 class MetroFilterTest : FunSpec({
 
@@ -117,7 +119,7 @@ class MatchConfirmationPolicyTest : FunSpec({
     )
 
     test("a resolved label that shares a meaningful name token is confirmed") {
-        policy.confirm(query, place("Paramount Fine Foods, 253 Yonge St, Toronto"))
+        policy.confirm(query, place("Paramount Fine Foods, 253 Yonge St, Toronto", name = "Paramount Fine Foods"))
             .shouldBeInstanceOf<MatchDecision.Confirmed>()
     }
 
@@ -174,8 +176,23 @@ class MatchConfirmationPolicyTest : FunSpec({
         )
         policy.confirm(
             burgermania,
-            place("Kiss My Slice, 274 West 40th Street, 10018 New York, NY, United States"),
+            place("Kiss My Slice, 274 West 40th Street, 10018 New York, NY, United States", name = "Kiss My Slice"),
         ).shouldBeInstanceOf<MatchDecision.Confirmed>()
+    }
+
+    test("a hit with no provider name cannot be confirmed by its street") {
+        val mainStreet = MatchQuery(
+            name = "Main Street Grill",
+            city = "Dallas",
+            region = "TX",
+            country = "United States",
+            street = "123 Elm Street",
+            houseNumber = "123",
+            streetTokens = listOf("elm"),
+        )
+        // An address-only hit: the label starts with a street, not a venue name.
+        policy.confirm(mainStreet, place("1 Main Street, Springfield, Illinois, United States"))
+            .shouldBeInstanceOf<MatchDecision.Rejected>()
     }
 
     test("a name token that is just the city is not a name match") {
@@ -274,7 +291,7 @@ class CandidateFactoryTest : FunSpec({
     test("a confirmed location outside the metro radius is rejected with the distance") {
         // The label matches the row, so the match policy confirms it; only the
         // metro circle can reject it - which is the point.
-        val montreal = FakeGeocoder { place("Paramount Fine Foods, Toronto, Ontario", 45.5019, -73.5674) }
+        val montreal = FakeGeocoder { place("Paramount Fine Foods, Toronto, Ontario", 45.5019, -73.5674, name = "Paramount Fine Foods") }
         val reject = CandidateFactory(montreal)
             .build(sourceListing(), "Toronto")
             .shouldBeInstanceOf<CandidateBuild.Rejected>()

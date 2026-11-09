@@ -231,6 +231,7 @@ class PhotonGeocoder(
             location = location,
             displayName = displayName(props),
             providerRef = providerRef(props),
+            name = text(props, "name")?.takeIf { it.isNotBlank() },
         )
     }
 

@@ -99,4 +99,15 @@ class AddressTextTest : FunSpec({
         address.street shouldBe "253 Yonge Street"
         address.houseNumber shouldBe "253"
     }
+
+    test("five digits in a unit are not read as a postal code") {
+        val address = AddressText.parse(
+            listOf("Suite 12345", "1 Main St"),
+            city = "Dallas",
+            region = "TX",
+        )
+
+        address.postalCode shouldBe null
+        address.street shouldBe "1 Main Street"
+    }
 })

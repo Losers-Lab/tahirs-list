@@ -161,6 +161,8 @@ class PhotonGeocoderTest : FunSpec({
             result!!.location shouldBe LatLng(40.7128, -74.006) // GeoJSON [lon, lat]
             // The label keeps every part a caller can check, not just the name.
             result.displayName shouldBe "Halal Grill, New York, United States"
+            // Name evidence is the provider's name field, separate from the label.
+            result.name shouldBe "Halal Grill"
             result.providerRef shouldBe "N/123456"
         }
     }

@@ -116,10 +116,7 @@ object AddressText {
     }
 
     /** True when the segment opens with a unit marker ("Suite 500", "Unit 7A"). */
-    private fun startsWithUnit(segment: String): Boolean {
-        val match = UNIT_MARKER.find(segment) ?: return false
-        return segment.substring(0, match.range.first).isBlank()
-    }
+    private fun startsWithUnit(segment: String): Boolean = LEADING_UNIT.containsMatchIn(segment)
 
     /** Cuts a unit/suite marker and everything after it from a street segment. */
     private fun stripUnit(segment: String): String {
@@ -186,6 +183,11 @@ object AddressText {
 
     private val UNIT_MARKER = Regex(
         """(?i)(\s+(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b|\s*#)""",
+    )
+
+    /** A unit word at the very start of a segment (no leading space to match). */
+    private val LEADING_UNIT = Regex(
+        """(?i)^\s*(suite|ste|unit|apt|apartment|floor|fl|bldg|building|room|rm)\b""",
     )
 
     private val COUNTRY_ONLY = setOf(

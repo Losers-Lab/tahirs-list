@@ -58,7 +58,7 @@ class FakeFeed(
 
 fun namedGeocoder() = FakeGeocoder { address ->
     val name = address.substringBefore(',')
-    place("$name, Toronto, Ontario, Canada")
+    place("$name, Toronto, Ontario, Canada", name = name)
 }
 
 class RunSampleIngestionTest : FunSpec({
