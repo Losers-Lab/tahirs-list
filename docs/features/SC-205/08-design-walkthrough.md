@@ -1,7 +1,7 @@
 # Design walkthrough — SC-205 owner photo upload
 
 > **Purpose:** the founder review surface · **Derived from:** 00–07 · **Delta:** 1 column, 1 endpoint, 3 frontend classes
-> Design commit: _(filled on push)_ · Date: 2026-11-09 · **Status: awaiting approval**
+> Design commit: `95ba328` · Date: 2026-11-09 · Design PR: #88 · **Status: awaiting approval**
 
 ```mermaid
 flowchart LR
