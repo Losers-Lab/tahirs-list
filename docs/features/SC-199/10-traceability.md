@@ -49,7 +49,7 @@
 | `ListingSearchEndpointTest`, forced `--rerun-tasks` | 30/30, then 32/32 after the review fixes |
 | `:mcp` `:application` `:web-api` `:domain` after WI-6 | green |
 | Full suite `--rerun-tasks`, merged with `main` (pre-review head) | **958 tests, 0 failures, 0 errors, 1 skipped**, 8m46s |
-| Full suite on the review-fix tree (committed as `0bdc7b8`) | **966 tests, 0 failures, 0 errors, 1 skipped**, 6m40s |
+| Full suite on the round-2 fixes (commit `c968c31`) | **967 tests, 0 failures, 0 errors, 1 skipped**, 7m14s |
 | Red evidence | QA reverted each implementation file in turn and observed 14 targeted failures before restoring |
 
 ## Review findings
