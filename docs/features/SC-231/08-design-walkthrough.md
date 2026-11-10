@@ -17,6 +17,8 @@
 
 The design is frozen at `0a59ee2`. Later edits to 09/10 add work items and evidence; they do not change the design. A change to the design itself goes back through this walkthrough.
 
+**Amendment 1 — 2026-11-10 (during WI-2).** `VenueType.servesMeals` is removed. L-3 made a bakery a restaurant, so all four published types serve meals and the predicate was always true — a guard that cannot fail is worse than none. INV-8 becomes "cuisine only for an admitted row", which the gate already guarantees. No behaviour change; the class diagram and INV-8 are updated.
+
 Read in this order. Each section is three bullets: what the diagram **shows**,
 what it **locks in**, and what I **need** from you. The decision table at the
 end is what approval actually covers.

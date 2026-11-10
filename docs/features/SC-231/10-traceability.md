@@ -42,8 +42,8 @@
 
 | WI | Commit | Test count added | State |
 |---|---|---|---|
-| WI-1 | — | — | not started |
-| WI-2 | — | — | not started |
+| WI-1 | `[SC-231] Add V25 schema and venue vocabularies` | 9 (`EnrichmentSchemaMigrationTest`) | **done** |
+| WI-2 | same commit | 6 (`VenueTypeTest`) | **done** |
 | WI-3 | — | — | not started |
 | WI-4 | — | — | not started |
 | WI-5 | — | — | not started |

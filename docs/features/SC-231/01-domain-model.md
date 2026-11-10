@@ -19,7 +19,6 @@ classDiagram
     CAFE
     FAST_FOOD
     BAKERY
-    +servesMeals
   }
   class VenueClass {
     <<enumeration>>
@@ -147,7 +146,7 @@ classifier to return null for something it recognised perfectly well.
 | INV-5 | No decisive evidence means `Undecided`: not loaded, reported for a curator | `AdmissionPolicyTest.undecidedIsHeld` |
 | INV-6 | `venueType` on a stored listing is one of the published kinds and always carries its `EnrichmentSource` | `VenueTypeTest.everyTypeHasASource` |
 | INV-7 | `cuisine` is set only when evidence exists; two conflicting families leave it `null` and record the conflict | `CuisineAssignerTest.conflictStaysNull` |
-| INV-8 | `cuisine` is set only for meal-serving types; a cafe, fast food or bakery may carry one (a butcher or grocery never reaches the catalogue) | `CuisineAssignerTest.nonServingTypeHasNoCuisine` |
+| INV-8 | `cuisine` is set only for an admitted row; a bakery may carry one like any other restaurant (L-3) | `CuisineAssignerTest.nonServingTypeHasNoCuisine` |
 | INV-9 | Enrichment fills `null` only: an owner- or curator-set value is never overwritten and a re-run is a no-op | `LoadIngestionBatchTest.enrichmentFillsNullsOnly` · `isIdempotent` |
 | INV-10 | Classification is deterministic and side-effect free: same inputs → same decision, no network, no clock, no randomness | `AdmissionPolicyTest.isDeterministic` |
 | INV-11 | A listing carries at most one cover photo | `CoverPhotoTest.onePerListing` |
