@@ -26,8 +26,10 @@ flowchart LR
   C1 --> D1[AdmissionDecision]
   P1 --> A1[OsmPhotoSource]
   P1 --> A2[CommonsPhotoSource]
+  P1 --> A5[GooglePlacesPhotoSource]
   A1 --> X1["OSM / Overpass"]
   A2 --> X2["Wikimedia Commons"]
+  A5 --> X4["Google Places API"]
   P3 --> A3[ExposedCoverPhotoRepository]
   P2 --> X3["HTTPS origin"]
   P4 --> A4[S3ImagePort]
@@ -130,7 +132,8 @@ classDiagram
   }
   class PhotoCandidateSource {
     <<interface>>
-    +candidatesFor(listing) List~PhotoCandidate~
+    +freeCandidates(listing) List~PhotoCandidate~
+    +placesCandidate(listing) PhotoCandidate?
   }
   class CoverPhotoRepository {
     <<interface>>
@@ -138,11 +141,14 @@ classDiagram
     +save(listingId, photo)
   }
   class PhotoCandidate {
-    +sourceUrl
     +sourceKind
+    +storageClass
+    +sourceUrl
     +licence
     +attribution
     +author
+    +placeId
+    +photoName
   }
 
   CandidateFactory --> RestaurantAdmission
@@ -172,7 +178,10 @@ classDiagram
     +candidatesFor(listing)
   }
   class CommonsPhotoSource {
-    +candidatesFor(listing)
+    +freeCandidates(listing)
+  }
+  class GooglePlacesPhotoSource {
+    +placesCandidate(listing)
   }
   class ExposedCoverPhotoRepository {
     +find(listingId)
@@ -191,6 +200,7 @@ classDiagram
   EnrichmentConsole --> AttachCoverPhoto
   PhotoCandidateSource <|.. OsmPhotoSource
   PhotoCandidateSource <|.. CommonsPhotoSource
+  PhotoCandidateSource <|.. GooglePlacesPhotoSource
   CoverPhotoRepository <|.. ExposedCoverPhotoRepository
   ImageFetcher <|.. HttpImageFetcher
   ImagePort <|.. S3ImagePort
@@ -208,6 +218,12 @@ classDiagram
   "every fetched row is accounted for" invariant still holds.
 - **One photo per listing** is enforced by the repository (PK on listing id) and
   by the use case; a second candidate never overwrites silently.
-- **The image store keeps bytes only.** Licence and credit are catalogue data,
-  because the API must serve them and a bucket tag would not survive an adapter
-  swap to R2.
+- **Two classes of bytes.** Owner and free-licensed photos are permanent; a
+  Places photo is a cache with an expiry. The store key is the same either way,
+  so the row's `storageClass` is what tells the reader whether those bytes may
+  still be served.
+- **The image endpoint never calls a third party.** It reads the store and checks
+  the expiry; only the photo pass talks to Google, so a Places outage cannot slow
+  a page.
+- **The Places key is server-side only.** It is read from the environment, used by
+  the adapter, and never reaches the browser or an API response.

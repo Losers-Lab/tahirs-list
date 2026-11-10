@@ -53,12 +53,30 @@ classDiagram
     +value
   }
   class CoverPhoto {
-    +sourceUrl
     +sourceKind
+    +storageClass
+    +sourceUrl
     +licence
     +attribution
     +author
+    +placeId
+    +photoName
+    +expiresAt
     +retrievedAt
+  }
+  class PhotoSourceKind {
+    <<enumeration>>
+    OWNER_UPLOAD
+    OSM
+    WIKIMEDIA
+    GOOGLE_PLACES
+    +isPermanent
+    +requiresLicence
+  }
+  class PhotoStorage {
+    <<enumeration>>
+    PERMANENT
+    CACHE
   }
   class PhotoLicence {
     <<enumeration>>
@@ -80,6 +98,8 @@ classDiagram
   RestaurantListing "1" --> "0..1" EnrichmentSource : cuisineSource
   RestaurantListing "1" *-- "0..1" CoverPhoto
   CoverPhoto --> PhotoLicence
+  CoverPhoto --> PhotoSourceKind
+  CoverPhoto --> PhotoStorage
   IngestionCandidate "1" --> "1" AdmissionDecision
   AdmissionDecision --> VenueType
   AdmissionDecision --> VenueClass
@@ -110,8 +130,10 @@ classifier to return null for something it recognised perfectly well.
 | AdmissionDecision (new) | `Admitted` / `Excluded` / `Undecided` — the gate's verdict, carried by the candidate and rendered in the report | Computed once per candidate |
 | EnrichmentSource (new) | Which evidence class decided a value; `NAME_KEYWORD` is weak | Immutable value |
 | Cuisine (existing) | Free-form validated string (lowercase, ≤64) | Unchanged |
-| CoverPhoto (new) | One listing's cover photo: where it came from, its licence, who to credit | Attached once; replaced only with `--replace` |
-| PhotoLicence (new) | The reuse terms we accept | Immutable value |
+| CoverPhoto (new) | One listing's cover photo: where it came from, how it may be stored, its licence and credit | Attached once; refreshed only when it is a Places cache; replaced only by the owner or `--replace` |
+| PhotoSourceKind (new) | Owner upload, OSM, Wikimedia Commons, Google Places — and what each allows | Immutable value |
+| PhotoStorage (new) | `PERMANENT` (bytes are ours to keep) or `CACHE` (bytes expire) | Immutable value |
+| PhotoLicence (new) | The reuse terms we accept for a free-licensed photo | Immutable value |
 | IngestionCandidate (existing) | Gains `admission` and `cuisine` | Unchanged trust fields |
 
 ## Invariants
@@ -129,10 +151,12 @@ classifier to return null for something it recognised perfectly well.
 | INV-9 | Enrichment fills `null` only: an owner- or curator-set value is never overwritten and a re-run is a no-op | `LoadIngestionBatchTest.enrichmentFillsNullsOnly` · `isIdempotent` |
 | INV-10 | Classification is deterministic and side-effect free: same inputs → same decision, no network, no clock, no randomness | `AdmissionPolicyTest.isDeterministic` |
 | INV-11 | A listing carries at most one cover photo | `CoverPhotoTest.onePerListing` |
-| INV-12 | A photo is stored only with an accepted licence and the attribution that licence requires; no licence → no photo | `AttachCoverPhotoTest.refusesUnknownLicence` |
-| INV-13 | A missing photo stays missing and is reported as a gap; no placeholder, no generated image | `AttachCoverPhotoTest.missingStaysMissing` |
-| INV-14 | Enrichment never changes verification status, verification basis, hand-cut or cross-contamination | `LoadIngestionBatchTest.enrichmentLeavesTrustAlone` |
-| INV-15 | What the report says a row was decided to be is what the catalogue stores, and every exclusion appears in the report | `LoadIngestionBatchTest.reportMatchesCatalogue` |
+| INV-12 | A free-licensed photo (OSM/Wikimedia) is stored only with an accepted licence and the attribution that licence requires; no licence → no photo | `AttachCoverPhotoTest.refusesUnknownLicence` |
+| INV-13 | A Google Places photo is **never** `PERMANENT` and never served after its `expiresAt`; only the place id is kept indefinitely | `CoverPhotoTest.placesPhotoIsCacheOnly` · `ListingImageEndpointTest.expiredCacheIsNotServed` |
+| INV-14 | Precedence: an owner-uploaded photo is never replaced by the pass; free-licensed beats Places; the pass writes only where no photo exists or where it is refreshing its own Places cache | `AttachCoverPhotoTest.ownerPhotoIsNeverTouched` · `precedence` |
+| INV-15 | A missing photo stays missing and is reported as a gap; no placeholder, no generated image, no scraped image | `AttachCoverPhotoTest.missingStaysMissing` |
+| INV-16 | Enrichment never changes verification status, verification basis, hand-cut or cross-contamination | `LoadIngestionBatchTest.enrichmentLeavesTrustAlone` |
+| INV-17 | What the report says a row was decided to be is what the catalogue stores, and every exclusion appears in the report | `LoadIngestionBatchTest.reportMatchesCatalogue` |
 
 ## States
 
@@ -145,10 +169,15 @@ classifier to return null for something it recognised perfectly well.
 | Admitted | Two cuisine families | CuisineConflict | Cuisine `null`, conflict recorded |
 | Excluded / Undecided / Admitted | Reviewed load applied | Loaded / Rejected | Only `Admitted` reaches `Loaded` |
 | Loaded | No photo candidate | NoPhoto | Gap reported |
-| Loaded | Licensed candidate found | PhotoPending | Licence accepted, attribution captured |
-| PhotoPending | Fetch + decode + variants stored | Photographed | All variants written |
+| Loaded | Owner upload | Photographed | SC-205 writes; the pass never touches it again |
+| Loaded | Free-licensed candidate found | Photographed | Licence accepted, attribution captured, bytes permanent |
+| Loaded | No owner/free photo, Places candidate found | PhotoCached | `placeId` + photo name + attribution stored; bytes expire |
+| PhotoCached | 30 days pass | PhotoExpired | Not served; placeholder until the pass refreshes |
+| PhotoCached | Pass refresh succeeds | PhotoCached | New `expiresAt` |
+| PhotoCached | Refresh fails | PhotoExpired | Placeholder; failure reported, run continues |
+| Loaded | Owner uploads over a cached photo | Photographed | SC-205 last-write-wins; cache metadata cleared |
+| PhotoPending | Fetch + decode + variants stored | Photographed / PhotoCached | All variants written |
 | PhotoPending | Fetch or decode fails | NoPhoto | Failure reported, existing photo kept |
-| Photographed | Re-run with another candidate | Photographed | Only with `--replace` |
 | Any admitted state | Owner or curator edits the value | Curated | Enrichment never overwrites this again |
 
 ## Glossary
@@ -165,5 +194,9 @@ classifier to return null for something it recognised perfectly well.
 | Evidence source | Which input decided a value: the source's category, the OSM feature tag, a curated brand map, or a name keyword |
 | Weak evidence | Name-keyword cuisine: deterministic but a heuristic, surfaced in the review queue |
 | Cover photo | The one photo shown for a listing — bytes in the image store, credit in the catalogue |
+| Owner photo | A photo the business uploaded through SC-205; permanent and never replaced by the pass |
+| Free-licensed photo | OSM or Wikimedia Commons: permanent, with a licence and a credit line |
+| Places cache | A Google Places photo held only as a temporary cache: place id kept, bytes expire, attribution shown |
 | Accepted licence | `CC0`, public domain, `CC-BY`, `CC-BY-SA`; anything else is refused |
+| Cache expiry | The 30-day point after which a Places photo must be refetched rather than served |
 | Enrichment run | A post-load pass over existing listings that attaches photos; classification runs inside the ingestion run |

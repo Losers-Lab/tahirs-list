@@ -54,14 +54,16 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
   certifier — and is labelled as such.
 - **Need** your acceptance that a brand-map cuisine is legitimate evidence (D-2).
 
-## 5 · Black-box, UC-03 cover photo — `04-blackbox/UC-03-…`
+## 5 · Black-box, UC-03 photo — `04-blackbox/UC-03-…`
 
-- **Shows** OSM and Wikimedia Commons as read-only actors, licence acceptance
-  before any bytes are fetched, and the credit stored beside the photo.
+- **Shows** three sources in precedence order — owner upload, OSM/Commons, Google
+  Places — with licence acceptance before any bytes are fetched, and the credit
+  stored beside the photo.
 - **Locks in** "no licence → no photo"; "no credit for a CC-BY → no photo"; "an
-  existing photo is never replaced without `--replace`".
-- **Need** the source decision (D-7) and whether cards must show the credit too
-  (D-8).
+  owner photo is never touched"; "a Places photo is a cache with an expiry, never
+  an asset".
+- **Need** nothing on the source order — L-4 settled it. Only whether cards show
+  the credit (D-8) is still open.
 
 ## 6 · Black-box, UC-04 review — `04-blackbox/UC-04-…`
 
@@ -94,9 +96,11 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 ## 9 · White-box, UC-03 and UC-04 — `06-whitebox/UC-03-…`, `UC-04-…`
 
 - **Shows** the two-store write order for a photo — bytes first, credit row
-  second — and the report rendered from the same decisions the batch holds.
-- **Locks in** that a crash can leave orphan bytes but never a visible photo
-  with no credit.
+  second — the cache-expiry read rule in the image endpoint, and the report
+  rendered from the same decisions the batch holds.
+- **Locks in** that a crash can leave orphan bytes but never a visible photo with
+  no credit; that the endpoint never calls Google; and that an expired cache is
+  not served.
 - **Need** your acceptance of that failure ordering (D-9).
 
 ## 10 · Complete class diagram — `07-class-diagram-complete.md`
@@ -106,7 +110,7 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
   are already in the catalogue but are not restaurants.
 - **Locks in** that nothing non-restaurant can reach `restaurant_listings` or
   `listing_search`, and that `venueType` is not exposed in the API yet (D-5).
-- **Need** decisions D-4 through D-9.
+- **Need** decisions D-4, D-5, D-8, D-9 and D-10.
 
 ---
 
@@ -120,7 +124,7 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 | D-4 | Evidence stored on the listing as two enum columns (`venue_type_source`, `cuisine_source`) | yes | report-only provenance, no columns |
 | D-5 | `venueType` stays out of the public API for now | not exposed | expose on detail + cards |
 | D-6 | **Non-restaurants are excluded from the catalogue entirely** — not stored, not indexed, counted in the report | as designed (L-1) | store them hidden for a later listing type |
-| D-7 | Photo sources: OSM + Wikimedia Commons only | free sources only | add a keyed provider (billed, needs a licence review) |
+| D-7 | Photos: owner upload → free-licensed (OSM/Wikimedia) → **Google Places as a proxied cache**; Places is never stored permanently and never served after expiry | as designed (L-4) | free sources only (measured: 4 of 29 on the seed); or scrape Google images (unlicensed — rejected) |
 | D-8 | Credit is shown on the **detail page and on cards** | both | detail page only (weaker attribution) |
 | D-9 | Photo write order: bytes then credit row; a crash may orphan bytes, never an uncredited visible photo | as designed | credit first |
 | D-10 | Cuisine conflicts go to the report's review queue only | report only | also open a Shortcut story per conflict |
@@ -136,3 +140,6 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 - `SC-227` (PR #84) adds the OSM tag to `GeocodedPlace`. Until it merges, the
   gate loses its OSM step and rests on category + name; the report says so.
 - No implementation code will be written before you reply `approved`.
+- The photo pass needs a `GOOGLE_MAPS_API_KEY` in the server environment. Without
+  it the pass still runs: free-licensed photos are attached, and every Places row
+  is reported as "no key" instead of failing the run.

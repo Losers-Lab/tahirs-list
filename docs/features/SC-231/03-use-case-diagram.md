@@ -18,7 +18,7 @@ flowchart LR
     subgraph tl [Tahir's List]
         UC1(("UC-01<br/>Add a row only if<br/>it is a restaurant"))
         UC2(("UC-02<br/>Assign a cuisine"))
-        UC3(("UC-03<br/>Attach a licensed<br/>cover photo"))
+        UC3(("UC-03<br/>Give a listing a photo<br/>it is allowed to show"))
         UC4(("UC-04<br/>Review enrichment<br/>outcomes"))
         UC11(("SC-211 UC-01<br/>Run a sample<br/>directory ingestion"))
         UC13(("SC-211 UC-03<br/>Load a reviewed<br/>batch"))
@@ -66,7 +66,7 @@ flowchart LR
 | SC-211 UC-03 Load a reviewed batch | existing, extended | writes venue type, evidence classes, cuisine; **only admitted rows are written** |
 | UC-01 Add a row only if it is a restaurant | **new** | phase 1; the gate that enforces L-1 |
 | UC-02 Assign a cuisine | **new** | phase 1 |
-| UC-03 Attach a licensed cover photo | **new** | phase 2, post-load |
+| UC-03 Give a listing a photo it is allowed to show | **new** | phase 2, post-load; owner > free-licensed > Places cache |
 | UC-04 Review enrichment outcomes | **new** | spans both passes |
 | SC-36 Search listings | existing, unchanged surface | reads whatever the load wrote — and everything the load writes is a restaurant |
 

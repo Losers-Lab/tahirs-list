@@ -87,6 +87,7 @@ implementation.
 | L-1 | **Tahir's List is concerned only with restaurants. Non-restaurants are ignored entirely** — not published, not stored in the catalogue, not indexed. The classifier's job is to *keep them out*, and every exclusion is reported. | 2026-11-09 |
 | L-2 | An undecided row (no evidence that it is a restaurant) is **not loaded**; it is held and reported for a curator. | 2026-11-09 (implied by L-1) |
 | L-3 | **A bakery is a restaurant.** Bakeries are admitted and typed `BAKERY`; "bakery" is not a shop marker. | 2026-11-10 |
+| L-4 | **Photos: owner upload first, free-licensed second, Google Places as a proxied cache.** Places photos are never stored permanently; the licence and credit travel with the row. | 2026-11-10 |
 
 Consequence to be honest about: the current catalogue holds rows that L-1 excludes —
 `Alladin Halal Meat & Grocery [Butcher Dept. ONLY]`, `Hamza Meat Shop [Butcher
@@ -120,10 +121,13 @@ removed when this lands, and the removal is reported. Bakeries stay (L-3).
 | E-11 | No OSM tag (SC-227 not merged, or the hit is not a POI) | Category + name evidence only; still deterministic |
 | E-12 | No evidence that the row is a restaurant | **Not loaded**, held for a curator, reported |
 | E-13 | Photo candidate with an unknown or non-free licence | Skipped and reported; no bytes stored |
-| E-14 | Existing owner-set cuisine | Untouched; the fill-nulls rule wins |
-| E-15 | Photo fetch or decode fails | Row keeps any existing photo; gap reported |
-| E-16 | Two runs classify the same row differently | The later run's value wins only if the existing value is null; the report shows both |
-| E-17 | A listing already has a cover photo and a re-run finds another | Never replaced without `--replace` |
+| E-14 | A Google Places cached photo passes its 30-day limit | Not served until the pass refreshes it; the UI shows its placeholder |
+| E-15 | The owner uploads a photo after the pass set a Places cache | The owner photo replaces it (SC-205 last-write-wins); the pass never revisits an owner photo |
+| E-16 | Google Places is down or over quota during a refresh | The listing keeps whatever unexpired bytes it has, else falls back to placeholder; the run reports it |
+| E-17 | Existing owner-set cuisine | Untouched; the fill-nulls rule wins |
+| E-18 | Photo fetch or decode fails | Row keeps any existing photo; gap reported |
+| E-19 | Two runs classify the same row differently | The later run's value wins only if the existing value is null; the report shows both |
+| E-20 | A listing already has a cover photo and a re-run finds another | Never replaced without `--replace` |
 
 ## Open questions
 
@@ -134,7 +138,7 @@ removed when this lands, and the removal is reported. Bakeries stay (L-3).
 | Q-3 | **Phone/website conflict:** scope phase 3 includes them, but out-of-scope assigns phone/hours/reviews to SC-202. Which story owns phone/website? | Founder | Before any phase-3 WI |
 | Q-4 | ~~Publishing non-restaurants~~ — **answered 2026-11-09: only restaurants, ignore every non-restaurant (L-1)** | Founder | closed |
 | Q-5 | **Exposing `venueType` in the public API** now that only restaurants are stored (it distinguishes restaurant / cafe / fast food) | Founder | Design approval |
-| Q-6 | Photo sources: free only (OSM + Wikimedia) or a keyed provider? Default: free only (D-7). | Founder | Design approval |
+| Q-6 | ~~Photo sources: free only or a keyed provider?~~ — **answered 2026-11-10: owner upload → free-licensed → Google Places proxied cache (L-4)** | Founder | closed |
 | Q-7 | Cuisine from name keywords is a heuristic — accept a review queue (confidence + evidence) rather than silent assignment? Default: yes (D-10). | Founder | Design approval |
 | Q-8 | Does the run report or the listing win when they disagree after a manual edit? | Curator | Design approval |
 | Q-9 | ~~Do pure bakeries count as restaurants?~~ — **answered 2026-11-10: yes, a bakery is a restaurant (L-3)** | Founder | closed |

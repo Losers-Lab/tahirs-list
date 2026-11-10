@@ -26,11 +26,11 @@ flowchart TB
 | Module | Status | Contents |
 |---|---|---|
 | `:domain` | **modified** | new `VenueType` (published restaurant kinds + `servesMeals`), `VenueClass` (recogniser, incl. non-restaurant classes), `EnrichmentSource` (+`isWeak`), `AdmissionDecision` (sealed: Admitted / Excluded / Undecided), `PhotoLicence`, `CoverPhoto`; `RestaurantListing` gains `venueType`, `venueTypeSource`, `cuisineSource`, `coverPhoto`; `imported(...)` accepts them |
-| `:application` | **modified** | `IngestionCandidate` gains `admission` and `cuisine`; new `com.tahirslist.application.photo`: `AttachCoverPhoto` (`preview`/`execute`), `PhotoCandidateSource`, `CoverPhotoRepository`, `PhotoCandidate`, `PhotoReview`/`PhotoResult`; `RestaurantListingRepository.applyBatch` writes the enrichment fields |
+| `:application` | **modified** | `IngestionCandidate` gains `admission` and `cuisine`; new `com.tahirslist.application.photo`: `AttachCoverPhoto` (`preview`/`execute`), `PhotoCandidateSource` (free + Places), `CoverPhotoRepository`, `PhotoCandidate`, `PhotoReview`/`PhotoResult`, `PlacesClient` port; `RestaurantListingRepository.applyBatch` writes the enrichment fields |
 | `:ingestion` | **modified** | new `com.tahirslist.ingestion.enrich`: `RestaurantAdmission`, `AdmissionPolicy`, `CuisineAssigner`, `EnrichmentRules` (curated tables), `AdmissionDecision`; `CandidateFactory` gates on admission before building a candidate; `IngestReport` renders the Enrichment section and counts exclusions as rejects |
-| `:persistence` | **modified** | `V25__sc_231_enrichment.sql`; `ExposedCoverPhotoRepository`; `applyBatch` writes `venue_type`, `venue_type_source`, `cuisine_source`; `Tables.kt` gains `CoverPhotos` |
-| `:web-api` | **modified** | `DetailResponse` gains `photoAttribution`, `photoLicence`, `photoSourceUrl`; `BrowseCard`/`SearchCard` gain `photoAttribution`; OpenAPI regenerated |
-| `:bootstrap` | **modified** | `AttachCoverPhotosMain` + `:bootstrap:attachCoverPhotos`; `scripts/attach-cover-photos.sh`; `OsmPhotoSource`, `CommonsPhotoSource` wired to the existing `HttpImageFetcher` |
+| `:persistence` | **modified** | `V25__sc_231_enrichment.sql`; `ExposedCoverPhotoRepository`; `applyBatch` writes `venue_type`, `venue_type_source`, `cuisine_source`; image endpoint checks `expires_at`; `Tables.kt` gains `CoverPhotos` |
+| `:web-api` | **modified** | `DetailResponse` gains `photoAttribution`, `photoLicence`, `photoSource`, `photoSourceUrl`; `BrowseCard`/`SearchCard` gain `photoAttribution`; OpenAPI regenerated |
+| `:bootstrap` | **modified** | `AttachCoverPhotosMain` + `:bootstrap:attachCoverPhotos`; `scripts/attach-cover-photos.sh`; `OsmPhotoSource`, `CommonsPhotoSource`, `GooglePlacesPhotoSource` (HTTP adapter over the `PlacesClient` port) wired to the existing `HttpImageFetcher`; `GOOGLE_MAPS_API_KEY` read from the environment only |
 | frontend | **modified** | detail hero shows the credit line; cards show a small credit caption when present |
 | `:geocoding` · certifier libraries | **unchanged** | reads only |
 
@@ -39,7 +39,7 @@ flowchart TB
 | Element | Status | Detail |
 |---|---|---|
 | `V25__sc_231_enrichment.sql` | **new** | `restaurant_listings.venue_type VARCHAR(16) NULL` CHECK in (`RESTAURANT`,`CAFE`,`FAST_FOOD`,`BAKERY`); `venue_type_source VARCHAR(24) NULL` CHECK in (`SOURCE_CATEGORY`,`OSM_FEATURE`,`BRAND_MAP`,`NAME_KEYWORD`); `cuisine_source VARCHAR(24) NULL` same CHECK; partial index on `venue_type` where not null. Nullable because seed/owner rows predate the gate — an enriched ingested row always has one |
-| `listing_cover_photos` | **new table** | `listing_id UUID PRIMARY KEY REFERENCES restaurant_listings(id) ON DELETE CASCADE`; `source_kind VARCHAR(16)` CHECK (`OSM`,`WIKIMEDIA`); `source_url VARCHAR(1024)`; `licence VARCHAR(16)` CHECK (`CC0`,`PUBLIC_DOMAIN`,`CC_BY`,`CC_BY_SA`); `author VARCHAR(512)`; `attribution VARCHAR(1024) NOT NULL`; `retrieved_at TIMESTAMPTZ`; `content_hash CHAR(64)`; `width INT`, `height INT`; `created_at TIMESTAMPTZ`. PK gives INV-11 for free |
+| `listing_cover_photos` | **new table** | `listing_id UUID PRIMARY KEY REFERENCES restaurant_listings(id) ON DELETE CASCADE`; `source_kind VARCHAR(16)` CHECK (`OWNER_UPLOAD`,`OSM`,`WIKIMEDIA`,`GOOGLE_PLACES`); `storage_class VARCHAR(16)` CHECK (`PERMANENT`,`CACHE`); `licence VARCHAR(16) NULL` CHECK (`CC0`,`PUBLIC_DOMAIN`,`CC_BY`,`CC_BY_SA`); `attribution VARCHAR(1024) NOT NULL`; `author VARCHAR(512)`; `source_url VARCHAR(1024)`; `google_place_id VARCHAR(255)`; `google_photo_name VARCHAR(1024)`; `expires_at TIMESTAMPTZ NULL`; `content_hash CHAR(64)`; `width INT`, `height INT`; `created_at TIMESTAMPTZ`. CHECKs: a Places row is always `CACHE` with `expires_at`; a `CACHE` row always has `expires_at`; a free-licensed row always has a licence. PK gives INV-11 for free |
 | `listing_search` | **unchanged** | no change: nothing that is not a restaurant can reach it, because it never reaches `restaurant_listings` |
 | `restaurant_listings` (other columns) | **unchanged** | `cuisine` already exists and holds the derived value; `price`/`rating`/`is_delivery`/`alcohol_served`/`halal_scope` are untouched (no source claims them) |
 | `Tables.kt` | **modified** | add `CoverPhotos` |
@@ -70,18 +70,19 @@ change), and it is a work item, not an automatic part of the load.
 
 | Element | Status | Detail |
 |---|---|---|
-| `DetailResponse.photoAttribution` | **new** | string, nullable — the credit line a licence requires |
-| `DetailResponse.photoLicence` | **new** | enum string, nullable — `CC0`/`PUBLIC_DOMAIN`/`CC_BY`/`CC_BY_SA` |
-| `DetailResponse.photoSourceUrl` | **new** | string (uri), nullable — where the photo came from |
+| `DetailResponse.photoAttribution` | **new** | string, nullable — the credit line a licence requires; for a Places photo, Google's attribution |
+| `DetailResponse.photoLicence` | **new** | enum string, nullable — `CC0`/`PUBLIC_DOMAIN`/`CC_BY`/`CC_BY_SA`; null for owner and Places photos |
+| `DetailResponse.photoSource` | **new** | enum string — `OWNER_UPLOAD`/`OSM`/`WIKIMEDIA`/`GOOGLE_PLACES`, so the UI can style the credit correctly |
+| `DetailResponse.photoSourceUrl` | **new** | string (uri), nullable — where a free-licensed photo came from; never a Places CDN URL |
 | `BrowseCard.photoAttribution` / `SearchCard.photoAttribution` | **new** | string, nullable — rendered as a small caption |
-| `venueType`, `cuisineSource` | **not exposed** | Q-5/Q-4 open; stored and reported only |
-| `GET /v1/listings/{id}/image` | **unchanged** | already serves the variants; the photo pass just fills them |
+| `venueType`, `cuisineSource` | **not exposed** | Q-5 open; stored and reported only |
+| `GET /v1/listings/{id}/image` | **modified** | serves a `CACHE` photo only while `expires_at` is in the future; otherwise 404. Never calls Google |
 
 ## Frontend delta
 
 | Element | Status | Detail |
 |---|---|---|
-| `routes/restaurants/[id]/+page.svelte` | modified | a credit line under the hero when `photoAttribution` is present |
+| `routes/restaurants/[id]/+page.svelte` | modified | a credit line under the hero when `photoAttribution` is present; Google-sourced photos use Google's required attribution wording |
 | `lib/components/listing/ListingCard.svelte` (and search card) | modified | a small caption/overlay when `photoAttribution` is present |
 | `lib/api/schema.d.ts` | regenerated | `pnpm codegen:api` |
 
@@ -95,6 +96,7 @@ change), and it is a work item, not an automatic part of the load.
 | D-b4 | A listing may have exactly one credit row | `:persistence` |
 | D-b5 | Cards and detail render a credit line when the licence requires one | frontend |
 | D-b6 | Existing non-restaurant rows are purged in a one-off, reported step after a backup | operations |
+| D-b7 | A Places photo is cache-only: never permanent, never served after `expires_at` | `:persistence` + endpoint |
 
 ## Dependency recorded, not designed around
 

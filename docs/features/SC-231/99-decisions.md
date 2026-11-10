@@ -10,6 +10,9 @@ non-restaurants are ignored entirely.** D-3, D-5 and D-6 below follow from it.
 **L-3 (owner, 2026-11-10): a bakery is a restaurant.** Bakeries are admitted and
 typed `BAKERY`; "bakery" is a premises word, not a shop marker. D-3 records it.
 
+**L-4 (owner, 2026-11-10): photos are owner upload → free-licensed → Google
+Places as a proxied cache.** D-7 records it.
+
 ## D-1 · Admission and classification inside the run, photos after the load
 
 Type and cuisine are decided while the row is still a candidate, so the reviewed
@@ -84,14 +87,39 @@ do not belong, forces every future query to remember to filter them, and makes
 name says butcher (three such rows exist today) is excluded. A coarse category
 loses to a specific shop word.
 
-## D-7 · Free photo sources only
+## D-7 · Photos: owner upload first, free-licensed second, Places as a cache
 
-OSM `image`/`wikimedia_commons` tags and Wikimedia Commons search, both with a
-machine-readable licence in `extmetadata`. No keyed provider: no billing, no
-extra terms to review, and every photo is attributable.
+Three sources, in that order:
 
-*Rejected:* Google Places photos — billed, and the terms govern caching and
-attribution in ways we have not reviewed.
+1. **Owner upload** (SC-205) — the business's own photo. Permanent, no licence
+   question, never touched by the pass.
+2. **Free-licensed** (OSM `image`/`wikimedia_commons`, Wikimedia Commons search) —
+   permanent, with a licence and a credit line. Measured coverage on the 29-row
+   seed was 4, so it cannot carry the catalogue alone.
+3. **Google Places API** — the photo is fetched with the venue's place id and
+   held as a **cache for at most 30 days**. Only the place id is kept
+   indefinitely; the bytes and the photo name are not. Attribution is stored and
+   shown.
+
+At our size the Places free tier covers a full refresh several times over (1,000
+free calls per SKU per month; 118 listings use ~236), so this is a licensing
+design, not a cost one.
+
+*Rejected:* free sources only. Honest, but a cover photo on roughly one listing
+in seven is not the product.
+
+*Rejected:* storing Places photos as permanent assets. The terms allow display
+with attribution and limited caching, not a permanent copy — the very thing the
+current image pipeline does.
+
+*Rejected:* scraping Google listing images from the Maps CDN or Google Images —
+what the 25-of-29 seed photos actually did. Those are the uploader's copyright,
+there is no licence to republish, and Google's terms forbid it. "It is on the
+public internet" is not a licence.
+
+*Rejected:* proxying Places at request time. It puts a third-party dependency in
+the page's hot path and makes a Google outage a site outage. The pass refreshes;
+the endpoint only reads.
 
 ## D-8 · Credit on the detail page and on cards
 
@@ -106,6 +134,10 @@ Two stores means one of them can fail. Writing bytes first is recoverable: a
 crash leaves orphan objects that the next run overwrites, and no listing points
 at them. The reverse order could show a photo whose file is missing, or worse,
 an unattributed one.
+
+This matters more for a Places cache than for a permanent photo: orphaned cache
+bytes are simply overwritten on the next refresh, and because the row carries the
+expiry, a cache whose row was never written is never served at all.
 
 ## D-10 · Conflicts go to the report, not to a ticket per conflict
 

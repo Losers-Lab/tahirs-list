@@ -110,55 +110,64 @@ recorded reason. An existing owner/curator cuisine is never touched.
 
 ---
 
-## UC-03 · Attach a licensed cover photo
+## UC-03 · Give a listing a photo it is allowed to show
 
-**Actor:** DC. **Goal:** a listing has one real photo, with a licence we can
-honour and a credit we can show.
+**Actor:** DC. **Goal:** every listing shows one real photo, from a source we are
+allowed to use, with the credit that source requires.
 **Trigger:** the curator runs the photo pass for a loaded batch; the listing
-already has an id.
+already has an id. The same command also refreshes expired caches.
 
 **Main scenario**
 
-1. The run takes the admitted listings in scope and, for each, asks the photo
-   sources:
+1. The run lists the admitted listings that need attention: no photo at all, or
+   a Google Places cache that has passed its 30-day limit. An owner-uploaded or
+   free-licensed photo is out of scope and is never touched.
+2. It asks the owner photo first: has the business uploaded one through SC-205?
+   If so, that photo stays and the row is skipped.
+3. It asks the free-licensed sources:
    a. OSM: the `image` / `wikimedia_commons` tag on the matched feature, by the
    geocoder's provider reference;
    b. Wikimedia Commons: a search for the venue or its brand.
-2. Each candidate carries a source URL, a licence and the author/attribution
-   text.
-3. The run accepts a candidate only when the licence permits reuse (CC0, public
-   domain, CC-BY, CC-BY-SA); anything else is dropped and reported.
-4. It fetches the bytes, decodes them, and stores FULL + every thumbnail variant
-   through the existing image pipeline.
-5. It stores the credit — source URL, licence, attribution, author, retrieval
-   time, content hash — against the listing.
-6. The listing serves the photo through the existing image endpoint; the credit
-   is served with the listing detail.
+4. A free candidate is accepted only with a reusable licence (CC0, public domain,
+   CC-BY, CC-BY-SA) and the attribution that licence requires. Its bytes are
+   stored permanently through the existing image pipeline.
+5. Else it asks Google Places by the venue's place id, taking the first photo and
+   its author attributions.
+6. A Places photo is stored as a **cache, not an asset**: the place id, the photo
+   name, the attribution and an expiry at most 30 days away. The bytes are held
+   only for that window.
+7. The listing detail carries the credit for whichever source won; the image
+   endpoint serves the stored bytes while they are inside their window.
 
 **Alternates**
 
-- 1a. No candidate from any source → the listing stays without a photo and is
-  listed as a gap.
-- 2a. Candidate licence unknown or non-free → skipped, reported, no bytes
-  fetched.
-- 3a. Several acceptable candidates → the first by source priority (OSM before
-  Commons), then by the source's own ordering; noted in the report.
-- 4a. The listing already has a photo → untouched unless `--replace` is given.
+- 2a. An owner photo exists → skipped, no candidate is fetched.
+- 3a. No free candidate → falls through to step 5.
+- 4a. Several free candidates → OSM before Commons, then the source's own order.
+- 5a. No place id, or Places returns no photo → the listing stays without a photo
+  and is listed as a gap.
+- 6a. A Places photo is already cached and still fresh → nothing to do.
+- 7a. `--replace` on a free-licensed or Places photo → refetched; an owner photo
+  is still never replaced.
 
 **Exceptions → resulting state**
 
 | Exception | Resulting state |
 |---|---|
-| Fetch fails (non-2xx, timeout, I/O) | Row reported as failed; existing photo kept; run continues |
+| Fetch fails (non-2xx, timeout, I/O) | Row reported as failed; any unexpired bytes kept; run continues |
 | Bytes do not decode as an image | Same as a fetch failure; nothing persisted (variants are resized before the original is written) |
-| Attribution text missing for a licence that requires it | Candidate rejected — a CC-BY photo without credit is a licence breach |
+| Attribution missing for a licence that requires it | Candidate rejected — a CC-BY photo without credit is a licence breach |
+| Places quota exhausted or key rejected | That row is reported; the cache it already has is kept until expiry; the run does not abort |
+| A cached Places photo passes its expiry before the pass runs | It is not served; the UI shows its placeholder until the refresh succeeds |
 
-**Postconditions.** At most one cover photo per listing, with its licence and
-credit; or no photo and a reported gap. No invented image.
+**Postconditions.** At most one cover photo per listing, from a source with a
+licence and a credit; or no photo and a reported gap. Nothing scraped, nothing
+fabricated, and no Places photo held beyond its window.
 
-**ACs:** *proposed, not yet ratified in Shortcut* (Q-2) — a licensed photo with
-attribution or an honest gap; no fabricated image; a re-run is idempotent and
-never replaces an existing photo without `--replace`.
+**ACs:** *proposed, not yet ratified in Shortcut* (Q-2) — a licensed or
+attributed photo, or an honest gap; no fabricated or scraped image; a re-run is
+idempotent; an owner photo is never replaced; a Places photo is never stored
+permanently and never served after expiry.
 
 ---
 
