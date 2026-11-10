@@ -42,12 +42,19 @@
 
 | WI | Commit | Test count added | State |
 |---|---|---|---|
-| WI-1 | `[SC-231] Add V25 schema and venue vocabularies` | 9 (`EnrichmentSchemaMigrationTest`) | **done** |
-| WI-2 | same commit | 6 (`VenueTypeTest`) | **done** |
-| WI-3 | — | — | not started |
-| WI-4 | — | — | not started |
-| WI-5 | — | — | not started |
-| WI-6…WI-18 | — | — | not started |
+| WI-1 | `a27486e` | 9 (`EnrichmentSchemaMigrationTest`) | **done** |
+| WI-2 | `a27486e` | 6 (`VenueTypeTest`) | **done** |
+| WI-3 | this commit | 4 (`AdmissionDecisionTest`) | **done** |
+| WI-4 | this commit | 11 (`CoverPhotoTest`) | **done** |
+| WI-5 | this commit | 5 (`RestaurantListingTest`) | **done** |
+| WI-6 | this commit | 4 (`EnrichmentRulesTest`) | **done** |
+| WI-7 | this commit | 14 (`AdmissionPolicyTest`) | **done** |
+| WI-8 | this commit | wired into `CandidateFactory`; covered by the existing pipeline suite | **done** |
+| WI-9 | this commit | 9 (`CuisineAssignerTest`) | **done** |
+| WI-10 | this commit | report section; rendered in every run report | **done** |
+| WI-11 | this commit | `IngestionCandidate` carries the verdict; JSON round-trip via `CandidateDto` | **done** |
+| WI-12 | — | — | not started |
+| WI-13…WI-18 | — | — | not started |
 
 ## Notes
 

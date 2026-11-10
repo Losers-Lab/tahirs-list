@@ -1,10 +1,13 @@
 package com.tahirslist.application.ingestion
 
+import com.tahirslist.domain.restaurant.AdmissionDecision
 import com.tahirslist.domain.restaurant.CertificationClaim
 import com.tahirslist.domain.restaurant.CertificationTier
 import com.tahirslist.domain.restaurant.CrossContamination
+import com.tahirslist.domain.restaurant.EnrichmentSource
 import com.tahirslist.domain.restaurant.HandCutDeclaration
 import com.tahirslist.domain.restaurant.LatLng
+import com.tahirslist.domain.restaurant.VenueType
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
@@ -79,6 +82,12 @@ private data class CandidateDto(
     val venueKey: String,
     val metro: String? = null,
     val crossContamination: String? = null,
+    /** SC-231: the gate's verdict, stored as its two names so the artifact stays readable. */
+    val venueType: String? = null,
+    val venueTypeSource: String? = null,
+    val cuisine: String? = null,
+    val cuisineSource: String? = null,
+    val cuisineConflict: String? = null,
     val claims: List<ClaimDto>,
 ) {
     fun toDomain(): IngestionCandidate = IngestionCandidate(
@@ -95,6 +104,15 @@ private data class CandidateDto(
             ?.let { CrossContamination.valueOf(it) }
             ?: CrossContamination.DEFAULT,
         claims = claims.map { it.toDomain() },
+        admission = venueType?.let { type ->
+            AdmissionDecision.Admitted(
+                venueType = VenueType.valueOf(type),
+                source = EnrichmentSource.valueOf(venueTypeSource!!),
+            )
+        },
+        cuisineName = cuisine,
+        cuisineSource = cuisineSource?.let { EnrichmentSource.valueOf(it) },
+        cuisineConflict = cuisineConflict,
     )
 }
 
@@ -110,6 +128,11 @@ private fun IngestionCandidate.toDto(): CandidateDto = CandidateDto(
     venueKey = venueKey,
     metro = metro,
     crossContamination = manualCrossContamination.name,
+    venueType = admission?.venueType?.name,
+    venueTypeSource = admission?.source?.name,
+    cuisine = cuisineName,
+    cuisineSource = cuisineSource?.name,
+    cuisineConflict = cuisineConflict,
     claims = claims.map { it.toDto() },
 )
 
@@ -157,6 +180,7 @@ private data class RejectDto(
     val source: String? = null,
     val sourceRecordRef: String? = null,
     val name: String? = null,
+    val venueClass: String? = null,
 ) {
     fun toDomain(): IngestReject = IngestReject(
         reason = RejectReason.valueOf(reason),
@@ -164,6 +188,7 @@ private data class RejectDto(
         source = source,
         sourceRecordRef = sourceRecordRef,
         name = name,
+        venueClass = venueClass,
     )
 }
 
@@ -173,4 +198,5 @@ private fun IngestReject.toDto(): RejectDto = RejectDto(
     source = source,
     sourceRecordRef = sourceRecordRef,
     name = name,
+    venueClass = venueClass,
 )

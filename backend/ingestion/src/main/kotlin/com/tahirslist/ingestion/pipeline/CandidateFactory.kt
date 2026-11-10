@@ -6,11 +6,13 @@ import com.tahirslist.application.geo.GeocodingException
 import com.tahirslist.application.ingestion.IngestReject
 import com.tahirslist.application.ingestion.IngestionCandidate
 import com.tahirslist.application.ingestion.RejectReason
+import com.tahirslist.domain.restaurant.AdmissionDecision
 import com.tahirslist.domain.restaurant.CertificationClaim
 import com.tahirslist.domain.restaurant.CertificationTier
 import com.tahirslist.domain.restaurant.CrossContamination
 import com.tahirslist.domain.restaurant.HandCutDeclaration
 import com.tahirslist.ingestion.SourceListing
+import com.tahirslist.ingestion.enrich.RestaurantAdmission
 import com.tahirslist.ingestion.identity.VenueIdentity
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.datetime.toKotlinLocalDate
@@ -37,6 +39,7 @@ class CandidateFactory(
     private val geocoder: GeocoderPort,
     private val matches: MatchConfirmationPolicy = MatchConfirmationPolicy(),
     private val metros: MetroCatalog = MetroCatalog.default(),
+    private val admission: RestaurantAdmission = RestaurantAdmission(),
 ) {
 
     /**
@@ -92,6 +95,23 @@ class CandidateFactory(
             )
         }
 
+        // The gate runs before any geocoder call: a butcher is not worth a query,
+        // and the catalogue holds restaurants only (L-1).
+        val admitted = when (val verdict = admission.decide(listing)) {
+            is AdmissionDecision.Excluded -> return CandidateBuild.Rejected(
+                reject(
+                    RejectReason.NOT_A_RESTAURANT,
+                    "${verdict.venueClass.name.lowercase()}: ${verdict.reason}",
+                    listing,
+                    venueClass = verdict.venueClass.name,
+                ),
+            )
+            is AdmissionDecision.Undecided -> return CandidateBuild.Rejected(
+                reject(RejectReason.UNDECIDED_VENUE, verdict.reason, listing),
+            )
+            is AdmissionDecision.Admitted -> verdict
+        }
+
         val query = MatchQuery(
             name = listing.name,
             city = listing.city,
@@ -140,6 +160,10 @@ class CandidateFactory(
             reject(RejectReason.INVALID_CANDIDATE, "cannot derive a venue key from the row", listing),
         )
 
+        // Cuisine is only asked for once the row is admitted, and it never blocks
+        // the load: a conflict is reported, not resolved (UC-02).
+        val cuisine = admission.cuisineFor(listing)
+
         return CandidateBuild.Built(
             IngestionCandidate(
                 name = listing.name,
@@ -153,6 +177,10 @@ class CandidateFactory(
                 claims = listOf(claimFor(listing)),
                 metro = metro.name,
                 manualCrossContamination = crossContamination,
+                admission = admitted,
+                cuisineName = cuisine.cuisine,
+                cuisineSource = cuisine.source,
+                cuisineConflict = cuisine.conflict,
             ),
         )
     }
@@ -175,11 +203,17 @@ class CandidateFactory(
             listing.country,
         )).joinToString(", ")
 
-    private fun reject(reason: RejectReason, detail: String, listing: SourceListing) = IngestReject(
+    private fun reject(
+        reason: RejectReason,
+        detail: String,
+        listing: SourceListing,
+        venueClass: String? = null,
+    ) = IngestReject(
         reason = reason,
         detail = detail,
         source = listing.source.certifierId,
         sourceRecordRef = listing.source.recordId,
         name = listing.name,
+        venueClass = venueClass,
     )
 }
