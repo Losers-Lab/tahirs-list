@@ -28,7 +28,7 @@ test-results/
 .hermes/
 .worktrees/
 
-# Impeccable design skill — engine binaries are per-platform downloads, never committed.
+# Impeccable design skill â€” engine binaries are per-platform downloads, never committed.
 .opencode/skills/impeccable/scripts/bin/
 
 # impeccable-ignore-start
@@ -56,5 +56,5 @@ test-results/
 
 # Ingestion run artifacts are evidence, not source: raw certifier snapshots and
 # per-run candidate documents stay on disk (see docs/features/SC-231/10-traceability.md).
-docs/research/ingest-sample/runs/
+docs/research/ingest-sample/
 
