@@ -53,3 +53,8 @@ test-results/
 **/.impeccable/live/deferred-svelte-component-accepts.json
 **/.impeccable/live/*.png
 # impeccable-ignore-end
+
+# Ingestion run artifacts are evidence, not source: raw certifier snapshots and
+# per-run candidate documents stay on disk (see docs/features/SC-231/10-traceability.md).
+docs/research/ingest-sample/runs/
+
