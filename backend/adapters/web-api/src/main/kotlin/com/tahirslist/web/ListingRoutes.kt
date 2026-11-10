@@ -4,6 +4,7 @@ import com.tahirslist.application.image.StoredImage
 import com.tahirslist.application.listing.ListingSearchFilters
 import com.tahirslist.application.listing.ListingSearchRequestParser
 import com.tahirslist.application.listing.SearchSettings
+import com.tahirslist.application.verification.NotListingOwnerException
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.VerificationStatus
 import io.ktor.http.HttpStatusCode
@@ -199,6 +200,18 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
         put("/v1/listings/{id}/image") {
             val id = call.pathUuid("id")
             val actor = call.requireActor()
+            // Authorize BEFORE reading the multipart body: otherwise any
+            // authenticated account could make the server parse and discard 8 MiB
+            // for a listing it may not write. The use case re-checks the policy
+            // (one source of truth, two gates).
+            val manage = listing.manage.execute(id, actor)
+                ?: return@put call.respondError(
+                    HttpStatusCode.NotFound,
+                    ErrorCodes.LISTING_NOT_FOUND,
+                    ErrorMessages.RESOURCE_NOT_FOUND,
+                )
+            if (!manage.canManage) throw NotListingOwnerException(id, actor.accountId)
+
             val form = call.receiveForm()
             val image = form.requiredFile("image", ErrorMessages.IMAGE_PART_REQUIRED)
             listing.addImage.execute(

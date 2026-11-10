@@ -44,15 +44,27 @@ The change applies to the **next access token** the account receives (refresh or
 
 | Check | Command | Result |
 |---|---|---|
+| **Full backend suite** | `./gradlew test` (all modules, containerized) | **998 tests, 0 failures** |
 | Domain (role, listing) | `:domain:test --tests RoleTest --tests RestaurantListingTest` | PASS |
 | Schema (V25, V26) | `:persistence:test --tests Sc205SchemaMigrationTest` | PASS (3) |
 | Repository | `:persistence:test --tests ExposedRestaurantListingRepositoryTest` | PASS (incl. 2 new) |
 | Application | `:application:test` (4 SC-205 specs) | PASS (19) |
-| HTTP endpoints | `:bootstrap:test --tests ListingManageEndpointTest --tests Sc205PhotoVersionEndpointTest --tests ListingImageEndpointTest` | PASS (5 + 4 + 14) |
+| HTTP endpoints | `:bootstrap:test` (manage, version, image, limits) | PASS (5 + 4 + 15 + limits) |
 | Frontend check | `pnpm check` | **0 errors**, 16 warnings (pre-existing style warnings) |
 | Frontend tests | `pnpm test` | **257 passed / 29 files** |
 | Frontend build | `pnpm build` | green |
 | Formatting | `pnpm format` | applied |
+
+Total: **1,255 tests green** (998 backend + 257 frontend).
+
+### Regressions the full suite caught (and their fixes)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `ListingReadEndpointTest` 500 on browse | `findAll()` has its own column list (not `LISTING_COLUMNS`), so `toListing` read a column the query did not select | added `image_version` to the `findAll` projection |
+| `PostgisSmokeTest` expected 24 migrations | V25 + V26 raise the count to 26 | updated the pinned count |
+
+Both were only visible in the full run — the targeted specs stayed green, which is exactly why the full suite is a gate.
 
 All backend runs used the container directly (`eclipse-temurin:21-jdk`, dedicated Gradle home `tahirs-list-gradle-cache-sc205`), not the shell script.
 
@@ -62,4 +74,5 @@ All backend runs used the container directly (`eclipse-temurin:21-jdk`, dedicate
 2. **`V25` also versions `listing_search`.** The design promised search cards version their URLs too; the search read model is a separate table, so it needed the column and a mirrored stamp in `bumpImageVersion`.
 3. **No dev verification yet** — the PR is not merged, so `dev.tahirslist.com` checks and the Shortcut close-out are still pending.
 4. **`svelte` MCP unavailable** in this session catalog (D-9); component idioms were checked against the repo's existing runes code and `svelte-check`, not the live docs.
-5. **No full backend suite run yet** (targeted specs only). A full `test` run is required before the merge and the count recorded here.
+5. ~~No full backend suite run yet~~ — now run: 998 tests, 0 failures (see above).
+6. **Authorization now precedes body parsing.** The upload route checks `/manage`-equivalent policy before `receiveForm()`, so an authenticated account cannot make the server buffer and parse 8 MiB for a listing it may not write (Omar round 1). The use case still re-checks; the rule lives in `PhotoWritePolicy`.

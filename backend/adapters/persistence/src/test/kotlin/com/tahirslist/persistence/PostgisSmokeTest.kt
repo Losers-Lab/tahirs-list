@@ -60,7 +60,7 @@ class PostgisSmokeTest : FunSpec() {
             // geocoded_addresses cache table (V23), and the sc-211 round-2
             // trust + location correction (V24) all run cleanly on a real
             // PostGIS DB.
-            result.migrationsExecuted shouldBe 24
+            result.migrationsExecuted shouldBe 26
         }
     }
 }

@@ -92,8 +92,23 @@ class ListingImageEndpointTest : KtorPostgresTest() {
             getImage(listingId).status shouldBe 404
         }
 
-        test("a non-owner remove is forbidden (403)") {
-            val owner = signupAndLogin("img-del-owner@example.com")
+        test("the role comes from the token, not the database (D-13 stale-token case)") {
+            val owner = signupAndLogin("img-stale-owner@example.com")
+            val listingId = createListing(owner.accessToken, owner.accountId)
+            val admin = signupAndLogin("img-stale-admin@example.com")
+
+            // Same account, but a token minted while it still carried USER: the
+            // write is refused because the policy reads the claim, not users.role.
+            val staleToken = TestJwt.mint(role = "USER", sub = admin.accountId)
+            putImage(listingId, jpegBytes(), bearer = staleToken).status shouldBe 403
+            getImage(listingId).status shouldBe 404
+
+            // The current ADMIN token is accepted for the same account.
+            val freshToken = TestJwt.mint(role = "ADMIN", sub = admin.accountId)
+            putImage(listingId, jpegBytes(), bearer = freshToken).status shouldBe 204
+        }
+
+        test("a non-owner remove is forbidden (403)") {            val owner = signupAndLogin("img-del-owner@example.com")
             val listingId = createListing(owner.accessToken, owner.accountId)
             putImage(listingId, jpegBytes(), bearer = owner.accessToken).status shouldBe 204
             val stranger = signupAndLogin("img-del-stranger@example.com")

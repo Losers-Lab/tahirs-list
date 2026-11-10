@@ -899,7 +899,8 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 provenance,
                 venue_key,
                 verification_status,
-                created_at
+                created_at,
+                image_version
             FROM restaurant_listings
             ORDER BY created_at, name
             """.trimIndent(),
