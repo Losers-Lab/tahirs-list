@@ -134,6 +134,22 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
 
     authenticate(JWT_AUTH_PROVIDER) {
 
+        /**
+         * SC-205: may the caller change this listing's photo? Same rule as the
+         * write (`PhotoWritePolicy`), and only a boolean — never the owner's id.
+         */
+        get("/v1/listings/{id}/manage") {
+            val id = call.pathUuid("id")
+            val actor = call.requireActor()
+            val outcome = listing.manage.execute(id, actor)
+                ?: return@get call.respondError(
+                    HttpStatusCode.NotFound,
+                    ErrorCodes.LISTING_NOT_FOUND,
+                    ErrorMessages.RESOURCE_NOT_FOUND,
+                )
+            call.respond(HttpStatusCode.OK, ManageResponse(canManage = outcome.canManage))
+        }
+
         post("/v1/listings") {
             val request = call.receiveJson<CreateListingRequest>()
             requireValid(request.validationMessages())
@@ -182,12 +198,12 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
 
         put("/v1/listings/{id}/image") {
             val id = call.pathUuid("id")
-            val ownerId = call.requireAccountId()
+            val actor = call.requireActor()
             val form = call.receiveForm()
             val image = form.requiredFile("image", ErrorMessages.IMAGE_PART_REQUIRED)
             listing.addImage.execute(
                 listingId = id,
-                ownerId = ownerId,
+                actor = actor,
                 original = StoredImage(bytes = image.bytes, contentType = image.contentType),
             )
             call.respond(HttpStatusCode.NoContent)

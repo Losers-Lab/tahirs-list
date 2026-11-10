@@ -113,6 +113,9 @@ object RestaurantListings : Table("restaurant_listings") {
     val halalScope = varchar("halal_scope", 32)
     val crossContamination = varchar("cross_contamination", 32)
 
+    /** SC-205: opaque hero-photo version (0 = no photo); V25. */
+    val imageVersion = long("image_version")
+
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -141,6 +144,9 @@ object ListingSearch : Table("listing_search") {
     val alcoholServed = bool("alcohol_served")
     val halalScope = varchar("halal_scope", 32)
     val crossContamination = varchar("cross_contamination", 32)
+
+    /** SC-205: mirrors `restaurant_listings.image_version` so search cards version their URLs too. */
+    val imageVersion = long("image_version")
 
     override val primaryKey = PrimaryKey(id)
 }

@@ -10,6 +10,7 @@ import com.tahirslist.application.favorite.UnfavoriteListing
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.listing.AddListingImage
 import com.tahirslist.application.listing.CreateListing
+import com.tahirslist.application.listing.GetListingManage
 import com.tahirslist.application.listing.ListingSearchQuery
 import com.tahirslist.application.listing.RemoveListingImage
 import com.tahirslist.application.listing.RestaurantListingRepository
@@ -74,6 +75,7 @@ data class ListingUseCases(
     val update: UpdateListing,
     val addImage: AddListingImage,
     val removeImage: RemoveListingImage,
+    val manage: GetListingManage,
     val listings: RestaurantListingRepository,
     val search: ListingSearchQuery,
     val images: ImagePort,

@@ -11,4 +11,9 @@
 -- later upload writes a strictly larger epoch-millis value.
 ALTER TABLE restaurant_listings ADD COLUMN image_version BIGINT NOT NULL DEFAULT 0;
 
+-- The search read model is a separate table, so it carries the same stamp;
+-- otherwise a replaced photo would stay stale on search cards for a day.
+ALTER TABLE listing_search ADD COLUMN image_version BIGINT NOT NULL DEFAULT 0;
+
 UPDATE restaurant_listings SET image_version = 1;
+UPDATE listing_search SET image_version = 1;

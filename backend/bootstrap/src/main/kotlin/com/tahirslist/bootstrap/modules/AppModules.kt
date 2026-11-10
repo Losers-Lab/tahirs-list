@@ -177,10 +177,12 @@ private fun useCaseModule(config: AppConfig): Module = module {
     single { LogoutSession(get()) }
 
     // Listings
+    single<com.tahirslist.application.audit.AuditRecorder> { com.tahirslist.application.audit.LoggingAuditRecorder() }
     single { CreateListing(get(), get()) }
     single { UpdateListing(get()) }
-    single { AddListingImage(get(), get()) }
+    single { AddListingImage(get(), get(), get()) }
     single { RemoveListingImage(get(), get()) }
+    single { com.tahirslist.application.listing.GetListingManage(get()) }
     single { IngestHeroImage(get()) }
 
     // Favorites
@@ -234,6 +236,7 @@ private fun webModule(config: AppConfig): Module = module {
     single { AuthUseCases(get(), get(), get(), get(), get()) }
     single {
         ListingUseCases(
+            get(),
             get(),
             get(),
             get(),

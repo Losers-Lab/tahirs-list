@@ -130,6 +130,7 @@ class ExposedListingSearchQuery(private val db: Database) : ListingSearchQuery {
                 is_delivery,
                 verification_status,
                 rating,
+                image_version,
                 ST_DistanceSphere(
                     location::geometry,
                     ST_SetSRID(ST_MakePoint(?, ?), 4326)
@@ -192,5 +193,6 @@ class ExposedListingSearchQuery(private val db: Database) : ListingSearchQuery {
         verificationStatus = VerificationStatus.valueOf(rs.getString("verification_status")),
         rating = rs.getBigDecimal("rating")?.let { Rating(it) },
         distanceMiles = rs.getDouble("distance_miles"),
+        imageVersion = rs.getLong("image_version"),
     )
 }
