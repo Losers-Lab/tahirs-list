@@ -124,7 +124,7 @@ object RestaurantListings : Table("restaurant_listings") {
 }
 
 /**
- * `V25__sc_231_enrichment.sql` (SC-231): one cover photo per listing.
+ * `V27__sc_231_enrichment.sql` (SC-231): one cover photo per listing.
  *
  * The CHECK constraints are the model, not a comment: a Places row can only be a
  * cache with an expiry, and a free-licensed row must carry its licence.

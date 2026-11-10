@@ -64,6 +64,7 @@
 
 ## Notes
 
+- **Migration renumbered V25 → V27 (2026-11-10).** `feat/SC-205-photo-upload` already claims `V25__sc_205_image_version.sql` and `V26__add_admin_role.sql`, and the shared dev database has both applied. Two files called `V25` would either collide at merge time or fail Flyway validation on the next boot, so this branch moved to **V27** and left the gap. Verified by `EnrichmentSchemaMigrationTest` against a fresh database.
 - The pre-approval spike (`VenueType.kt`, `ingestion/enrich/*`) was **removed** on approval: it modelled one nine-value enum, which the approved design replaced with `VenueClass` (recognise) + `VenueType` (publish). Keeping it would have left two contradictory vocabularies in the tree.
 - `SC-227` (PR #84) adds `GeocodedPlace.osmKey/osmValue`. Until it merges, WI-7's OSM step cannot fire and the report states it, as designed.
 - **The same dependency reaches the photo pass:** `OsmPhotoSource` needs the matched feature's `image` / `wikimedia_commons` tags, so the pass asks Commons then Places. The CLI prints `osm: unavailable on this build`.

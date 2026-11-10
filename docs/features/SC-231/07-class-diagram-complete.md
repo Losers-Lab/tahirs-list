@@ -10,7 +10,7 @@ flowchart TB
   API --> WEB[":web-api (modified: detail + card DTOs)"]
   WEB --> APP[":application — + photo use case/ports, + enrichment fields on the candidate"]
   APP --> DOM[":domain — + VenueType, EnrichmentSource, CoverPhoto, PhotoLicence"]
-  APP --> PER[":persistence — V25 · enrichment columns · cover-photo repository"]
+  APP --> PER[":persistence — V27 · enrichment columns · cover-photo repository"]
   BOOT[":bootstrap — + AttachCoverPhotosMain + attachCoverPhotos"] --> APP
   BOOT --> IMGF["HttpImageFetcher (existing)"]
   ING[":ingestion — + enrich package (classifier, rules, report section)"]
@@ -28,7 +28,7 @@ flowchart TB
 | `:domain` | **modified** | new `VenueType` (published restaurant kinds + `servesMeals`), `VenueClass` (recogniser, incl. non-restaurant classes), `EnrichmentSource` (+`isWeak`), `AdmissionDecision` (sealed: Admitted / Excluded / Undecided), `PhotoLicence`, `CoverPhoto`; `RestaurantListing` gains `venueType`, `venueTypeSource`, `cuisineSource`, `coverPhoto`; `imported(...)` accepts them |
 | `:application` | **modified** | `IngestionCandidate` gains `admission` and `cuisine`; new `com.tahirslist.application.photo`: `AttachCoverPhoto` (`preview`/`execute`), `PhotoCandidateSource` (free + Places), `CoverPhotoRepository`, `PhotoCandidate`, `PhotoReview`/`PhotoResult`, `PlacesClient` port; `RestaurantListingRepository.applyBatch` writes the enrichment fields |
 | `:ingestion` | **modified** | new `com.tahirslist.ingestion.enrich`: `RestaurantAdmission`, `AdmissionPolicy`, `CuisineAssigner`, `EnrichmentRules` (curated tables), `AdmissionDecision`; `CandidateFactory` gates on admission before building a candidate; `IngestReport` renders the Enrichment section and counts exclusions as rejects |
-| `:persistence` | **modified** | `V25__sc_231_enrichment.sql`; `ExposedCoverPhotoRepository`; `applyBatch` writes `venue_type`, `venue_type_source`, `cuisine_source`; image endpoint checks `expires_at`; `Tables.kt` gains `CoverPhotos` |
+| `:persistence` | **modified** | `V27__sc_231_enrichment.sql`; `ExposedCoverPhotoRepository`; `applyBatch` writes `venue_type`, `venue_type_source`, `cuisine_source`; image endpoint checks `expires_at`; `Tables.kt` gains `CoverPhotos` |
 | `:web-api` | **modified** | `DetailResponse` gains `photoAttribution`, `photoLicence`, `photoSource`, `photoSourceUrl`; `BrowseCard`/`SearchCard` gain `photoAttribution`; OpenAPI regenerated |
 | `:bootstrap` | **modified** | `AttachCoverPhotosMain` + `:bootstrap:attachCoverPhotos`; `scripts/attach-cover-photos.sh`; `OsmPhotoSource`, `CommonsPhotoSource`, `GooglePlacesPhotoSource` (HTTP adapter over the `PlacesClient` port) wired to the existing `HttpImageFetcher`; `GOOGLE_MAPS_API_KEY` read from the environment only |
 | frontend | **modified** | detail hero shows the credit line; cards show a small credit caption when present |
@@ -55,7 +55,7 @@ pinned — a wrong place id would put another business's photo on the listing.
 
 | Element | Status | Detail |
 |---|---|---|
-| `V25__sc_231_enrichment.sql` | **new** | `restaurant_listings.venue_type VARCHAR(16) NULL` CHECK in (`RESTAURANT`,`CAFE`,`FAST_FOOD`,`BAKERY`); `venue_type_source VARCHAR(24) NULL` CHECK in (`SOURCE_CATEGORY`,`OSM_FEATURE`,`BRAND_MAP`,`NAME_KEYWORD`); `cuisine_source VARCHAR(24) NULL` same CHECK; partial index on `venue_type` where not null. Nullable because seed/owner rows predate the gate — an enriched ingested row always has one |
+| `V27__sc_231_enrichment.sql` | **new** | `restaurant_listings.venue_type VARCHAR(16) NULL` CHECK in (`RESTAURANT`,`CAFE`,`FAST_FOOD`,`BAKERY`); `venue_type_source VARCHAR(24) NULL` CHECK in (`SOURCE_CATEGORY`,`OSM_FEATURE`,`BRAND_MAP`,`NAME_KEYWORD`); `cuisine_source VARCHAR(24) NULL` same CHECK; partial index on `venue_type` where not null. Nullable because seed/owner rows predate the gate — an enriched ingested row always has one |
 | `listing_cover_photos` | **new table** | `listing_id UUID PRIMARY KEY REFERENCES restaurant_listings(id) ON DELETE CASCADE`; `source_kind VARCHAR(16)` CHECK (`OWNER_UPLOAD`,`OSM`,`WIKIMEDIA`,`GOOGLE_PLACES`); `storage_class VARCHAR(16)` CHECK (`PERMANENT`,`CACHE`); `licence VARCHAR(16) NULL` CHECK (`CC0`,`PUBLIC_DOMAIN`,`CC_BY`,`CC_BY_SA`); `attribution VARCHAR(1024) NOT NULL`; `author VARCHAR(512)`; `source_url VARCHAR(1024)`; `google_place_id VARCHAR(255)`; `google_photo_name VARCHAR(1024)`; `expires_at TIMESTAMPTZ NULL`; `content_hash CHAR(64)`; `width INT`, `height INT`; `created_at TIMESTAMPTZ`. CHECKs: a Places row is always `CACHE` with `expires_at`; a `CACHE` row always has `expires_at`; a free-licensed row always has a licence. PK gives INV-11 for free |
 | `listing_search` | **unchanged** | no change: nothing that is not a restaurant can reach it, because it never reaches `restaurant_listings` |
 | `restaurant_listings` (other columns) | **unchanged** | `cuisine` already exists and holds the derived value; `price`/`rating`/`is_delivery`/`alcohol_served`/`halal_scope` are untouched (no source claims them) |

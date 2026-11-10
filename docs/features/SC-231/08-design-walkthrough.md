@@ -123,7 +123,7 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 
 ## 10 · Complete class diagram — `07-class-diagram-complete.md`
 
-- **Shows** the layer map, the final names, `V25`, the cover-photo table, the
+- **Shows** the layer map, the final names, `V27`, the cover-photo table, the
   three API fields a licence forces, and the **one-off purge** of the rows that
   are already in the catalogue but are not restaurants.
 - **Locks in** that nothing non-restaurant can reach `restaurant_listings` or
@@ -147,7 +147,7 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 | D-9 | Photo write order: bytes then credit row; a crash may orphan bytes, never an uncredited visible photo | as designed | credit first |
 | D-10 | Cuisine conflicts go to the report's review queue only | report only | also open a Shortcut story per conflict |
 | D-11 | Phase 3 (phone/website) is **not designed** until Q-3 is answered | defer | design phone/website here (needs SC-202 coordination) |
-| D-12 | Existing non-restaurant rows are purged in a **separate, reported** step after a `pg_dump` — not in a migration | as designed | purge inside `V25` (rejected: data deletion hidden in a schema change) |
+| D-12 | Existing non-restaurant rows are purged in a **separate, reported** step after a `pg_dump` — not in a migration | as designed | purge inside `V27` (rejected: data deletion hidden in a schema change) |
 
 ## What is already true, and what is not
 

@@ -180,7 +180,7 @@ automatically. The purge is therefore a separate, reported step: re-run the gate
 over stored rows, print the list, take a `pg_dump`, delete the confirmed rows and
 their claims.
 
-*Rejected:* `DELETE` in `V25` — irreversible on upgrade, invisible in review.
+*Rejected:* `DELETE` in `V27` — irreversible on upgrade, invisible in review.
 
 ## D-13 · The pre-approval prototype is a spike, not a design
 

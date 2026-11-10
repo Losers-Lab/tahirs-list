@@ -19,7 +19,7 @@ import java.time.ZoneOffset
 import kotlin.uuid.Uuid
 
 /**
- * The cover-photo table (SC-231, V25).
+ * The cover-photo table (SC-231, V27).
  *
  * One row per listing, upserted: a refreshed Places cache replaces the credit row
  * rather than accumulating rows, so "the photo" is a fact about the listing and

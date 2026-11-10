@@ -9,7 +9,7 @@ import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 
 /**
- * V25 is the schema behind SC-231: the enrichment columns, and a cover-photo
+ * V27 is the schema behind SC-231: the enrichment columns, and a cover-photo
  * table where the licence rules are constraints rather than comments.
  *
  * The interesting assertions are the negative ones: the database must refuse to
@@ -62,7 +62,7 @@ class EnrichmentSchemaMigrationTest : FunSpec() {
             )
         """.trimIndent()
 
-        test("V25 adds the three enrichment columns") {
+        test("V27 adds the three enrichment columns") {
             runTest {
                 val columns = postgis
                     .rows(
