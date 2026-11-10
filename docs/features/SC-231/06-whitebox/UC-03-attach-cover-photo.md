@@ -21,33 +21,94 @@ sequenceDiagram
   participant OBJ as MinIO
   DC->>CLI: 1. attachPhotos(scope, execute, replace)
   CLI->>AP: 2. preview(scope)
-  AP->>CR: 3. find(listingId) [existing photo?]
+  AP->>CR: 3. find(listingId) — skip if one exists and no --replace
   CR->>DB: SELECT listing_cover_photos
   DB-->>CR: row | none
-  alt photo exists and not --replace
-    CR-->>AP: skip
-  else needs a photo
-    AP->>PS: 4. candidatesFor(listing)
-    PS->>OS: 5a. tag for providerRef
-    OS-->>PS: image / wikimedia_commons | none
-    PS->>CS: 5b. search venue or brand
-    CS-->>PS: candidates + extmetadata licence
-    PS-->>AP: List~PhotoCandidate~
-    AP->>PL: 6. allowsReuse && attribution present?
-    alt refused
-      PL-->>AP: reject(reason)
-    else accepted
-      AP->>F: 7. fetch(sourceUrl) [size cap]
-      F-->>AP: bytes | ImageFetchException
-      AP->>IH: 8. ingest(listingId, StoredImage)
-      IH->>IP: 9. save(FULL, THUMBNAIL_400/768/1280/1920)
-      IP->>OBJ: PUT objects
-      AP->>CR: 10. save(listingId, CoverPhoto)
-      CR->>DB: INSERT/UPDATE listing_cover_photos (one transaction)
-    end
-  end
+  AP->>PS: 4. candidatesFor(listing)
+  PS->>OS: 5a. tag for providerRef
+  OS-->>PS: image / wikimedia_commons | none
+  PS->>CS: 5b. search venue or brand
+  CS-->>PS: candidates + extmetadata licence
+  PS-->>AP: List~PhotoCandidate~
+  AP->>PL: 6. allowsReuse && attribution present?
+  PL-->>AP: accept | reject(reason)
+  AP->>F: 7. fetch(sourceUrl) — size cap
+  F-->>AP: bytes | ImageFetchException
+  AP->>IH: 8. ingest(listingId, StoredImage)
+  IH->>IP: 9. save(FULL, THUMBNAIL_400/768/1280/1920)
+  IP->>OBJ: PUT objects
+  AP->>CR: 10. save(listingId, CoverPhoto)
+  CR->>DB: INSERT/UPDATE listing_cover_photos (one transaction)
   AP-->>CLI: 11. PhotoResult
   CLI-->>DC: 12. counts + per-row outcomes
+```
+**A1 — no candidate anywhere** · a gap, not a placeholder.
+```mermaid
+sequenceDiagram
+  participant AP as AttachCoverPhoto
+  participant PS as PhotoCandidateSource
+  AP->>PS: candidatesFor(listing)
+  PS-->>AP: empty
+  AP-->>AP: NoPhoto — gap recorded (step 4)
+```
+**A2 — licence unknown or non-free** · refuse before fetching bytes.
+```mermaid
+sequenceDiagram
+  participant AP as AttachCoverPhoto
+  participant PL as PhotoLicence
+  AP->>PL: allowsReuse?
+  PL-->>AP: false → reject("licence"), no fetch (step 6)
+```
+**A3 — several acceptable candidates** · deterministic ordering.
+```mermaid
+sequenceDiagram
+  participant AP as AttachCoverPhoto
+  AP->>AP: OSM before Commons, then the source's own order — first accepted wins (step 6)
+```
+**A4 — CC-BY with no credit line** · a licence breach is not a nit.
+```mermaid
+sequenceDiagram
+  participant AP as AttachCoverPhoto
+  participant PL as PhotoLicence
+  AP->>PL: requiresAttribution && attribution blank
+  PL-->>AP: reject("attribution") (step 6)
+```
+**E1 — fetch or decode fails** · reported, existing photo kept.
+```mermaid
+sequenceDiagram
+  participant AP as AttachCoverPhoto
+  participant F as ImageFetcher
+  participant IH as IngestHeroImage
+  AP->>F: fetch(url)
+  F-->>AP: ImageFetchException
+  AP->>IH: not called — nothing persisted
+  AP-->>AP: row failure, run continues (step 7)
+```
+**E2 — partial variant write** · impossible.
+```mermaid
+sequenceDiagram
+  participant IH as IngestHeroImage
+  participant IP as ImagePort
+  IH->>IH: resize all variants first
+  IH->>IP: then save each variant (step 9)
+```
+**P1 — the listing already has a photo** · untouched without `--replace`.
+```mermaid
+sequenceDiagram
+  participant AP as AttachCoverPhoto
+  participant CR as CoverPhotoRepository
+  AP->>CR: find(listingId)
+  CR-->>AP: row
+  AP-->>AP: skip — no fetch (step 3)
+```
+**P2 — a hostile or oversized image** · bounded and type-derived.
+```mermaid
+sequenceDiagram
+  participant AP as AttachCoverPhoto
+  participant F as ImageFetcher
+  AP->>F: fetch(url)
+  F-->>AP: bytes, size cap enforced
+  AP->>AP: contentType derived from bytes, never the caller (step 7)
 ```
 
 **Transaction boundary.** Two stores, so the order is fixed and must be
