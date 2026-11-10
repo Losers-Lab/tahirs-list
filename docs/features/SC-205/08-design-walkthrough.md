@@ -1,7 +1,7 @@
 # Design walkthrough — SC-205 owner photo upload
 
 > **Purpose:** the founder review surface · **Derived from:** 00–07 · **Delta:** 2 columns/constraints, 1 endpoint, 3 frontend classes, 1 new role
-> Design commit: `95ba328` · Date: 2026-11-09 · Design PR: #88 · **Status: awaiting approval**
+> Design commit: `5350b68` · Date: 2026-11-09 · Design PR: #88 · **Status: approved**
 
 | Date | Change | Phases re-run |
 |---|---|---|
@@ -83,8 +83,11 @@ This design was produced in the `sc-201-location-search` worktree; the `basic-me
 ## Approval
 
 ```
-Approved by: ________ · Date: ________ · Design commit: ________ · Design PR: #88
-Decision items: D-1 … D-13 resolved as tabled / amended: ________
+Approved by: founder (Arham) · Date: 2026-11-09 · Design commit: 5350b68 · Design PR: #88
+Decision items: D-1 … D-13 resolved as tabled, with these founder calls:
+  D-10  promote by a one-line operator SQL runbook (no endpoint)
+  D-11  structured log line now; no audit table in this story
+  D-13  the verified JWT role claim is the authority (bounded staleness accepted)
 ```
 
 Work items (`09`) and traceability (`10`) are written only after this line exists, and append to this PR. Implementation starts on `feat/SC-205-photo-upload` from `main` once the design PR merges.
