@@ -1,15 +1,15 @@
 # SC-231 — Phase 2: Use cases
 
-> **Purpose:** each actor goal, in the order it happens · **Derived from:** 00 + 01 · **Delta:** new UCs 01–04
+> **Purpose:** each actor goal, in the order it happens · **Derived from:** 00 + 01 · **Delta:** new UCs 01–04; UC-01 is now an admission gate (L-1)
 
 **Actors.** DC = Data Curator (primary), U = User (beneficiary), RO/VRO = Owner
 (may later override, out of scope), plus external read-only actors OSM (Overpass)
 and Wikimedia Commons for UC-03.
 
-**Phase 1 — inside the ingestion run (UC-01, UC-02).** Classification happens
-after a row is fetched, translated and matched, before the candidate is written.
-The reviewed load stays the only writer of the catalogue and the run directory
-stays immutable.
+**Phase 1 — inside the ingestion run (UC-01, UC-02).** Admission and
+classification happen after a row is fetched, translated and matched, before the
+candidate is written. The reviewed load stays the only writer of the catalogue
+and the run directory stays immutable.
 
 **Phase 2 — after the load (UC-03).** The image store is keyed by listing id, so
 a cover photo can only be attached once the listing exists. It is a separate
@@ -21,47 +21,53 @@ no use case is drawn for it until the owner decides.
 
 ---
 
-## UC-01 · Classify a row's venue type
+## UC-01 · Add a row only if it is a restaurant
 
-**Actor:** DC. **Goal:** every ingested row is identifiable as a restaurant, a
-grocery, a butcher, something else — or honestly undecided.
+**Actor:** DC. **Goal:** the catalogue contains restaurants and nothing else.
 **Trigger:** the ingestion run processes a matched row.
 
 **Main scenario**
 
-1. The run takes the row's source category (HMS publishes one per establishment;
-   HFSAA/HMA publish an entry type).
-2. If the category is decisive, it maps to the vocabulary and the decision ends.
-3. Otherwise the run reads the matched OSM feature tag, when the geocoder
-   supplies one (`amenity=restaurant` vs `shop=butcher`).
-4. Otherwise the run looks for a decisive name word ("butcher", "meat market",
-   "grocery", "bakery", "market").
-5. The decision records the type and the evidence class that produced it.
-6. The candidate carries the decision into the reviewed batch.
+1. The run gathers what the evidence says about the place: the source's own
+   category, the matched OSM feature, and the name.
+2. If a **shop marker** is present and no **premises marker** is, the row is
+   *excluded* — even when the source category says *Restaurants*. The exclusion
+   names the word and the class.
+3. Otherwise a non-restaurant category (Retail Store, Slaughter House,
+   Distributor, Processor, Further Processor, Caterer, Misc) *excludes* the row.
+4. Otherwise a restaurant category *admits* it as `RESTAURANT`, narrowed to
+   `CAFE` or `FAST_FOOD` when the name or OSM tag says so.
+5. Otherwise an OSM venue tag (`amenity=restaurant|fast_food|cafe`) admits it
+   with that type.
+6. Otherwise a premises word ("restaurant", "grill", "kitchen", "cafe") admits
+   it as `RESTAURANT`.
+7. Otherwise the row is *undecided*: not loaded, held for a curator, reported.
+8. The decision — admitted with type and evidence, or excluded/undecided with a
+   reason — travels with the candidate into the reviewed batch.
 
 **Alternates**
 
-- 2a. Category is *Retail Store* and the name narrows it (`Hamza Meat Shop` →
-  `BUTCHER`, `Fresh Halal Grocery` → `GROCERY`); otherwise `OTHER`. Never
-  `RESTAURANT`.
-- 2b. Category is *Slaughter House* → `BUTCHER`; *Distributor* / *Processor* /
-  *Misc* → `OTHER`.
-- 3a. OSM tag present but not a venue type (a road, a boundary) → ignored; the
-  name step still runs.
-- 4a. Name says "market" but the category says restaurant (`Madina Market
-  (Kitchen)`): the category wins.
+- 2a. `Madina Market (Kitchen)`: "market" is a shop marker, "kitchen" is a
+  premises marker → admitted, `RESTAURANT`.
+- 2b. `Mannan Bakery and Grill`: "bakery" plus "grill" → admitted.
+- 3a. `Hamza Meat Shop` with category *Retail Store* → excluded (shop marker and
+  non-restaurant category agree).
+- 4a. Category *Restaurants*, name `Jamaica Live Poultry Meat Market [Butcher
+  Dept. Only]` → excluded by step 2 (shop marker, no premises marker).
+- 4b. Category *Restaurants*, name `Corner Coffee` → admitted as `CAFE`.
 
 **Exceptions → resulting state**
 
 | Exception | Resulting state |
 |---|---|
-| No evidence at any step | `venueType = null`; the row is listed under "undecided" in the report |
-| Two name words disagree ("market bakery") | First decisive branch in the fixed order wins; the report names the word and the class |
+| The curated marker tables are malformed | The run fails at startup; no batch is produced |
+| A row matches both marker families equally ("Bakery Restaurant") | Premises wins (step 2 is not triggered); the decision records both words |
 
-**Postconditions.** The candidate carries `venueType` and its evidence class (or
-both null). The load writes them when the listing has no value yet.
+**Postconditions.** Every processed row has exactly one verdict: `Admitted`
+(with type + evidence), `Excluded` (with class + reason), or `Undecided` (with
+reason). Only `Admitted` rows become candidates that can be loaded.
 
-**ACs:** 1, 2, 4 (phase-1 bullets 1, 2, 4).
+**ACs:** 1, 2, 4; owner directive L-1.
 
 ---
 
@@ -69,14 +75,13 @@ both null). The load writes them when the listing has no value yet.
 
 **Actor:** DC (on behalf of U). **Goal:** a listing shows the cuisine it serves,
 only when something actually says so.
-**Trigger:** a row has been classified as a meal-serving type.
+**Trigger:** a row has been admitted as a meal-serving type.
 
 **Main scenario**
 
 1. The run asks whether the source itself publishes a cuisine. None of HMS,
    HFSAA or HMA does today, so this step is a no-op for current sources.
-2. Otherwise it consults the curated brand map (e.g. a chain whose cuisine is
-   known).
+2. Otherwise it consults the curated brand map.
 3. Otherwise it reads the OSM `cuisine` tag, when the geocoder supplies one.
 4. Otherwise it maps a distinctive name word through the curated keyword table
    ("biryani" → Pakistani, "pho" → Vietnamese) and marks the evidence **weak**.
@@ -84,21 +89,22 @@ only when something actually says so.
 
 **Alternates**
 
-- 2a/4a. Two different cuisine families are found ("Pizza & Biryani") → cuisine
-  stays null and the conflict is listed in the review queue.
-- 3a. The row is not a meal-serving type → cuisine stays null (INV-5).
+- 2a/4a. Two cuisine families are found ("Pizza & Biryani") → cuisine stays
+  null and the conflict is listed in the review queue.
+- 3a. The admitted type does not serve meals → cuisine stays null (INV-8).
+- 5a. The row is not admitted at all → UC-02 never runs for it.
 
 **Exceptions → resulting state**
 
 | Exception | Resulting state |
 |---|---|
 | Curated tables unavailable or malformed | The run fails before writing candidates; no partial classification |
-| Keyword table yields several cuisines for one word | Treated as a conflict, never a coin flip |
+| A keyword maps to several cuisines | Treated as a conflict, never a coin flip |
 
 **Postconditions.** `cuisine` is set with an evidence class, or null with a
 recorded reason. An existing owner/curator cuisine is never touched.
 
-**ACs:** 3, 4, 5 (phase-1 bullets 3, 4, 5).
+**ACs:** 3, 4, 5.
 
 ---
 
@@ -111,7 +117,8 @@ already has an id.
 
 **Main scenario**
 
-1. The run takes the listings in scope and, for each, asks the photo sources:
+1. The run takes the admitted listings in scope and, for each, asks the photo
+   sources:
    a. OSM: the `image` / `wikimedia_commons` tag on the matched feature, by the
    geocoder's provider reference;
    b. Wikimedia Commons: a search for the venue or its brand.
@@ -155,25 +162,28 @@ never replaces an existing photo without `--replace`.
 
 ## UC-04 · Review what enrichment decided
 
-**Actor:** DC. **Goal:** see, per run, what was decided, what was skipped and
-what could not be decided — without opening the sources.
+**Actor:** DC. **Goal:** see, per run, what was admitted, what was excluded and
+why, and what could not be decided — without opening the sources.
 **Trigger:** the ingestion run completes, or the photo pass completes.
 
 **Main scenario**
 
-1. The run report gains an **Enrichment** section: counts by venue type, cuisines
-   assigned with their evidence class, rows left undecided, cuisine conflicts,
-   and — for the photo pass — photographed / skipped / failed / no-candidate.
+1. The run report gains an **Enrichment** section: admitted (by venue type),
+   **excluded (by venue class, with the deciding word or category)**, undecided
+   (held), cuisines assigned with their evidence class, and cuisine conflicts.
 2. Every decision names the row's claim key and the evidence that produced it.
-3. The weak and conflicting decisions are grouped into a review queue.
-4. Re-running the same batch reproduces the same decisions.
+3. Weak and conflicting decisions are grouped into a review queue; excluded and
+   undecided rows are listed in full so the curator can see what the catalogue
+   will not contain.
+4. The photo pass adds photographed / skipped / failed / no-candidate.
+5. Re-running the same batch reproduces the same decisions.
 
 **Alternates**
 
-- 1a. A run produced no enrichment at all (no evidence anywhere) → the section
-  says so explicitly rather than being absent.
-- 2a. A row's stored value differs from the decision (an owner edited it) → the
-  report shows both and says the stored value was kept.
+- 1a. A run excluded a large share of rows → the section states the share and
+  the top reasons, so a bad classifier or a source change is visible.
+- 2a. A stored value differs from the decision (an owner edited it) → the report
+  shows both and says the stored value was kept.
 
 **Exceptions → resulting state**
 
@@ -182,9 +192,9 @@ what could not be decided — without opening the sources.
 | Report cannot be written | The run is not complete; nothing is loaded |
 
 **Postconditions.** The reviewed batch is self-explanatory; nothing is silently
-changed.
+changed or silently dropped.
 
-**ACs:** 4, 6 (phase-1 bullet 4, and the TDD bullet for the load test).
+**ACs:** 4, 6.
 
 ---
 
@@ -192,17 +202,18 @@ changed.
 
 | id | rule | source |
 |---|---|---|
-| ENR-1 | `venueType` is a closed vocabulary; undecided is `null`, never a guess | AC 1 |
-| ENR-2 | Evidence order: source category → OSM feature → name keyword; a weaker source never overrides a stronger one | AC 2, 3 |
-| ENR-3 | A non-restaurant source category can never yield `RESTAURANT` | AC 2 |
-| ENR-4 | Cuisine needs evidence; conflicting families leave it `null` and record the conflict | AC 3 |
-| ENR-5 | Enrichment fills nulls only; owner/curator values are never overwritten | AC 5 |
-| ENR-6 | Enrichment is idempotent and records its evidence class | AC 4 |
-| ENR-7 | A photo is stored only with an accepted licence and its required attribution; a missing photo is reported, never fabricated | phase 2 (Q-2) |
-| ENR-8 | Enrichment never changes verification, hand-cut or cross-contamination | out of scope |
+| ENR-1 | Only restaurants are published; every other row is excluded and reported | L-1 |
+| ENR-2 | Evidence order: hard exclusion → source category → OSM feature → name; a weaker source never overrides a stronger one | AC 2, 3 |
+| ENR-3 | A shop marker with no premises marker excludes, even under a restaurant category | L-1, AC 2 |
+| ENR-4 | No decisive evidence → undecided, never loaded | L-1 |
+| ENR-5 | Cuisine needs evidence; conflicting families leave it `null` and record the conflict | AC 3 |
+| ENR-6 | Enrichment fills nulls only; owner/curator values are never overwritten | AC 5 |
+| ENR-7 | Enrichment is idempotent and records its evidence class | AC 4 |
+| ENR-8 | A photo is stored only with an accepted licence and its required attribution; a missing photo is reported, never fabricated | phase 2 (Q-2) |
+| ENR-9 | Enrichment never changes verification, hand-cut or cross-contamination | out of scope |
 
 ## Open questions
 
-Q-1 (iteration), Q-2 (phase-2 ACs), Q-3 (phone/website vs SC-202), Q-4
-(publishing non-restaurants), Q-5 (expose type in the API), Q-6 (photo sources),
-Q-7 (cuisine review queue), Q-8 (report vs manual edit) — see `00-story.md`.
+Q-1 (iteration), Q-2 (phase-2 ACs), Q-3 (phone/website), Q-5 (expose the type),
+Q-6 (photo sources), Q-7 (review queue), Q-8 (report vs manual edit), Q-9
+(bakeries) — see `00-story.md`. Q-4 is closed by L-1.

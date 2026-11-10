@@ -4,13 +4,16 @@
 
 **Status:** proposed 2026-11-09; binding only after the owner approves the design PR.
 
-## D-1 · Classification inside the run, photos after the load
+**L-1 (owner, 2026-11-09): Tahir's List is concerned only with restaurants;
+non-restaurants are ignored entirely.** D-3, D-5 and D-6 below follow from it.
 
-Venue type and cuisine are decided while the row is still a candidate, so the
-reviewed load remains the only writer of the catalogue and the run directory
-stays immutable. Photos cannot work that way: the image store is keyed by
-listing id, which does not exist until the load runs. They are therefore a
-separate command with its own manifest, report and `--execute` gate.
+## D-1 · Admission and classification inside the run, photos after the load
+
+Type and cuisine are decided while the row is still a candidate, so the reviewed
+load remains the only writer of the catalogue and the run directory stays
+immutable. Photos cannot work that way: the image store is keyed by listing id,
+which does not exist until the load runs. They are therefore a separate command
+with its own manifest, report and `--execute` gate.
 
 *Rejected:* a post-load command that re-reads the source snapshots for
 classification — it duplicates the source parsing, needs a second audit path,
@@ -19,49 +22,56 @@ and puts a second writer on the catalogue for data the batch could have carried.
 ## D-2 · Brand-map cuisine is evidence, but not the certifier's word
 
 A curated chain → cuisine table is stronger than a name keyword and weaker than
-a published cuisine. It is labelled `BRAND_MAP` so a curator can tell the
-three apart. It never overrides the source; nothing overrides the source.
+a published cuisine. It is labelled `BRAND_MAP` so a curator can tell the three
+apart. It never overrides the source; nothing overrides the source.
 
-*Rejected:* name keywords only — it would leave every chain row null,
-including the ones whose cuisine is not in dispute.
+*Rejected:* name keywords only — it would leave every chain row null, including
+the ones whose cuisine is not in dispute.
 
-## D-3 · A closed nine-value venue type plus "undecided"
+## D-3 · Two vocabularies: one to recognise, one to publish
 
-`RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY`, `GROCERY`, `MARKET`, `BUTCHER`,
-`CATERER`, `OTHER`, and null. `OTHER` means *decided: none of these* (a
-distributor, a processor); null means *not decided*. The two are different
-answers and the report treats them differently.
+`VenueClass` is what the evidence says, including the classes we refuse
+(`GROCERY`, `MARKET`, `BUTCHER`, `CATERER`, `OTHER`). `VenueType` is what a
+stored listing may be: `RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY` (the last
+pending Q-9). Only `VenueType` is persisted; `VenueClass` appears in the report.
 
-*Rejected:* a full OSM taxonomy — it is a large surface we cannot populate from
-certifier categories, and the product question is only "can I eat here".
+*Rejected:* one nine-value enum stored on the row. It would either persist
+`BUTCHER` on rows that must not exist (contradicting L-1) or force the classifier
+to answer null for something it recognised perfectly well, losing the reason in
+the report.
 
 ## D-4 · Evidence lives on the listing, as two enums
 
-`venue_type_source` and `cuisine_source` are short CHECK-constrained enums.
-The report is the detailed audit; the columns let the detail surface (and a
-future curator tool) say *why* without re-reading a run directory that may be
-archived.
+`venue_type_source` and `cuisine_source` are short CHECK-constrained enums. The
+report is the detailed audit; the columns let a later surface say *why* without
+re-reading a run directory that may be archived.
 
 *Rejected:* report-only provenance — the AC asks for it "on the listing".
 
 ## D-5 · `venueType` is not exposed in the API yet
 
-Publishing non-restaurants is an open product decision (Q-4). Exposing the type
-now would force a UI that either hides rows or presents groceries as
-restaurants. It is stored, reported, and used for the index rule only.
+Every stored listing is now a restaurant (L-1), so the type only distinguishes
+restaurant / cafe / fast food / bakery. That is useful, but the deck of cards is
+already being reworked (SC-199) and adding a field to three DTOs for a UI nobody
+has designed yet is speculative.
 
 *Rejected:* expose now and hide in the frontend — a hidden field is a contract
 someone will depend on.
 
-## D-6 · Non-serving types are stored but not indexed
+## D-6 · Non-restaurants are excluded from the catalogue entirely
 
-The restaurant search reads `listing_search`. A butcher or a distributor is a
-real row we want to keep and classify, but it is not a restaurant result. The
-load simply does not write its mirror row.
+A non-restaurant is not stored, not indexed and not published. It becomes an
+`IngestReject` with its recognised class and the deciding evidence, so the run
+report can say "37 rows excluded, 22 of them because the name says butcher".
 
-*Rejected:* adding `venue_type` to the mirror and filtering in the search query
-— that edits the search SQL (SC-199's quantization work) for a decision that is
-still open, and the default outcome is identical.
+*Rejected:* store the row, hide it from search, publish later. That was the
+design before L-1. It leaves rows in `restaurant_listings` that the product says
+do not belong, forces every future query to remember to filter them, and makes
+"is this row published?" a property of the query rather than of the data.
+
+**Consequence, accepted:** a row the source files under "Restaurants" but whose
+name says butcher (three such rows exist today) is excluded. A coarse category
+loses to a specific shop word.
 
 ## D-7 · Free photo sources only
 
@@ -101,16 +111,26 @@ a storage decision (there is no column today), and the API does not carry them
 either. Designing them here would invent an answer to a product question, so
 they wait for Q-3.
 
-## D-12 · The pre-approval prototype is a spike, not a design
+## D-12 · The purge of existing rows is not a migration
 
-`VenueType` and `VenueClassifier` were written in this worktree before the
-design existed, while the story was parked. They are kept as a reference for the
-curated tables but are not cited by `00`–`08`. Implementation is TDD against the
-approved design; anything the spike got right will come back as a test.
+Three rows in the catalogue are not restaurants. Deleting data inside a Flyway
+migration hides a destructive act in a schema change that gets applied
+automatically. The purge is therefore a separate, reported step: re-run the gate
+over stored rows, print the list, take a `pg_dump`, delete the confirmed rows and
+their claims.
+
+*Rejected:* `DELETE` in `V25` — irreversible on upgrade, invisible in review.
+
+## D-13 · The pre-approval prototype is a spike, not a design
+
+`VenueType` and `VenueClassifier` were written in this worktree before the design
+existed, while the story was parked. They predate the gate and the
+two-vocabulary split. They are kept as a reference for the curated tables but are
+not cited by `00`–`08`. Implementation is TDD against the approved design;
+anything the spike got right will come back as a test.
 
 ## Open questions carried forward
 
-Q-1 iteration · Q-2 phase-2 ACs · Q-3 phone/website vs SC-202 · Q-4 publishing
-non-restaurants · Q-5 exposing the type · Q-6 photo sources (closed by D-7
-pending approval) · Q-7 review queue (closed by D-10 pending approval) · Q-8
-report vs manual edit.
+Q-1 iteration · Q-2 phase-2 ACs · Q-3 phone/website vs SC-202 · Q-5 exposing the
+type · Q-6 photo sources (D-7) · Q-7 review queue (D-10) · Q-8 report vs manual
+edit · **Q-9 bakeries**. Q-4 is closed by L-1.

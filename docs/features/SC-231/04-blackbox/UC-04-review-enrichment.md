@@ -9,21 +9,28 @@ sequenceDiagram
   actor DC as Data Curator
   participant TL as Tahir's List
   DC->>TL: 1. Open the run's report
-  TL-->>DC: 2. Enrichment section: counts by type, cuisine assignments, undecided, conflicts
-  TL-->>DC: 3. Per-row evidence: claim key + the class that decided each value
-  TL-->>DC: 4. Review queue: weak and conflicting decisions
-  DC->>TL: 5. (photo pass) open its report
-  TL-->>DC: 6. photographed / skipped / failed / no candidate, per listing
-  DC->>TL: 7. Re-run the same batch
-  TL-->>DC: 8. identical decisions, no catalogue change
+  TL-->>DC: 2. Enrichment section: admitted by type, excluded by class, undecided, cuisines, conflicts
+  TL-->>DC: 3. Per-row evidence: claim key + the class that decided the verdict
+  TL-->>DC: 4. Excluded and undecided rows listed in full, with reasons
+  TL-->>DC: 5. Review queue: weak and conflicting decisions
+  DC->>TL: 6. (photo pass) open its report
+  TL-->>DC: 7. photographed / skipped / failed / no candidate, per listing
+  DC->>TL: 8. Re-run the same batch
+  TL-->>DC: 9. identical decisions, no catalogue change
 ```
-**A1 — nothing could be decided** · said out loud.
+**A1 — nothing could be admitted** · said out loud.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: "no decisive evidence in this run" (step 2)
+  TL->>TL: "no row in this run could be admitted" (step 2)
 ```
-**A2 — a stored value differs from the decision** · the owner edited it.
+**A2 — a large share excluded** · a classifier bug or a source change must be visible.
+```mermaid
+sequenceDiagram
+  participant TL as Tahir's List
+  TL->>TL: admitted / excluded / undecided shares + top reasons (step 2)
+```
+**A3 — a stored value differs from the decision** · the owner edited it.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
@@ -39,5 +46,5 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
-  TL->>TL: the section says "photo pass not run for this batch" (step 6)
+  TL->>TL: the section says "photo pass not run for this batch" (step 7)
 ```

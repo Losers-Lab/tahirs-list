@@ -80,6 +80,19 @@ implementation.
 > - Paying for a places API.
 > - Changing the verification or hand-cut rules.
 
+## Locked decisions (owner)
+
+| # | Decision | Date |
+|---|---|---|
+| L-1 | **Tahir's List is concerned only with restaurants. Non-restaurants are ignored entirely** — not published, not stored in the catalogue, not indexed. The classifier's job is to *keep them out*, and every exclusion is reported. | 2026-11-09 |
+| L-2 | An undecided row (no evidence that it is a restaurant) is **not loaded**; it is held and reported for a curator. | 2026-11-09 (implied by L-1) |
+
+Consequence to be honest about: the current catalogue holds rows that L-1 excludes —
+`Alladin Halal Meat & Grocery [Butcher Dept. ONLY]`, `Hamza Meat Shop [Butcher
+Dept. ONLY]`, `Jamaica Live Poultry Meat Market [Butcher Dept. Only]` — plus pure
+bakeries depending on Q-9. They are removed when this lands, and the removal is
+reported.
+
 ## Personas
 
 | Prefix | Persona | Relevance |
@@ -94,18 +107,22 @@ implementation.
 
 | # | Edge case | Handling |
 |---|---|---|
-| E-1 | 「Madina Market (Kitchen)」 certified with HMS category *Restaurants* | Source category wins → `RESTAURANT`; the name word "market" never overrides it |
-| E-2 | HMS *Retail Store* named "Hamza Meat Shop" | `BUTCHER`; a non-restaurant category can never yield `RESTAURANT` |
-| E-3 | HMS *Slaughter House* | `BUTCHER`, never a restaurant |
-| E-4 | HMS *Distributor* / *Processor* / *Misc* | `OTHER`, listed in the report |
-| E-5 | Name "Pizza & Biryani" — two cuisine families | Cuisine stays null; conflict reported |
-| E-6 | Chain with a curated brand cuisine | Cuisine from the brand map; evidence says `BRAND_MAP` |
-| E-7 | No OSM tag (SC-227 not merged, or the hit is not a POI) | Category + name evidence only; still deterministic |
-| E-8 | Photo candidate with an unknown or non-free licence | Skipped and reported; no bytes stored |
-| E-9 | Existing owner-set cuisine | Untouched; the fill-nulls rule wins |
-| E-10 | Photo fetch or decode fails | Row keeps any existing photo; gap reported |
-| E-11 | Two runs classify the same row differently | The later run's value wins only if the existing value is null; the report shows both |
-| E-12 | A listing already has a cover photo and a re-run finds another | Never replaced without `--replace` |
+| E-1 | 「Madina Market (Kitchen)」 certified with HMS category *Restaurants* | `RESTAURANT`: a shop word ("market") is overridden by a premises word ("kitchen") |
+| E-2 | HMS *Retail Store* named "Hamza Meat Shop" | **Excluded** — non-restaurant category and a shop marker |
+| E-3 | HMS *Slaughter House* | **Excluded** |
+| E-4 | HMS *Distributor* / *Processor* / *Misc* | **Excluded** |
+| E-5 | HMS *Restaurants* named "Jamaica Live Poultry Meat Market [Butcher Dept. Only]" | **Excluded**: the category says restaurant, but the name says shop and nothing says premises (L-1 overrides a coarse category) |
+| E-6 | "Mannan Bakery and Grill" | Admitted: shop word ("bakery") plus premises word ("grill") |
+| E-7 | Pure bakery (Q-9) | Default: excluded as a shop; one word flips the whole class |
+| E-8 | Name "Pizza & Biryani" — two cuisine families | Cuisine stays null; conflict reported |
+| E-9 | Chain with a curated brand cuisine | Cuisine from the brand map; evidence says `BRAND_MAP` |
+| E-10 | No OSM tag (SC-227 not merged, or the hit is not a POI) | Category + name evidence only; still deterministic |
+| E-11 | No evidence that the row is a restaurant | **Not loaded**, held for a curator, reported |
+| E-12 | Photo candidate with an unknown or non-free licence | Skipped and reported; no bytes stored |
+| E-13 | Existing owner-set cuisine | Untouched; the fill-nulls rule wins |
+| E-14 | Photo fetch or decode fails | Row keeps any existing photo; gap reported |
+| E-15 | Two runs classify the same row differently | The later run's value wins only if the existing value is null; the report shows both |
+| E-16 | A listing already has a cover photo and a re-run finds another | Never replaced without `--replace` |
 
 ## Open questions
 
@@ -114,8 +131,9 @@ implementation.
 | Q-1 | Iteration/sprint placement | Adnan | Sprint sign-off |
 | Q-2 | **Phase 2 ACs are not ratified in Shortcut** — this design proposes them | Founder | Design approval |
 | Q-3 | **Phone/website conflict:** scope phase 3 includes them, but out-of-scope assigns phone/hours/reviews to SC-202. Which story owns phone/website? | Founder | Before any phase-3 WI |
-| Q-4 | **Publishing non-restaurants:** PRD BR-1 says restaurants only. Do grocery/butcher/market rows become a published listing type, or stay out of restaurant search? Default until decided: classified, stored, not searchable (D-6). | Founder | Design approval |
-| Q-5 | **Exposing `venueType` in the public API** before Q-4 lands | Founder | Design approval |
+| Q-4 | ~~Publishing non-restaurants~~ — **answered 2026-11-09: only restaurants, ignore every non-restaurant (L-1)** | Founder | closed |
+| Q-5 | **Exposing `venueType` in the public API** now that only restaurants are stored (it distinguishes restaurant / cafe / fast food) | Founder | Design approval |
 | Q-6 | Photo sources: free only (OSM + Wikimedia) or a keyed provider? Default: free only (D-7). | Founder | Design approval |
-| Q-7 | Cuisine from name keywords is a heuristic — accept a review queue (confidence + evidence) rather than silent assignment? Default: yes (D-5). | Founder | Design approval |
+| Q-7 | Cuisine from name keywords is a heuristic — accept a review queue (confidence + evidence) rather than silent assignment? Default: yes (D-10). | Founder | Design approval |
 | Q-8 | Does the run report or the listing win when they disagree after a manual edit? | Curator | Design approval |
+| Q-9 | **Do pure bakeries count as restaurants?** Default: no — a bakery is a shop, so it is excluded unless the name also says premises (grill/restaurant/cafe/kitchen). This is the one class where the answer is genuinely unclear, and it moves 3 rows in the current catalogue. | Founder | Design approval |

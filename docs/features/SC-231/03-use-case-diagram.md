@@ -16,7 +16,7 @@ flowchart LR
     end
 
     subgraph tl [Tahir's List]
-        UC1(("UC-01<br/>Classify a row's<br/>venue type"))
+        UC1(("UC-01<br/>Add a row only if<br/>it is a restaurant"))
         UC2(("UC-02<br/>Assign a cuisine"))
         UC3(("UC-03<br/>Attach a licensed<br/>cover photo"))
         UC4(("UC-04<br/>Review enrichment<br/>outcomes"))
@@ -37,7 +37,7 @@ flowchart LR
     WC --> UC3
 
     UC1 -.->|«extend» after match| UC11
-    UC2 -.->|«extend» after classify| UC1
+    UC2 -.->|«extend» for admitted rows| UC1
     UC3 -.->|«include» needs the listing| UC13
     UC4 -.->|«include» renders| UC11
     UC4 -.->|«include» renders| UC3
@@ -50,11 +50,11 @@ flowchart LR
 
 | Element | Why it is drawn that way |
 |---|---|
-| `UC-01` **extends** SC-211 UC-01 | Classification is a step added inside an existing run, not a new run |
-| `UC-02` **extends** UC-01 | Cuisine is only asked for once the type is known, and only for meal-serving types |
+| `UC-01` **extends** SC-211 UC-01 | Admission is a step added inside an existing run, not a new run. It decides *whether* the row may be a candidate at all (L-1) |
+| `UC-02` **extends** UC-01 | Cuisine is only asked for once a row is admitted, and only for meal-serving types |
 | `UC-03` **includes** SC-211 UC-03 | A photo needs a listing id, so it can only run after a load |
 | `UC-04` **includes** UC-01 and UC-03 | The report renders both passes; one report format, two producers |
-| `Search listings` **depends on** UC-01…UC-03 | The user sees the enrichment; they never trigger it |
+| `Search listings` **depends on** UC-01…UC-03 | The user sees the enrichment; they never trigger it, and everything they see is a restaurant |
 | `Restaurant Owner` is dashed | Overriding type/cuisine is a later story (out of scope); the arrow records that enrichment must not block it |
 | External actors sit left | OSM and Commons are read-only actors, not owned stores; the directory sources are the existing SC-211 actors |
 
@@ -62,13 +62,13 @@ flowchart LR
 
 | Use case | Status | Notes |
 |---|---|---|
-| SC-211 UC-01 Run a sample directory ingestion | existing, extended | gains classification and the enrichment section of the report |
-| SC-211 UC-03 Load a reviewed batch | existing, extended | writes venue type, evidence classes, cuisine; indexes only meal-serving types |
-| UC-01 Classify a row's venue type | **new** | phase 1 |
+| SC-211 UC-01 Run a sample directory ingestion | existing, extended | gains the admission gate, classification and the enrichment section of the report |
+| SC-211 UC-03 Load a reviewed batch | existing, extended | writes venue type, evidence classes, cuisine; **only admitted rows are written** |
+| UC-01 Add a row only if it is a restaurant | **new** | phase 1; the gate that enforces L-1 |
 | UC-02 Assign a cuisine | **new** | phase 1 |
 | UC-03 Attach a licensed cover photo | **new** | phase 2, post-load |
 | UC-04 Review enrichment outcomes | **new** | spans both passes |
-| SC-36 Search listings | existing, unchanged surface | reads whatever the load wrote |
+| SC-36 Search listings | existing, unchanged surface | reads whatever the load wrote — and everything the load writes is a restaurant |
 
 ## Personas affected
 

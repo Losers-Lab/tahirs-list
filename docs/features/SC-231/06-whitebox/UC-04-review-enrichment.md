@@ -36,8 +36,9 @@ and never mutates the ingestion run's artifacts.
 
 | Phase-4 flow | Class operation and error |
 |---|---|
-| main 2–4 | `RenderEnrichmentReport.section` groups by `VenueType`, counts evidence classes, lists conflicts and undecided rows with claim keys |
-| A1 nothing decided | the section prints "no decisive evidence in this run" — it is always present, never omitted |
-| A2 stored value differs | the load records both; `RenderEnrichmentReport` prints `decision=… stored=… (kept)` |
+| main 2–4 | `RenderEnrichmentReport.section` groups admitted rows by `VenueType`, excluded rows by `VenueClass` with the deciding evidence, lists undecided rows, and counts evidence classes |
+| A1 nothing admitted | the section prints "no row in this run could be admitted" — it is always present, never omitted |
+| A2 large excluded share | the section prints admitted / excluded / undecided shares and the top exclusion reasons |
+| A3 stored value differs | the load records both; `RenderEnrichmentReport` prints `decision=… stored=… (kept)` |
 | E1 report not writable | `FileRunArtifacts.complete` throws; the run has no `run.json`, so it is not pending and cannot be loaded |
 | P1 photo pass not run | the photo summary is rendered from a null result as "photo pass not run for this batch" |
