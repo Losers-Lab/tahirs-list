@@ -250,6 +250,49 @@ class RestaurantListingTest : FunSpec({
         listing.provenance shouldBe Provenance.RESEARCH_SEED_PHOTON_GEOCODE
     }
 
+    test("imageVersion defaults to 0 (no photo) on every factory (SC-205)") {
+        val created = RestaurantListing.new(
+            name = "Halal Grill",
+            address = "123 Main St",
+            location = LatLng(40.0, -74.0),
+            cuisine = Cuisine("mediterranean"),
+            ownerId = Uuid.random(),
+        )
+        created.imageVersion shouldBe 0L
+
+        val stored = RestaurantListing.fromStorage(
+            id = Uuid.random(),
+            name = "Seed Row",
+            address = "1 Seed St",
+            location = LatLng(40.0, -74.0),
+            cuisine = null,
+            ownerId = null,
+            brandId = null,
+            provenance = null,
+            verificationStatus = VerificationStatus.UNVERIFIED,
+            createdAt = Clock.System.now(),
+        )
+        stored.imageVersion shouldBe 0L
+    }
+
+    test("fromStorage reconstitutes the photo version (SC-205)") {
+        val listing = RestaurantListing.fromStorage(
+            id = Uuid.random(),
+            name = "Seed Row",
+            address = "1 Seed St",
+            location = LatLng(40.0, -74.0),
+            cuisine = null,
+            ownerId = null,
+            brandId = null,
+            provenance = null,
+            verificationStatus = VerificationStatus.UNVERIFIED,
+            createdAt = Clock.System.now(),
+            imageVersion = 1_760_000_000_123L,
+        )
+
+        listing.imageVersion shouldBe 1_760_000_000_123L
+    }
+
     test("fromStorage reconstitutes the alcoholServed flag") {
         val listing = RestaurantListing.fromStorage(
             id = Uuid.random(),
