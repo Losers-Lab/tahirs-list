@@ -30,11 +30,11 @@ trap 'rm -f "$env_file"' EXIT
   echo "APP_DB_USER=${APP_DB_USER:-halal}"
   echo "APP_DB_PASSWORD=${APP_DB_PASSWORD:-halal}"
   # Object storage must be reachable: the pass cannot store bytes without it.
-  echo "APP_STORAGE_ENDPOINT=${APP_STORAGE_ENDPOINT:-http://minio:9000}"
-  echo "APP_STORAGE_REGION=${APP_STORAGE_REGION:-us-east-1}"
-  echo "APP_STORAGE_ACCESS_KEY=${APP_STORAGE_ACCESS_KEY:-minioadmin}"
-  echo "APP_STORAGE_SECRET_KEY=${APP_STORAGE_SECRET_KEY:-minioadmin}"
-  echo "APP_STORAGE_BUCKET=${APP_STORAGE_BUCKET:-tahirs-list}"
+  echo "APP_S3_ENDPOINT=${APP_S3_ENDPOINT:-http://minio:9000}"
+  echo "APP_S3_REGION=${APP_S3_REGION:-us-east-1}"
+  echo "APP_S3_ACCESS_KEY=${APP_S3_ACCESS_KEY:-minioadmin}"
+  echo "APP_S3_SECRET_KEY=${APP_S3_SECRET_KEY:-minioadmin}"
+  echo "APP_S3_BUCKET=${APP_S3_BUCKET:-halal}"
   if [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
     echo "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}"
   fi
