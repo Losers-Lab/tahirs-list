@@ -91,3 +91,33 @@ tasks.register<JavaExec>("loadIngestBatch") {
         ?.filter { it.isNotBlank() }
         ?.let { args(it) }
 }
+
+/**
+ * SC-231 UC-03: the cover-photo pass. Separate from the load on purpose — a
+ * photo source outage must not fail an ingestion batch.
+ */
+tasks.register<JavaExec>("attachCoverPhotos") {
+    group = "ingestion"
+    description = "Preview (and with --execute fetch) cover photos for listings."
+    mainClass.set("com.tahirslist.bootstrap.photo.AttachCoverPhotosMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    (project.findProperty("ingestArgs") as String?)
+        ?.split(' ')
+        ?.filter { it.isNotBlank() }
+        ?.let { args(it) }
+}
+
+/**
+ * SC-231 D-12: the one-off purge of rows the admission gate would never admit.
+ * Dry run by default; `--execute` refuses without a backup marker.
+ */
+tasks.register<JavaExec>("purgeNonRestaurants") {
+    group = "ingestion"
+    description = "List (and with --execute --backup=<dump> remove) non-restaurant rows."
+    mainClass.set("com.tahirslist.bootstrap.photo.PurgeNonRestaurantsMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    (project.findProperty("ingestArgs") as String?)
+        ?.split(' ')
+        ?.filter { it.isNotBlank() }
+        ?.let { args(it) }
+}

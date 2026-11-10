@@ -11,15 +11,18 @@ import com.tahirslist.application.ingestion.WriteTarget
 import com.tahirslist.application.ingestion.BrandRepository
 import com.tahirslist.domain.account.Account
 import com.tahirslist.domain.account.Email
+import com.tahirslist.domain.restaurant.AdmissionDecision
 import com.tahirslist.domain.restaurant.CertificationClaim
 import com.tahirslist.domain.restaurant.CertificationTier
 import com.tahirslist.domain.restaurant.CrossContamination
 import com.tahirslist.domain.restaurant.Cuisine
+import com.tahirslist.domain.restaurant.EnrichmentSource
 import com.tahirslist.domain.restaurant.HandCutDeclaration
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.Provenance
 import com.tahirslist.domain.restaurant.RestaurantListing
 import com.tahirslist.domain.restaurant.VerificationStatus
+import com.tahirslist.domain.restaurant.VenueType
 import com.tahirslist.persistence.PostgisTestDatabase
 import com.tahirslist.persistence.account.ExposedAccountRepository
 import com.tahirslist.persistence.brand.ExposedBrandRepository
@@ -57,6 +60,9 @@ private fun candidate(
     crossContamination: CrossContamination = CrossContamination.DEFAULT,
     lat: Double = 45.501900,
     lng: Double = -73.567400,
+    admission: AdmissionDecision.Admitted? = null,
+    cuisine: String? = null,
+    cuisineSource: EnrichmentSource? = null,
 ): IngestionCandidate = IngestionCandidate(
     name = name,
     address = "253 Yonge St",
@@ -69,6 +75,9 @@ private fun candidate(
     claims = claims,
     metro = "Toronto",
     manualCrossContamination = crossContamination,
+    admission = admission,
+    cuisineName = cuisine,
+    cuisineSource = cuisineSource,
 )
 
 class ExposedIngestionBatchTest : FunSpec() {
@@ -143,6 +152,134 @@ class ExposedIngestionBatchTest : FunSpec() {
                 result.upgraded shouldBe 1
                 postgis.count("SELECT count(*) FROM restaurant_listings WHERE venue_key = '$VENUE_KEY'") shouldBe 1
                 postgis.count("SELECT count(*) FROM external_certification_claims WHERE source = 'hms' AND source_record_ref = 'H-1'") shouldBe 1
+            }
+        }
+
+        // ---- SC-231: enrichment on the write path ---------------------------
+
+        test("applyBatch writes the derived type and cuisine, and the filter can see them") {
+            runTest {
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Insert,
+                            candidate(
+                                admission = AdmissionDecision.Admitted(
+                                    VenueType.RESTAURANT,
+                                    EnrichmentSource.SOURCE_CATEGORY,
+                                ),
+                                cuisine = "lebanese",
+                                cuisineSource = EnrichmentSource.BRAND_MAP,
+                            ),
+                        ),
+                    ),
+                )
+
+                val listing = listings.findByVenueKey(VENUE_KEY) ?: error("listing not found")
+                listing.venueType shouldBe VenueType.RESTAURANT
+                listing.venueTypeSource shouldBe EnrichmentSource.SOURCE_CATEGORY
+                listing.cuisine?.value shouldBe "lebanese"
+                listing.cuisineSource shouldBe EnrichmentSource.BRAND_MAP
+                // sc-44: the cuisine filter reads the child table, and the search
+                // mirror reads the column — a derived cuisine must land in both.
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listing_cuisines " +
+                        "WHERE listing_id = '${listing.id}' AND cuisine = 'lebanese'",
+                ) shouldBe 1
+                postgis.count(
+                    "SELECT count(*) FROM listing_search WHERE id = '${listing.id}' AND cuisine = 'lebanese'",
+                ) shouldBe 1
+            }
+        }
+
+        test("a re-run never overwrites a cuisine an owner set") {
+            runTest {
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Insert,
+                            candidate(
+                                admission = AdmissionDecision.Admitted(
+                                    VenueType.RESTAURANT,
+                                    EnrichmentSource.SOURCE_CATEGORY,
+                                ),
+                                cuisine = "lebanese",
+                                cuisineSource = EnrichmentSource.BRAND_MAP,
+                            ),
+                        ),
+                    ),
+                )
+                val seeded = listings.findByVenueKey(VENUE_KEY) ?: error("listing not found")
+
+                // The owner corrects the cuisine: the value is theirs, so no derived source.
+                postgis.execute(
+                    "UPDATE restaurant_listings SET cuisine = 'syrian', cuisine_source = NULL " +
+                        "WHERE id = '${seeded.id}'",
+                )
+                postgis.execute(
+                    "UPDATE restaurant_listing_cuisines SET cuisine = 'syrian' WHERE listing_id = '${seeded.id}'",
+                )
+
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Update(seeded.id),
+                            candidate(
+                                admission = AdmissionDecision.Admitted(
+                                    VenueType.RESTAURANT,
+                                    EnrichmentSource.SOURCE_CATEGORY,
+                                ),
+                                cuisine = "afghan",
+                                cuisineSource = EnrichmentSource.NAME_KEYWORD,
+                            ),
+                        ),
+                    ),
+                )
+
+                val after = listings.findById(seeded.id) ?: error("listing vanished")
+                after.cuisine?.value shouldBe "syrian"
+                // The source describes the value that is there, so it stays null.
+                after.cuisineSource shouldBe null
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listing_cuisines WHERE listing_id = '${after.id}'",
+                ) shouldBe 1
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listing_cuisines " +
+                        "WHERE listing_id = '${after.id}' AND cuisine = 'afghan'",
+                ) shouldBe 0
+            }
+        }
+
+        test("a re-run keeps the first derived type rather than re-deciding it") {
+            runTest {
+                val inserted = candidate(
+                    admission = AdmissionDecision.Admitted(VenueType.CAFE, EnrichmentSource.SOURCE_CATEGORY),
+                    cuisine = "lebanese",
+                    cuisineSource = EnrichmentSource.BRAND_MAP,
+                )
+                listings.applyBatch(listOf(ListingWrite(WriteTarget.Insert, inserted)))
+                val first = listings.findByVenueKey(VENUE_KEY) ?: error("listing not found")
+
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Update(first.id),
+                            inserted.copy(
+                                admission = AdmissionDecision.Admitted(
+                                    VenueType.RESTAURANT,
+                                    EnrichmentSource.NAME_KEYWORD,
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+
+                val after = listings.findById(first.id) ?: error("listing vanished")
+                after.venueType shouldBe VenueType.CAFE
+                after.venueTypeSource shouldBe EnrichmentSource.SOURCE_CATEGORY
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listing_cuisines WHERE listing_id = '${after.id}'",
+                ) shouldBe 1
             }
         }
 

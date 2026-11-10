@@ -13,6 +13,7 @@ import com.tahirslist.domain.restaurant.CertificationClaim
 import com.tahirslist.domain.restaurant.CertificationTier
 import com.tahirslist.domain.restaurant.CrossContamination
 import com.tahirslist.domain.restaurant.Cuisine
+import com.tahirslist.domain.restaurant.EnrichmentSource
 import com.tahirslist.domain.restaurant.HalalItem
 import com.tahirslist.domain.restaurant.HalalScope
 import com.tahirslist.domain.restaurant.LatLng
@@ -21,6 +22,7 @@ import com.tahirslist.domain.restaurant.Provenance
 import com.tahirslist.domain.restaurant.Rating
 import com.tahirslist.domain.restaurant.RestaurantListing
 import com.tahirslist.domain.restaurant.VerificationStatus
+import com.tahirslist.domain.restaurant.VenueType
 import com.tahirslist.persistence.db.Brands
 import com.tahirslist.persistence.db.ExternalCertificationClaims
 import com.tahirslist.persistence.db.Favorites
@@ -35,6 +37,7 @@ import com.tahirslist.persistence.db.doubleParam
 import com.tahirslist.persistence.db.executeUpdate
 import com.tahirslist.persistence.db.queryRows
 import com.tahirslist.persistence.db.toSqlTimestamp
+import com.tahirslist.persistence.photo.toCoverPhoto
 import org.jetbrains.exposed.v1.core.statements.StatementType
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -72,11 +75,11 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
     override suspend fun save(listing: RestaurantListing): RestaurantListing = suspendTransaction(db) {
         val id = queryRows(
             """
-            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, venue_key, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination)
+            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, venue_key, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination, venue_type, venue_type_source, cuisine_source)
             VALUES (
                 ?, ?, ?, ?, ?, ?,
                 ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             RETURNING id
             """.trimIndent(),
@@ -201,17 +204,15 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         suspendTransaction(db) {
             queryRows(
                 """
-                SELECT $LISTING_COLUMNS
-                FROM restaurant_listings
-                WHERE id = (
+                $LISTING_SELECT
+                WHERE restaurant_listings.id = (
                     SELECT listing_id
                     FROM external_certification_claims
                     WHERE source = ? AND source_record_ref = ?
                     ORDER BY created_at
                     LIMIT 1
                 )
-                """.trimIndent(),
-                listOf(
+                """.trimIndent(),                listOf(
                     ExternalCertificationClaims.claimSource bind source,
                     ExternalCertificationClaims.sourceRecordRef bind sourceRecordRef,
                 ),
@@ -221,8 +222,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
     override suspend fun findByVenueKey(venueKey: String): RestaurantListing? = suspendTransaction(db) {
         queryRows(
             """
-            SELECT $LISTING_COLUMNS
-            FROM restaurant_listings
+            $LISTING_SELECT
             WHERE venue_key = ?
             """.trimIndent(),
             listOf(RestaurantListings.venueKey bind venueKey),
@@ -233,14 +233,13 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         suspendTransaction(db) {
             queryRows(
                 """
-                SELECT $LISTING_COLUMNS
-                FROM restaurant_listings
+                $LISTING_SELECT
                 WHERE location_lat_6 = round(?::numeric, 6)
                   AND location_lng_6 = round(?::numeric, 6)
                   -- Matches uq_restaurant_listings_research_location's predicate so
                   -- the lookup uses the partial index instead of a seq scan.
                   AND provenance IS NOT NULL
-                ORDER BY created_at, name
+                ORDER BY restaurant_listings.created_at, restaurant_listings.name
                 """.trimIndent(),
                 listOf(doubleParam(lat), doubleParam(lng)),
             ) { toListing(it) }.map { withHalalItems(it) }
@@ -454,8 +453,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
     private fun JdbcTransaction.loadById(id: Uuid): RestaurantListing? =
         queryRows(
             """
-            SELECT $LISTING_COLUMNS
-            FROM restaurant_listings
+            $LISTING_SELECT
             WHERE id = ?
             """.trimIndent(),
             listOf(RestaurantListings.id bind id),
@@ -474,12 +472,26 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         candidate: IngestionCandidate,
         brandId: Uuid,
     ): Uuid {
+        // Enrichment is fill-nulls-only (WI-12): an owner's or curator's cuisine
+        // is never overwritten by a re-run, and a source only travels with the
+        // value it produced. The claim-derived trust columns below are separate
+        // and may legitimately change.
+        val currentCuisine = queryRows(
+            "SELECT cuisine FROM restaurant_listings WHERE id = ?",
+            listOf(RestaurantListings.id bind id),
+        ) { it.getString("cuisine") }.firstOrNull()
+        val fillsCuisine = currentCuisine == null && candidate.cuisineName != null
+
         val rows = executeUpdate(
             """
             UPDATE restaurant_listings SET
                 name = ?, address = ?, city = ?, province = ?, postal = ?, country = ?,
                 location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
-                brand_id = ?, venue_key = ?
+                brand_id = ?, venue_key = ?,
+                venue_type = COALESCE(venue_type, ?),
+                venue_type_source = COALESCE(venue_type_source, ?),
+                cuisine = COALESCE(cuisine, ?),
+                cuisine_source = COALESCE(cuisine_source, ?)
             WHERE id = ?
             """.trimIndent(),
             listOf(
@@ -493,10 +505,16 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                 doubleParam(candidate.location.lat),
                 RestaurantListings.brandId bind brandId,
                 RestaurantListings.venueKey bind candidate.venueKey,
+                RestaurantListings.venueType bind candidate.admission?.venueType?.name,
+                RestaurantListings.venueTypeSource bind candidate.admission?.source?.name,
+                RestaurantListings.cuisine bind candidate.cuisineName,
+                RestaurantListings.cuisineSource bind
+                    if (fillsCuisine) candidate.cuisineSource?.name else null,
                 RestaurantListings.id bind id,
             ),
         )
         check(rows == 1) { "listing $id vanished between preview and apply" }
+        if (fillsCuisine) candidate.cuisineName?.let { addCuisineRow(id, Cuisine(it)) }
         return id
     }
 
@@ -629,7 +647,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             postal = candidate.postal,
             country = candidate.country,
             location = candidate.location,
-            cuisine = null,
+            cuisine = candidate.cuisineName?.let { Cuisine(it) },
             isHandCut = candidate.isHandCut,
             isDelivery = null,
             price = null,
@@ -642,20 +660,45 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             verificationBasis = candidate.verificationBasis,
             createdAt = Clock.System.now(),
             crossContamination = candidate.crossContamination,
+            venueType = candidate.admission?.venueType,
+            venueTypeSource = candidate.admission?.source,
+            cuisineSource = candidate.cuisineSource,
         )
-        return queryRows(
+        val id = queryRows(
             """
-            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, venue_key, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination)
+            INSERT INTO restaurant_listings (name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, owner_id, brand_id, provenance, venue_key, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination, venue_type, venue_type_source, cuisine_source)
             VALUES (
                 ?, ?, ?, ?, ?, ?,
                 ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             RETURNING id
             """.trimIndent(),
             saveArgs(listing),
         ) { it.getObject("id", UUID::class.java).toKotlinUuid() }.firstOrNull()
             ?: error("INSERT RETURNING id returned no row")
+
+        // sc-44: the multi-cuisine store is what the cuisine filter reads, so a
+        // derived cuisine that only filled the single column would be invisible
+        // to search. Idempotent, like the owner path in save().
+        listing.cuisine?.let { addCuisineRow(id, it) }
+        return id
+    }
+
+    /** sc-44: one listing/cuisine pair; a re-run adds nothing. */
+    private fun JdbcTransaction.addCuisineRow(listingId: Uuid, cuisine: Cuisine) {
+        executeUpdate(
+            """
+            INSERT INTO restaurant_listing_cuisines (listing_id, cuisine)
+            VALUES (?, ?)
+            ON CONFLICT (listing_id, cuisine) DO NOTHING
+            """.trimIndent(),
+            listOf(
+                RestaurantListingCuisines.listingId bind listingId,
+                RestaurantListingCuisines.cuisine bind cuisine.value,
+            ),
+            StatementType.INSERT,
+        )
     }
 
     private fun JdbcTransaction.resolveOrCreateBrand(name: String): Uuid {
@@ -841,32 +884,8 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
     override suspend fun findAll(): List<RestaurantListing> = suspendTransaction(db) {
         queryRows(
             """
-            SELECT
-                id,
-                name,
-                address,
-                city,
-                province,
-                postal,
-                country,
-                ST_Y(location::geometry) AS lat,
-                ST_X(location::geometry) AS lng,
-                cuisine,
-                is_hand_cut,
-                is_delivery,
-                price,
-                rating,
-                alcohol_served,
-                halal_scope,
-                cross_contamination,
-                owner_id,
-                brand_id,
-                provenance,
-                venue_key,
-                verification_status,
-                created_at
-            FROM restaurant_listings
-            ORDER BY created_at, name
+            $LISTING_SELECT
+            ORDER BY restaurant_listings.created_at, restaurant_listings.name
             """.trimIndent(),
         ) { rs -> toListing(rs) }.map { withHalalItems(it) }
     }
@@ -897,6 +916,9 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         RestaurantListings.alcoholServed bind listing.alcoholServed,
         RestaurantListings.halalScope bind listing.halalScope.name,
         RestaurantListings.crossContamination bind listing.crossContamination.name,
+        RestaurantListings.venueType bind listing.venueType?.name,
+        RestaurantListings.venueTypeSource bind listing.venueTypeSource?.name,
+        RestaurantListings.cuisineSource bind listing.cuisineSource?.name,
     )
 
     private fun JdbcTransaction.toListing(rs: ResultSet): RestaurantListing = RestaurantListing.fromStorage(
@@ -922,6 +944,10 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         venueKey = rs.getString("venue_key"),
         verificationStatus = VerificationStatus.valueOf(rs.getString("verification_status")),
         createdAt = rs.getTimestamp("created_at").toInstant().toKotlinInstant(),
+        venueType = rs.getString("venue_type")?.let { VenueType.valueOf(it) },
+        venueTypeSource = rs.getString("venue_type_source")?.let { EnrichmentSource.valueOf(it) },
+        cuisineSource = rs.getString("cuisine_source")?.let { EnrichmentSource.valueOf(it) },
+        coverPhoto = rs.toCoverPhoto("cp_"),
     )
 
     /** Load the per-item halal scope child rows (sc-119). */
@@ -941,11 +967,43 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
     private companion object {
         /** The read shape shared by every lookup, so all read paths agree. */
         val LISTING_COLUMNS = """
-            id, name, address, city, province, postal, country,
-            ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng,
-            cuisine, is_hand_cut, is_delivery, price, rating, alcohol_served,
-            halal_scope, cross_contamination, owner_id, brand_id, provenance, venue_key,
-            verification_status, created_at
+            restaurant_listings.id, restaurant_listings.name, restaurant_listings.address,
+            restaurant_listings.city, restaurant_listings.province, restaurant_listings.postal,
+            restaurant_listings.country,
+            ST_Y(restaurant_listings.location::geometry) AS lat,
+            ST_X(restaurant_listings.location::geometry) AS lng,
+            restaurant_listings.cuisine, restaurant_listings.is_hand_cut,
+            restaurant_listings.is_delivery, restaurant_listings.price, restaurant_listings.rating,
+            restaurant_listings.alcohol_served, restaurant_listings.halal_scope,
+            restaurant_listings.cross_contamination, restaurant_listings.owner_id,
+            restaurant_listings.brand_id, restaurant_listings.provenance,
+            restaurant_listings.venue_key, restaurant_listings.verification_status,
+            restaurant_listings.created_at,
+            restaurant_listings.venue_type, restaurant_listings.venue_type_source,
+            restaurant_listings.cuisine_source
+        """.trimIndent()
+
+        /**
+         * The listing read plus its cover photo (SC-231). A LEFT JOIN, not a
+         * second query: most listings have no photo, and a page must not pay an
+         * extra round trip per card to discover that.
+         */
+        val LISTING_SELECT = """
+            SELECT $LISTING_COLUMNS,
+                cp.source_kind AS cp_source_kind,
+                cp.storage_class AS cp_storage_class,
+                cp.licence AS cp_licence,
+                cp.attribution AS cp_attribution,
+                cp.author AS cp_author,
+                cp.source_url AS cp_source_url,
+                cp.google_place_id AS cp_google_place_id,
+                cp.google_photo_name AS cp_google_photo_name,
+                cp.expires_at AS cp_expires_at,
+                cp.content_hash AS cp_content_hash,
+                cp.width AS cp_width,
+                cp.height AS cp_height
+            FROM restaurant_listings
+            LEFT JOIN listing_cover_photos cp ON cp.listing_id = restaurant_listings.id
         """.trimIndent()
     }
 }

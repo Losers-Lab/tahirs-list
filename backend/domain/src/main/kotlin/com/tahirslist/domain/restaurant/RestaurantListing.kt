@@ -374,6 +374,10 @@ data class RestaurantListing(
             halalItems: Set<HalalItem> = emptySet(),
             crossContamination: CrossContamination = CrossContamination.DEFAULT,
             alcoholServed: Boolean = false,
+            venueType: VenueType? = null,
+            venueTypeSource: EnrichmentSource? = null,
+            cuisineSource: EnrichmentSource? = null,
+            coverPhoto: CoverPhoto? = null,
         ): RestaurantListing = RestaurantListing(
             id = id,
             name = name,
@@ -398,6 +402,10 @@ data class RestaurantListing(
             halalItems = halalItems,
             crossContamination = crossContamination,
             alcoholServed = alcoholServed,
+            venueType = venueType,
+            venueTypeSource = venueTypeSource,
+            cuisineSource = cuisineSource,
+            coverPhoto = coverPhoto,
         )
     }
 }

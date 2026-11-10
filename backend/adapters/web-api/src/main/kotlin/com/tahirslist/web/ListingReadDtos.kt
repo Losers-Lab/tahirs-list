@@ -33,6 +33,11 @@ data class BrowseCard(
     val verificationStatus: String,
     val imageThumbnailUrl: String,
     val imageSrcset: List<SrcsetEntry>,
+    /** SC-231: the credit the photo's source requires; null when there is no photo. */
+    val photoAttribution: String? = null,
+    val photoLicence: String? = null,
+    val photoSource: String? = null,
+    val photoSourceUrl: String? = null,
 )
 
 /** A browse card plus the search-only facts (rating, straight-line distance). */
@@ -92,6 +97,11 @@ data class DetailResponse(
     val imageSrcset: List<SrcsetEntry>,
     val imageUrl: String,
     val certificate: CertificatePayload? = null,
+    /** SC-231: the credit the photo's source requires; null when there is no photo. */
+    val photoAttribution: String? = null,
+    val photoLicence: String? = null,
+    val photoSource: String? = null,
+    val photoSourceUrl: String? = null,
 )
 
 /**
@@ -145,7 +155,19 @@ internal fun ApplicationCall.toBrowseCard(listing: RestaurantListing): BrowseCar
     verificationStatus = listing.verificationStatus.name,
     imageThumbnailUrl = imageUrl(listing.id, ImageVariant.THUMBNAIL_400),
     imageSrcset = imageSrcset(listing.id),
+    photoAttribution = credit(listing)?.attribution,
+    photoLicence = credit(listing)?.licence?.name,
+    photoSource = credit(listing)?.sourceKind?.name,
+    photoSourceUrl = credit(listing)?.sourceUrl,
 )
+
+/**
+ * SC-231: the photo a page may show — and therefore the credit it must show.
+ * An expired Places cache is already invisible (the endpoint 404s), so its
+ * credit must not be advertised either.
+ */
+internal fun credit(listing: RestaurantListing) =
+    listing.coverPhoto?.takeIf { it.isServableAt(java.time.Instant.now()) }
 
 internal fun ApplicationCall.toSearchCard(result: ListingSearchResult): SearchCard = SearchCard(
     id = result.id.toString(),
@@ -191,6 +213,10 @@ internal suspend fun ApplicationCall.toDetail(
     imageSrcset = imageSrcset(listing.id),
     imageUrl = imageUrl(listing.id, ImageVariant.FULL),
     certificate = certificateDetails(listing, reviews),
+    photoAttribution = credit(listing)?.attribution,
+    photoLicence = credit(listing)?.licence?.name,
+    photoSource = credit(listing)?.sourceKind?.name,
+    photoSourceUrl = credit(listing)?.sourceUrl,
 )
 
 /**

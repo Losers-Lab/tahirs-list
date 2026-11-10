@@ -47,6 +47,16 @@ export type BrowseListing = {
 	verificationStatus: string;
 	imageThumbnailUrl: string;
 	imageSrcset?: { width: number; url: string }[] | null;
+	/**
+	 * SC-231 photo credit. Present only when a photo exists and may be shown:
+	 * a Places cache past its expiry is omitted by the backend, because its bytes
+	 * are no longer servable. `photoSourceUrl` is the public source page (never a
+	 * media URL carrying a key).
+	 */
+	photoAttribution?: string | null;
+	photoLicence?: string | null;
+	photoSource?: string | null;
+	photoSourceUrl?: string | null;
 };
 
 /** GET /v1/listings/{id} detail payload — BrowseListing + the full-res hero. */
