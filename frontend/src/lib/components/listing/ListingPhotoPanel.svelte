@@ -27,8 +27,17 @@
 	let dialogOpen = $state(false);
 	let trigger = $state<HTMLButtonElement | null>(null);
 	let lastFile: File | null = null;
+	// The API always returns an image URL, so "has a photo" means "the image
+	// actually loads". A new src (fresh upload, or another listing) resets this.
+	let photoUnavailable = $state(false);
 
-	const hasPhoto = $derived(!!(src || fallbackSrc));
+	$effect(() => {
+		void src;
+		void fallbackSrc;
+		photoUnavailable = false;
+	});
+
+	const hasPhoto = $derived(!!(src || fallbackSrc) && !photoUnavailable);
 	const controlLabel = $derived(hasPhoto ? 'Replace photo' : 'Add a photo');
 
 	function openDialog() {
@@ -67,6 +76,7 @@
 			alt={name}
 			sizes="(min-width: 1200px) 1200px, 100vw"
 			eager
+			onUnavailable={() => (photoUnavailable = true)}
 		/>
 	{:else}
 		<div class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-stamp-50">

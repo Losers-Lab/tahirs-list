@@ -68,6 +68,34 @@ Both were only visible in the full run — the targeted specs stayed green, whic
 
 All backend runs used the container directly (`eclipse-temurin:21-jdk`, dedicated Gradle home `tahirs-list-gradle-cache-sc205`), not the shell script.
 
+## Browser pass (Playwright, 2026-11-10)
+
+Run headless Chromium in `mcr.microsoft.com/playwright:v1.65.0-noble` against a
+locally built stack (backend :8090 with real PostGIS + MinIO, SvelteKit dev
+server :5175). Script: `e2e/sc205-photo-upload.cjs`; screenshots:
+`docs/features/SC-205/screenshots/`.
+
+| Check | Result |
+|---|---|
+| Empty listing → labelled frame + *Add a photo* | PASS |
+| Dialog offers *Choose a photo* and *Take a photo* (camera input has `capture`) | PASS |
+| Upload succeeds; the image URL gains `&v=` | PASS |
+| Reload serves the **same** versioned URL (AC-4 durability) | PASS |
+| Admin sees *Replace photo* on a listing they do not own (AC-6) | PASS |
+| Replace discloses "the previous one cannot be restored" | PASS |
+| Signed-in non-owner is offered no photo control (AC-5) | PASS |
+| No uncaught browser errors | PASS |
+
+**Bug the browser found (fixed):** the API always returns an `imageUrl`, so the
+panel treated every listing as having a photo and offered *Replace* over a blank
+frame. `RestaurantPhoto` now reports when every candidate failed
+(`onUnavailable`), the panel falls back to its labelled empty state, and a
+component test pins it. jsdom had not caught this because it does not load
+images.
+
+This pass is now a standing rule for every frontend PR — see `AGENTS.md` and
+`e2e/README.md`.
+
 ## Deviations and known gaps
 
 1. **Frontend generated OpenAPI copy was not regenerated.** `frontend/src/lib/api/openapi.json` had drifted far from `backend/openapi/v1.json` (a 3.7k-line diff across unrelated endpoints); regenerating it broke types in files this story does not touch. The backend spec carries the new `/manage` path and `ManageResponse`; the frontend copy is left for a dedicated regen chore. The hand-written client does not depend on it.

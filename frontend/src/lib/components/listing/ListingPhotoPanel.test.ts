@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ListingPhotoPanel from './ListingPhotoPanel.svelte';
@@ -53,6 +53,17 @@ describe('ListingPhotoPanel (SC-205)', () => {
 		render(ListingPhotoPanel, props());
 
 		expect(screen.getByRole('button', { name: /Replace photo/ })).toBeInTheDocument();
+	});
+
+	it('treats a URL that does not load as "no photo" and offers Add, not Replace', async () => {
+		const { container } = render(ListingPhotoPanel, props({ fallbackSrc: undefined }));
+		const img = container.querySelector('img');
+		expect(img).not.toBeNull();
+
+		await fireEvent.error(img!);
+
+		expect(await screen.findByText('No photo yet')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /Add a photo/ })).toBeInTheDocument();
 	});
 
 	it('never offers the control to a viewer the server says may not manage', () => {
