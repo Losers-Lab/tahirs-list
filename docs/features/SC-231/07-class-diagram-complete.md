@@ -34,6 +34,23 @@ flowchart TB
 | frontend | **modified** | detail hero shows the credit line; cards show a small credit caption when present |
 | `:geocoding` · certifier libraries | **unchanged** | reads only |
 
+## Verified API surface (live key, 2026-11-10)
+
+| Call | SKU | Free cap / month | Result on `Afghan Bbq & Pizza` |
+|---|---|---|---|
+| `POST places:searchText` (field mask `id,displayName,formattedAddress,photos`) | Text Search (New) | ≥1,000 | 1 place, place id returned, **10 photos**, exact address match |
+| `GET {photo.name}/media?maxWidthPx=400` | Place Details Photos | 1,000 | `image/jpeg`, 65 823 bytes, `authorAttributions: "Md Abu Rihan"` |
+| `GET places/{id}` (field mask `photos`) — refreshes only | Place Details | 1,000–10,000 by field tier | not needed for the first pass |
+
+At 118 listings a full cold pass is ~236 calls across two SKUs, and a refresh is
+~118 photo calls by stored place id. All inside the free tiers; the design is
+constrained by the licence terms, not by cost.
+
+**Match discipline.** The first search result is not accepted blindly: the
+returned `displayName` and `formattedAddress` must agree with the listing (the
+same rule the Photon matcher already applies). A near-miss is reported, not
+pinned — a wrong place id would put another business's photo on the listing.
+
 ## Persistence delta
 
 | Element | Status | Detail |

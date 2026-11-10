@@ -121,6 +121,24 @@ public internet" is not a licence.
 the page's hot path and makes a Google outage a site outage. The pass refreshes;
 the endpoint only reads.
 
+**Measured on a live key (2026-11-10).** `places:searchText` for
+`Afghan Bbq & Pizza, Kingston Road, Scarborough` returned exactly one place —
+`4379 Kingston Rd Unit 4, Scarborough, ON M1E 2M9`, the same venue already in the
+catalogue — with **10 photos**, the first 3600×4800. The photo media endpoint
+returned `image/jpeg`, 65 823 bytes at `maxWidthPx=400`, with
+`authorAttributions: "Md Abu Rihan"`.
+
+Three things follow from that:
+
+1. **One search gets the place id *and* the photos.** `places.photos` comes back
+   in the Text Search field mask, so a listing needs one search plus one photo
+   fetch — not a search, a details call and a photo fetch.
+2. **The place id is worth storing.** A refresh can go straight to Place Details
+   by id instead of searching again, which is both cheaper and more stable than
+   re-resolving a name.
+3. **The attribution is a real person's name**, so it is displayed, not stored and
+   forgotten — that is the licence, in one field.
+
 ## D-8 · Credit on the detail page and on cards
 
 CC-BY and CC-BY-SA require attribution wherever the work is shown. Cards show a

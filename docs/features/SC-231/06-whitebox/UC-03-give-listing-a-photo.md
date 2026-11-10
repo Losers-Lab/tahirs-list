@@ -34,7 +34,9 @@ sequenceDiagram
   AP->>PL: 6. allowsReuse && attribution present?
   PL-->>AP: accept | reject(reason)
   AP->>GS: 7. placesCandidate(listing) — only when nothing free was accepted
-  GS->>GOOG: Place Details + photo
+  GS->>GOOG: Place Details by stored place id, or one text search when none
+  GOOG-->>GS: place + photos + author attributions
+  GS->>GS: 7a. name and address must agree — a near-miss is reported, not taken
   GS-->>AP: bytes + attributions + placeId + photoName
   AP->>F: 8. fetch(sourceUrl | photo name) — size cap
   F-->>AP: bytes | ImageFetchException

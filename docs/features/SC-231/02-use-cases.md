@@ -131,8 +131,10 @@ already has an id. The same command also refreshes expired caches.
 4. A free candidate is accepted only with a reusable licence (CC0, public domain,
    CC-BY, CC-BY-SA) and the attribution that licence requires. Its bytes are
    stored permanently through the existing image pipeline.
-5. Else it asks Google Places by the venue's place id, taking the first photo and
-   its author attributions.
+5. Else it asks Google Places: by the stored place id, or by a text search for the
+   venue's name and address when no id is stored yet. The returned place must
+   match the listing's name and address or nothing is taken. From it the run
+   reads the first photo, its author attributions, and the place id to keep.
 6. A Places photo is stored as a **cache, not an asset**: the place id, the photo
    name, the attribution and an expiry at most 30 days away. The bytes are held
    only for that window.
@@ -144,8 +146,8 @@ already has an id. The same command also refreshes expired caches.
 - 2a. An owner photo exists → skipped, no candidate is fetched.
 - 3a. No free candidate → falls through to step 5.
 - 4a. Several free candidates → OSM before Commons, then the source's own order.
-- 5a. No place id, or Places returns no photo → the listing stays without a photo
-  and is listed as a gap.
+- 5a. No place id, and a text search finds no place that matches the name and
+  address → the listing stays without a photo and is listed as a gap.
 - 6a. A Places photo is already cached and still fresh → nothing to do.
 - 7a. `--replace` on a free-licensed or Places photo → refetched; an owner photo
   is still never replaced.

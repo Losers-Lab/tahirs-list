@@ -62,8 +62,9 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 - **Locks in** "no licence → no photo"; "no credit for a CC-BY → no photo"; "an
   owner photo is never touched"; "a Places photo is a cache with an expiry, never
   an asset".
-- **Need** nothing on the source order — L-4 settled it. Only whether cards show
-  the credit (D-8) is still open.
+- **need** nothing further — L-4 settled the source order, and a live probe
+  (2026-11-10) confirmed the API returns the venue, 10 photos and a named
+  attribution. D-8 and D-9 are the remaining photo-shaped decisions.
 
 ## 6 · Black-box, UC-04 review — `04-blackbox/UC-04-…`
 
