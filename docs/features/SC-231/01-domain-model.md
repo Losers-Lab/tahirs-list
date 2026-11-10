@@ -92,7 +92,7 @@ classDiagram
 | Vocabulary | Question it answers | Stored? |
 |---|---|---|
 | `VenueClass` | *What does the evidence say this is?* — including butcher, grocery, distributor | **No.** It is an input to the admission decision and appears in the report |
-| `VenueType` | *What kind of restaurant is this?* — `RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY` | **Yes**, on every stored listing |
+| `VenueType` | *What kind of restaurant is this?* — `RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY` (L-3) | **Yes**, on every stored listing |
 
 Why two: L-1 says the catalogue holds restaurants only, so the stored type must
 describe a restaurant. But to *exclude* a butcher we must first recognise it, and
@@ -120,12 +120,12 @@ classifier to return null for something it recognised perfectly well.
 |---|---|---|
 | INV-1 | A stored listing is a restaurant: only `Admitted` candidates are written (L-1) | `LoadIngestionBatchTest.nonRestaurantsAreNeverWritten` |
 | INV-2 | A shop marker with no premises marker excludes the row, even when the source category says *Restaurants* (the three real rows in today's catalogue) | `AdmissionPolicyTest.restaurantCategoryLosesToShopName` |
-| INV-3 | A premises marker ("kitchen", "grill") rescues a shop-looking name (`Madina Market (Kitchen)`, `Mannan Bakery and Grill`) | `AdmissionPolicyTest.premisesWordRescuesShopName` |
+| INV-3 | A premises marker ("kitchen", "grill", "bakery") rescues a shop-looking name (`Madina Market (Kitchen)`, `Mannan Bakery and Grill`) and a pure bakery is admitted as `BAKERY` (L-3) | `AdmissionPolicyTest.premisesWordRescuesShopName` · `bakeryIsAdmitted` |
 | INV-4 | Evidence order: hard exclusion → source category → OSM feature → name; a weaker source never overrides a stronger one | `AdmissionPolicyTest.evidenceOrder` |
 | INV-5 | No decisive evidence means `Undecided`: not loaded, reported for a curator | `AdmissionPolicyTest.undecidedIsHeld` |
 | INV-6 | `venueType` on a stored listing is one of the published kinds and always carries its `EnrichmentSource` | `VenueTypeTest.everyTypeHasASource` |
 | INV-7 | `cuisine` is set only when evidence exists; two conflicting families leave it `null` and record the conflict | `CuisineAssignerTest.conflictStaysNull` |
-| INV-8 | `cuisine` is set only for meal-serving types; a cafe/fast food may carry one, a bakery only if Q-9 admits it | `CuisineAssignerTest.nonServingTypeHasNoCuisine` |
+| INV-8 | `cuisine` is set only for meal-serving types; a cafe, fast food or bakery may carry one (a butcher or grocery never reaches the catalogue) | `CuisineAssignerTest.nonServingTypeHasNoCuisine` |
 | INV-9 | Enrichment fills `null` only: an owner- or curator-set value is never overwritten and a re-run is a no-op | `LoadIngestionBatchTest.enrichmentFillsNullsOnly` · `isIdempotent` |
 | INV-10 | Classification is deterministic and side-effect free: same inputs → same decision, no network, no clock, no randomness | `AdmissionPolicyTest.isDeterministic` |
 | INV-11 | A listing carries at most one cover photo | `CoverPhotoTest.onePerListing` |
@@ -156,9 +156,9 @@ classifier to return null for something it recognised perfectly well.
 | Term | Meaning |
 |---|---|
 | Venue class | What the evidence says a place is, including the classes we refuse (butcher, grocery, market, distributor) |
-| Venue type | What kind of restaurant a stored listing is: restaurant, cafe, fast food, bakery (Q-9) |
-| Shop marker | A name or tag that says *retail*: butcher, meat shop, poultry, grocery, supermarket, bakery, sweets, wholesale |
-| Premises marker | A name word that says *eat here*: restaurant, grill, kitchen, cafe, diner, pizzeria, bbq |
+| Venue type | What kind of restaurant a stored listing is: restaurant, cafe, fast food, bakery (L-3) |
+| Shop marker | A name or tag that says *retail*: butcher, meat shop, poultry, grocery, supermarket, sweets, wholesale. **Bakery is not one of these** (L-3) |
+| Premises marker | A name word that says *eat here*: restaurant, grill, kitchen, cafe, diner, pizzeria, bbq, bakery |
 | Admission | The gate's verdict on one row: admitted, excluded, or undecided |
 | Exclusion | A recognised non-restaurant removed from the batch and counted in the report — never silently dropped |
 | Undecided | No evidence that the row is a restaurant; held for a curator rather than guessed into the catalogue |

@@ -90,9 +90,10 @@ classDiagram
 **Where the rules live.** `VenueType`, `VenueClass`, `EnrichmentSource`,
 `PhotoLicence`, `CoverPhoto` and `AdmissionDecision` are domain types: "only
 restaurants are published", "a shop word with no premises word is not a
-restaurant", and "a photo needs a reusable licence" are product rules, not
-adapter detail. The *curated tables* (marker words, category → class, brand →
-cuisine, keyword → cuisine) are data and live in `:ingestion` beside the policy.
+restaurant", "a bakery is a restaurant" (L-3), and "a photo needs a reusable
+licence" are product rules, not adapter detail. The *curated tables* (marker
+words, category → class, brand → cuisine, keyword → cuisine) are data and live in
+`:ingestion` beside the policy.
 
 ## Application
 

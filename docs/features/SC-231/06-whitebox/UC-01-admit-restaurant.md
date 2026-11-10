@@ -69,9 +69,10 @@ dropped. The transition to `Loaded` happens in SC-211 UC-03's transaction.
 | A1 restaurant category, shop name | step 5 fires before the category rule: `Excluded(BUTCHER, "name: poultry/meat market")` |
 | A2 market + kitchen | step 5 sees a shop marker and a premises marker → falls through to the category rule → `Admitted(RESTAURANT, SOURCE_CATEGORY)` |
 | A3 bakery + grill | same as A2 |
-| A4 retail store + meat shop | step 5 fires; the category rule would have excluded anyway |
-| A5 slaughter house / distributor | `classForCategory` returns a non-restaurant class → `Excluded` |
-| A6 restaurant + "Coffee" | `narrowByOsmAndName` returns `CAFE`; evidence stays `SOURCE_CATEGORY` |
+| A4 pure bakery | "bakery" is a premises/type word, not a shop marker (L-3) → `Admitted(BAKERY, NAME_KEYWORD)` |
+| A5 retail store + meat shop | step 5 fires; the category rule would have excluded anyway |
+| A6 slaughter house / distributor | `classForCategory` returns a non-restaurant class → `Excluded` |
+| A7 restaurant + "Coffee" | `narrowByOsmAndName` returns `CAFE`; evidence stays `SOURCE_CATEGORY` |
 | E1 nothing decides | `Undecided("no evidence")` → `CandidateBuild.Rejected`, listed in full |
 | E2 both marker families | step 5 requires a shop marker *without* a premises marker, so it does not fire; both words are kept in the decision |
 | P1 no OSM tag | step 9 is skipped; steps 7 and 10 still decide |

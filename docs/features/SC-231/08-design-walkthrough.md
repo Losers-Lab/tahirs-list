@@ -21,10 +21,9 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
   restaurant is: restaurant, cafe, fast food, bakery). The gate's verdict is a
   sealed `AdmissionDecision` — admitted, excluded, or undecided.
 - **Locks in** that non-restaurants are never stored; that a shop word with no
-  premises word wins over a coarse "Restaurants" category; and that a photo
-  needs a reusable licence.
-- **Need** your answer on Q-9: is a pure bakery a restaurant for us? Default is
-  no, which removes three more rows from today's catalogue.
+  premises word wins over a coarse "Restaurants" category; that a bakery is a
+  restaurant and typed `BAKERY` (L-3); and that a photo needs a reusable licence.
+- **Need** nothing on the type vocabulary any more — L-1 and L-3 settled it.
 
 ## 2 · Use case diagram — `03-use-case-diagram.md`
 
@@ -39,9 +38,9 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 ## 3 · Black-box, UC-01 admit — `04-blackbox/UC-01-…`
 
 - **Shows** the evidence arriving (category, OSM feature, name) and one verdict
-  per row, with `A1`–`A6` covering the rows that actually exist today: the three
+  per row, with `A1`–`A7` covering the rows that actually exist today: the three
   butcher/grocery rows, `Madina Market (Kitchen)`, `Mannan Bakery and Grill`, a
-  plain restaurant, a slaughter house, a distributor.
+  pure bakery, a plain restaurant, a slaughter house, a distributor.
 - **Locks in** the precedence — shop-marker check first, then category, then OSM,
   then premises words — and that an undecided row is *held and reported*, not
   guessed into the catalogue.
@@ -107,7 +106,7 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
   are already in the catalogue but are not restaurants.
 - **Locks in** that nothing non-restaurant can reach `restaurant_listings` or
   `listing_search`, and that `venueType` is not exposed in the API yet (D-5).
-- **Need** decisions D-4 through D-9 and Q-9.
+- **Need** decisions D-4 through D-9.
 
 ---
 
@@ -117,7 +116,7 @@ catalogue, and never reaches search. That is L-1, and it is what sections 1, 2,
 |---|---|---|---|
 | D-1 | Admission and classification run **inside** the ingestion run; photos run **after** the load | as designed | classification as a separate pass (needs a second source parse) |
 | D-2 | Brand-map cuisine counts as evidence, labelled `BRAND_MAP` | yes | only source/OSM may supply a cuisine |
-| D-3 | Stored `venueType`: `RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY`; the recogniser's non-restaurant classes are not stored | as listed | narrow to the three and drop `BAKERY` from the column |
+| D-3 | Stored `venueType`: `RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY`; a bakery is a restaurant (L-3); the recogniser's non-restaurant classes are not stored | as listed | narrow to the three and drop `BAKERY` from the column |
 | D-4 | Evidence stored on the listing as two enum columns (`venue_type_source`, `cuisine_source`) | yes | report-only provenance, no columns |
 | D-5 | `venueType` stays out of the public API for now | not exposed | expose on detail + cards |
 | D-6 | **Non-restaurants are excluded from the catalogue entirely** — not stored, not indexed, counted in the report | as designed (L-1) | store them hidden for a later listing type |

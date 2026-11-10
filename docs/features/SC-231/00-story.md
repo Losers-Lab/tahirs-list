@@ -86,12 +86,12 @@ implementation.
 |---|---|---|
 | L-1 | **Tahir's List is concerned only with restaurants. Non-restaurants are ignored entirely** — not published, not stored in the catalogue, not indexed. The classifier's job is to *keep them out*, and every exclusion is reported. | 2026-11-09 |
 | L-2 | An undecided row (no evidence that it is a restaurant) is **not loaded**; it is held and reported for a curator. | 2026-11-09 (implied by L-1) |
+| L-3 | **A bakery is a restaurant.** Bakeries are admitted and typed `BAKERY`; "bakery" is not a shop marker. | 2026-11-10 |
 
 Consequence to be honest about: the current catalogue holds rows that L-1 excludes —
 `Alladin Halal Meat & Grocery [Butcher Dept. ONLY]`, `Hamza Meat Shop [Butcher
-Dept. ONLY]`, `Jamaica Live Poultry Meat Market [Butcher Dept. Only]` — plus pure
-bakeries depending on Q-9. They are removed when this lands, and the removal is
-reported.
+Dept. ONLY]`, `Jamaica Live Poultry Meat Market [Butcher Dept. Only]`. They are
+removed when this lands, and the removal is reported. Bakeries stay (L-3).
 
 ## Personas
 
@@ -113,16 +113,17 @@ reported.
 | E-4 | HMS *Distributor* / *Processor* / *Misc* | **Excluded** |
 | E-5 | HMS *Restaurants* named "Jamaica Live Poultry Meat Market [Butcher Dept. Only]" | **Excluded**: the category says restaurant, but the name says shop and nothing says premises (L-1 overrides a coarse category) |
 | E-6 | "Mannan Bakery and Grill" | Admitted: shop word ("bakery") plus premises word ("grill") |
-| E-7 | Pure bakery (Q-9) | Default: excluded as a shop; one word flips the whole class |
-| E-8 | Name "Pizza & Biryani" — two cuisine families | Cuisine stays null; conflict reported |
-| E-9 | Chain with a curated brand cuisine | Cuisine from the brand map; evidence says `BRAND_MAP` |
-| E-10 | No OSM tag (SC-227 not merged, or the hit is not a POI) | Category + name evidence only; still deterministic |
-| E-11 | No evidence that the row is a restaurant | **Not loaded**, held for a curator, reported |
-| E-12 | Photo candidate with an unknown or non-free licence | Skipped and reported; no bytes stored |
-| E-13 | Existing owner-set cuisine | Untouched; the fill-nulls rule wins |
-| E-14 | Photo fetch or decode fails | Row keeps any existing photo; gap reported |
-| E-15 | Two runs classify the same row differently | The later run's value wins only if the existing value is null; the report shows both |
-| E-16 | A listing already has a cover photo and a re-run finds another | Never replaced without `--replace` |
+| E-7 | Pure bakery (`Firin Bakery`, `Mannan Bakery`) | **Admitted** as `BAKERY` (L-3) |
+| E-8 | `Mannan Bakery Factory` | Admitted as `BAKERY`; "factory" is recorded and the row is queued for a curator, because a factory may be production rather than a shopfront |
+| E-9 | Name "Pizza & Biryani" — two cuisine families | Cuisine stays null; conflict reported |
+| E-10 | Chain with a curated brand cuisine | Cuisine from the brand map; evidence says `BRAND_MAP` |
+| E-11 | No OSM tag (SC-227 not merged, or the hit is not a POI) | Category + name evidence only; still deterministic |
+| E-12 | No evidence that the row is a restaurant | **Not loaded**, held for a curator, reported |
+| E-13 | Photo candidate with an unknown or non-free licence | Skipped and reported; no bytes stored |
+| E-14 | Existing owner-set cuisine | Untouched; the fill-nulls rule wins |
+| E-15 | Photo fetch or decode fails | Row keeps any existing photo; gap reported |
+| E-16 | Two runs classify the same row differently | The later run's value wins only if the existing value is null; the report shows both |
+| E-17 | A listing already has a cover photo and a re-run finds another | Never replaced without `--replace` |
 
 ## Open questions
 
@@ -136,4 +137,4 @@ reported.
 | Q-6 | Photo sources: free only (OSM + Wikimedia) or a keyed provider? Default: free only (D-7). | Founder | Design approval |
 | Q-7 | Cuisine from name keywords is a heuristic — accept a review queue (confidence + evidence) rather than silent assignment? Default: yes (D-10). | Founder | Design approval |
 | Q-8 | Does the run report or the listing win when they disagree after a manual edit? | Curator | Design approval |
-| Q-9 | **Do pure bakeries count as restaurants?** Default: no — a bakery is a shop, so it is excluded unless the name also says premises (grill/restaurant/cafe/kitchen). This is the one class where the answer is genuinely unclear, and it moves 3 rows in the current catalogue. | Founder | Design approval |
+| Q-9 | ~~Do pure bakeries count as restaurants?~~ — **answered 2026-11-10: yes, a bakery is a restaurant (L-3)** | Founder | closed |

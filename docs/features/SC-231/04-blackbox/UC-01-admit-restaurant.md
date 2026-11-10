@@ -41,19 +41,25 @@ sequenceDiagram
   participant TL as Tahir's List
   TL->>TL: "Mannan Bakery and Grill" → ADMITTED (step 2 does not trigger)
 ```
-**A4 — a retail store named like a butcher** · both agree.
+**A4 — a pure bakery** · a bakery is a restaurant (L-3).
+```mermaid
+sequenceDiagram
+  participant TL as Tahir's List
+  TL->>TL: "Restaurants" + "Firin Bakery" → ADMITTED, BAKERY (step 6)
+```
+**A5 — a retail store named like a butcher** · both agree.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
   TL->>TL: "Retail Store" + "Hamza Meat Shop" → EXCLUDED (steps 4, 5)
 ```
-**A5 — a slaughter house, distributor or processor** · excluded by category.
+**A6 — a slaughter house, distributor or processor** · excluded by category.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List
   TL->>TL: "Slaughter House" / "Distributor" / "Processor" → EXCLUDED (step 5)
 ```
-**A6 — a plain restaurant** · admitted, type narrowed when the name says cafe.
+**A7 — a plain restaurant** · admitted, type narrowed when the name says cafe.
 ```mermaid
 sequenceDiagram
   participant TL as Tahir's List

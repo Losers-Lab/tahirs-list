@@ -55,8 +55,11 @@ catalogue holds three rows the gate refuses:
 | `Hamza Meat Shop [Butcher Dept. ONLY]` | `BUTCHER` | remove, with claims |
 | `Jamaica Live Poultry Meat Market [Butcher Dept. Only]` | `BUTCHER` (poultry + meat market) | remove, with claims |
 
-`Firin Bakery`, `Mannan Bakery`, `Mannan Bakery Factory` hinge on **Q-9**;
-`Mannan Bakery and Grill` and `Mannan Sweets & Restaurant` stay (premises word).
+Bakeries are **not** in that list: a bakery is a restaurant (L-3), so
+`Firin Bakery`, `Mannan Bakery`, `Mannan Bakery Factory`, `Mannan Bakery and
+Grill` and `Mannan Sweets & Restaurant` all stay, typed `BAKERY` or
+`RESTAURANT`. "Factory" is recorded in the decision and queued for a curator,
+since a factory can be production rather than a shopfront.
 
 The purge is a **one-off, reported** step: re-run the gate over stored listings,
 print the list, take a `pg_dump`, then delete the confirmed rows and their

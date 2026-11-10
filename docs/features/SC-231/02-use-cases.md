@@ -50,6 +50,8 @@ no use case is drawn for it until the owner decides.
 - 2a. `Madina Market (Kitchen)`: "market" is a shop marker, "kitchen" is a
   premises marker → admitted, `RESTAURANT`.
 - 2b. `Mannan Bakery and Grill`: "bakery" plus "grill" → admitted.
+- 2c. `Firin Bakery` with category *Restaurants* → admitted as `BAKERY`; a bakery
+  is a restaurant (L-3), so "bakery" is a premises word, not a shop marker.
 - 3a. `Hamza Meat Shop` with category *Retail Store* → excluded (shop marker and
   non-restaurant category agree).
 - 4a. Category *Restaurants*, name `Jamaica Live Poultry Meat Market [Butcher
@@ -215,5 +217,5 @@ changed or silently dropped.
 ## Open questions
 
 Q-1 (iteration), Q-2 (phase-2 ACs), Q-3 (phone/website), Q-5 (expose the type),
-Q-6 (photo sources), Q-7 (review queue), Q-8 (report vs manual edit), Q-9
-(bakeries) — see `00-story.md`. Q-4 is closed by L-1.
+Q-6 (photo sources), Q-7 (review queue), Q-8 (report vs manual edit) — see
+`00-story.md`. Q-4 is closed by L-1 and Q-9 by L-3.

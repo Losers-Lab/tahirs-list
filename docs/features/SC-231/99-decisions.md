@@ -7,6 +7,9 @@
 **L-1 (owner, 2026-11-09): Tahir's List is concerned only with restaurants;
 non-restaurants are ignored entirely.** D-3, D-5 and D-6 below follow from it.
 
+**L-3 (owner, 2026-11-10): a bakery is a restaurant.** Bakeries are admitted and
+typed `BAKERY`; "bakery" is a premises word, not a shop marker. D-3 records it.
+
 ## D-1 · Admission and classification inside the run, photos after the load
 
 Type and cuisine are decided while the row is still a candidate, so the reviewed
@@ -32,13 +35,21 @@ the ones whose cuisine is not in dispute.
 
 `VenueClass` is what the evidence says, including the classes we refuse
 (`GROCERY`, `MARKET`, `BUTCHER`, `CATERER`, `OTHER`). `VenueType` is what a
-stored listing may be: `RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY` (the last
-pending Q-9). Only `VenueType` is persisted; `VenueClass` appears in the report.
+stored listing may be: `RESTAURANT`, `CAFE`, `FAST_FOOD`, `BAKERY`. Only
+`VenueType` is persisted; `VenueClass` appears in the report.
+
+`BAKERY` is an *admitted* type by owner decision L-3, so "bakery" is a premises
+word: `Firin Bakery` is admitted as a bakery, and `Mannan Bakery Factory` is
+admitted with "factory" queued for a curator.
 
 *Rejected:* one nine-value enum stored on the row. It would either persist
 `BUTCHER` on rows that must not exist (contradicting L-1) or force the classifier
 to answer null for something it recognised perfectly well, losing the reason in
 the report.
+
+*Rejected (L-3):* treating a bakery as a shop and excluding it unless the name
+also says grill/restaurant. It was the default before the owner ruled; it would
+have removed three real rows the owner considers restaurants.
 
 ## D-4 · Evidence lives on the listing, as two enums
 
@@ -133,4 +144,4 @@ anything the spike got right will come back as a test.
 
 Q-1 iteration · Q-2 phase-2 ACs · Q-3 phone/website vs SC-202 · Q-5 exposing the
 type · Q-6 photo sources (D-7) · Q-7 review queue (D-10) · Q-8 report vs manual
-edit · **Q-9 bakeries**. Q-4 is closed by L-1.
+edit. Q-4 is closed by L-1 and Q-9 by L-3.
