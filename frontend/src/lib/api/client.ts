@@ -66,6 +66,9 @@ export type ListingDetail = BrowseListing & {
 	} | null;
 };
 
+/** GET /v1/listings/{id}/manage (SC-205) — may this account change the photo? */
+export type ManageResponse = { canManage: boolean };
+
 /**
  * sc-73 Verification Committee pending review (GET /v1/verification-committee/
  * reviews). Locally typed against the backend's ReviewResponse DTO — the stored
@@ -130,7 +133,11 @@ export type ApiErrorCode =
 	// sc-73 verification-committee surface.
 	| 'forbidden'
 	| 'review_not_found'
-	| 'review_not_pending';
+	| 'review_not_pending'
+	// SC-205 photo upload surface.
+	| 'payload_too_large'
+	| 'unauthorized'
+	| 'listing_not_found';
 
 /**
  * Typed error thrown for any non-2xx API response. `code` is the backend's
@@ -218,6 +225,58 @@ async function request<T>(
 	return (data ?? undefined) as T;
 }
 
+/**
+ * Send one file as a multipart body (SC-205). Kept apart from [request] because
+ * that helper JSON-encodes and sets a Content-Type header, which would clobber
+ * the browser-generated multipart boundary.
+ */
+async function uploadMultipart<T>(
+	path: string,
+	file: File,
+	field: string,
+	signal?: AbortSignal
+): Promise<T> {
+	const form = new FormData();
+	form.append(field, file);
+	const headers: Record<string, string> = {};
+	if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+	let response: Response;
+	try {
+		response = await fetch(`${API_BASE}${path}`, {
+			method: 'PUT',
+			headers,
+			credentials: 'include',
+			body: form,
+			signal
+		});
+	} catch (error) {
+		if (signal?.aborted) throw error;
+		throw new Error('network_error', { cause: error });
+	}
+
+	const text = await response.text();
+	let data: unknown = null;
+	if (text) {
+		try {
+			data = JSON.parse(text) as unknown;
+		} catch {
+			data = null;
+		}
+	}
+
+	if (!response.ok) {
+		const body = (data ?? null) as { code?: unknown; message?: unknown } | null;
+		throw new ApiError(
+			response.status,
+			typeof body?.code === 'string' ? body.code : 'invalid_input',
+			typeof body?.message === 'string' ? body.message : undefined
+		);
+	}
+
+	return (data ?? undefined) as T;
+}
+
 export const api = {
 	/**
 	 * POST /v1/auth/signup — create an account. `attachAuth: false`: a stale
@@ -297,6 +356,29 @@ export const api = {
 			method: 'GET',
 			signal
 		}),
+
+	/**
+	 * GET /v1/listings/{id}/manage — may the signed-in account add or replace this
+	 * listing's photo (SC-205)? Answers `owner || ADMIN` server-side and returns
+	 * only a boolean. 401 anonymous, 404 unknown listing.
+	 */
+	getManage: (id: string, signal?: AbortSignal): Promise<ManageResponse> =>
+		request(`/v1/listings/${encodeURIComponent(id)}/manage`, undefined, {
+			method: 'GET',
+			signal
+		}),
+
+	/**
+	 * PUT /v1/listings/{id}/image — add or replace the hero photo (sc-53, SC-205).
+	 *
+	 * Sent as `multipart/form-data` with one part named `image`. The browser sets
+	 * the multipart boundary, so this call must NOT set a Content-Type header;
+	 * the backend derives the stored media type from the bytes anyway.
+	 * 204 on success, 400 undecodable image, 401 anonymous, 403 not owner/admin,
+	 * 404 unknown listing, 413 over 8 MiB.
+	 */
+	uploadListingImage: (id: string, file: File, signal?: AbortSignal): Promise<void> =>
+		uploadMultipart(`/v1/listings/${encodeURIComponent(id)}/image`, file, 'image', signal),
 
 	/**
 	 * GET /v1/favorites — the authenticated user's favourited listings as

@@ -10,8 +10,10 @@
 	import SealMark from '#lib/components/trust/SealMark.svelte';
 	import CertificatePanel from '#lib/components/detail/CertificatePanel.svelte';
 	import MapPreview from '#lib/components/detail/MapPreview.svelte';
-	import RestaurantPhoto from '#lib/components/listing/RestaurantPhoto.svelte';
+	import ListingPhotoPanel from '#lib/components/listing/ListingPhotoPanel.svelte';
 	import FavoriteButton from '#lib/components/listing/FavoriteButton.svelte';
+	import { api } from '#lib/api/client';
+	import { sessionState } from '#lib/auth/session.svelte';
 	import type { Restaurant } from '#lib/listings/restaurants';
 	import { expiryState, fullAddress, verificationStatus } from '#lib/listings/restaurants';
 	import { getRestaurant } from '#lib/listings/data';
@@ -76,6 +78,43 @@
 	const certState = $derived(verified && restaurant ? expiryState(restaurant.certificate) : 'none');
 	// An expired cert downgrades the badge everywhere (detail-page.md §1.2).
 	const showVerifiedBadge = $derived(verified && certState !== 'expired');
+
+	// SC-205: the server decides whether this viewer may change the photo
+	// (owner or ADMIN). The browser never derives it.
+	const session = $derived(sessionState.current);
+	let canManage = $state(false);
+
+	$effect(() => {
+		const id = page.params.id ?? '';
+		const accountId = session?.accountId ?? null;
+		if (!accountId || !id) {
+			canManage = false;
+			return;
+		}
+		let cancelled = false;
+		void api
+			.getManage(id)
+			.then((result) => {
+				if (!cancelled) canManage = result.canManage;
+			})
+			.catch(() => {
+				if (!cancelled) canManage = false;
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	/** After an upload: adopt the new payload (versioned URLs) without a skeleton. */
+	async function refreshListing() {
+		const id = page.params.id ?? '';
+		try {
+			const result = await getRestaurant(id);
+			if (result) restaurant = result;
+		} catch {
+			// Keep the current photo; the next navigation re-reads anyway.
+		}
+	}
 
 	const meta = $derived(
 		restaurant
@@ -153,19 +192,20 @@
 		</div>
 	{:else}
 		<div>
-			<div
-				class="relative aspect-[16/9] overflow-hidden rounded-lg border border-kraft-200 shadow-card md:aspect-[16/7]"
+			<ListingPhotoPanel
+				listingId={restaurant.id}
+				name={restaurant.name}
+				src={restaurant.imageUrl}
+				fallbackSrc={restaurant.imageThumbnailUrl}
+				{canManage}
+				onUploaded={refreshListing}
 			>
-				<RestaurantPhoto
-					src={restaurant.imageUrl}
-					alt={restaurant.name}
-					sizes="(min-width: 1200px) 1200px, 100vw"
-					eager
-				/>
-				{#if showVerifiedBadge}
-					<div class="absolute top-4 right-4"><VerifiedBadge variant="on-photo" /></div>
-				{/if}
-			</div>
+				{#snippet overlay()}
+					{#if showVerifiedBadge}
+						<div class="absolute top-4 right-4"><VerifiedBadge variant="on-photo" /></div>
+					{/if}
+				{/snippet}
+			</ListingPhotoPanel>
 
 			<div class="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>

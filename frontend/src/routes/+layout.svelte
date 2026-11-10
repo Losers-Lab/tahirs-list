@@ -25,10 +25,7 @@
 
 <svelte:head>
 	<title>Tahir's List</title>
-	<meta
-		name="description"
-		content="Find halal food near you — hand-cut, verified and trusted."
-	/>
+	<meta name="description" content="Find halal food near you — hand-cut, verified and trusted." />
 </svelte:head>
 
 {@render children()}
