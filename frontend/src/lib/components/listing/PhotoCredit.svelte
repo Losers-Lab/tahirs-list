@@ -16,9 +16,13 @@
 	let { attribution, licence, sourceUrl, variant = 'detail' }: Props = $props();
 
 	const label = $derived(
-		[attribution, licence]
-			.filter((value): value is string => !!value && value.length > 0)
-			.join(' · ')
+		// The source's credit already names its licence ("… CC BY 2.0"), so the enum
+		// is only a fallback; printing both reads as a duplicated licence.
+		attribution && attribution.length > 0
+			? attribution
+			: licence && licence.length > 0
+				? licence
+				: ''
 	);
 
 	const classes = $derived(

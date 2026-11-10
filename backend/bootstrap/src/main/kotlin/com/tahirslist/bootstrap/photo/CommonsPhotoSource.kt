@@ -103,6 +103,19 @@ class CommonsPhotoSource(
             ?: info["url"]?.jsonPrimitive?.contentOrNullSafe()
         val pageUrl = info["descriptionurl"]?.jsonPrimitive?.contentOrNullSafe()
 
+        // The file has to be of THIS place, not merely named like it.
+        val gpsLat = meta?.get("GPSLatitude")?.jsonObject?.get("value")
+            ?.jsonPrimitive?.contentOrNullSafe()?.toDoubleOrNull()
+        val gpsLng = meta?.get("GPSLongitude")?.jsonObject?.get("value")
+            ?.jsonPrimitive?.contentOrNullSafe()?.toDoubleOrNull()
+        val categories = meta?.get("Categories")?.jsonObject?.get("value")
+            ?.jsonPrimitive?.contentOrNullSafe().orEmpty()
+        val description = stripHtml(
+            meta?.get("ImageDescription")?.jsonObject?.get("value")
+                ?.jsonPrimitive?.contentOrNullSafe().orEmpty(),
+        )
+        val placeRefusal = CommonsPlace.refusal(listing, gpsLat, gpsLng, "$categories $description")
+
         val credit = listOfNotNull(author, "Wikimedia Commons", licenceText).joinToString(", ")
         return PhotoCandidate(
             sourceKind = PhotoSourceKind.WIKIMEDIA,
@@ -114,6 +127,7 @@ class CommonsPhotoSource(
             author = author,
             sourceUrl = pageUrl,
             reason = when {
+                placeRefusal != null -> placeRefusal
                 licence == null -> "licence '${licenceText ?: "unknown"}' is not accepted"
                 licence.requiresAttribution && author.isNullOrBlank() -> "attribution missing"
                 fetchUrl == null -> "no image url"

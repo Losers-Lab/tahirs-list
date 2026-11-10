@@ -1,0 +1,30 @@
+{
+  "cuisinePick": {
+    "id": "7d33147d-e048-4c88-8940-621b1e87f1f5",
+    "name": "Paramount Fine Foods Queensway",
+    "cuisine": "lebanese"
+  },
+  "creditPick": {
+    "id": "b7bc346d-e63d-4898-9f25-60a4d91a7195",
+    "name": "Lahore Tikka House",
+    "source": "WIKIMEDIA",
+    "licence": "CC_BY",
+    "attribution": "Jamie from Toronto, ON, Wikimedia Commons, CC BY 2.0"
+  },
+  "counts": {
+    "listings": 73,
+    "withCuisine": 5,
+    "withPhotoCredit": 2
+  },
+  "browser": {
+    "searchShowsCuisine": true,
+    "detailShowsCuisine": true,
+    "detailShowsCredit": true,
+    "searchShowsCredit": true,
+    "heroImage": {
+      "src": "/v1/listings/b7bc346d-e63d-4898-9f25-60a4d91a7195/image?variant=full",
+      "loaded": true,
+      "width": 500
+    }
+  }
+}

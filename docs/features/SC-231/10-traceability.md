@@ -62,6 +62,41 @@
 | WI-18 | this commit | 3 (`PhotoCredit.test.ts`); `PhotoCredit` on the detail hero and browse cards | **done** |
 | WI-19 | — | — | not started |
 
+## Runtime proof (2026-11-10)
+
+Re-processed end to end against a clean database (`halal_sc231`), because the shared dev
+database is on `feat/SC-205-photo-upload`'s `V25`/`V26` and could not boot this branch.
+
+| step | command | result |
+|---|---|---|
+| ingest | `./scripts/ingest-sample.sh` (`--caps=100`, 4 metros) | run `sample-20261110T160204Z`: **44 admitted**, **6 excluded** (butchers), 0 undecided, 192 rejected, 5 cuisines, 0 conflicts |
+| load | `:bootstrap:loadIngestBatch --execute` | `load-20261110T161700Z`: inserted 43, upgraded 1 (Paramount Queensway → the seed row), claims 44 |
+| verify | psql | 44 rows carry `venue_type`; 5 carry `cuisine` + `cuisine_source`; the 5 also have `restaurant_listing_cuisines` rows; `listing_search` = 73 |
+| purge | `:bootstrap:purgeNonRestaurants` | **0 rows**: the three meat markets never entered, because the gate ran first. The purge remains the remediation for the existing catalogue; its selection is proven by `PurgeNonRestaurantsTest` |
+| photos | `:bootstrap:attachCoverPhotos --execute --replace` | **2 attached**, 62 gaps, **9 refused with reasons** (`the file is 3933 km from this listing`, `does not name Toronto`, …) |
+
+Then the app was booted from this branch (`:3003` → backend `:8081`) and driven with
+Playwright. The script reads the API first and asserts the browser text contains what the
+API says — a screenshot alone is not evidence.
+
+| assertion | result |
+|---|---|
+| `search?q=<name>` card shows `lebanese` | **true** (`search-cuisine.png`) |
+| detail page shows `lebanese` | **true** (`detail-cuisine.png`) |
+| detail page shows the credit `Jamie from Toronto, ON, Wikimedia Commons, CC BY 2.0` | **true** (`detail-photo-credit.png`) |
+| search card shows the same credit over the photo | **true** (`search-photo-credit.png`) |
+| the hero `<img>` really decoded (`/v1/listings/{id}/image?variant=full`) | **true**, `naturalWidth = 500` |
+
+Machine-readable: `runtime-proof/facts.json`.
+
+**A defect this proof caught.** The first pass attached 11 Commons photos and several were
+the wrong business: `Ali Baba Mediterranean` (Richardson, TX) got a Birmingham storefront,
+`Moon Restaurant` (Queens) got a Hong Kong sign, `Yemen Cafe` (Brooklyn) got Hamtramck.
+The name rule had accepted them. `CommonsPlace` now requires the file's own GPS within
+**2 km**, or — when it has no GPS — the listing's city named in the file's Commons
+categories/description. Re-running refused all nine with the distance or the missing city,
+and kept the two that are actually of the place.
+
 ## Notes
 
 - **Migration renumbered V25 → V27 (2026-11-10).** `feat/SC-205-photo-upload` already claims `V25__sc_205_image_version.sql` and `V26__add_admin_role.sql`, and the shared dev database has both applied. Two files called `V25` would either collide at merge time or fail Flyway validation on the next boot, so this branch moved to **V27** and left the gap. Verified by `EnrichmentSchemaMigrationTest` against a fresh database.

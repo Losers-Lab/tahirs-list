@@ -1,0 +1,17 @@
+{
+    "runId": "sample-20261110T153604Z",
+    "claims": [],
+    "duplicates": [
+        {
+            "venueKey": "18f0215780a7ad161159326421bf34472e3b9d3bfa21d3a10e77e653900ac4de",
+            "decision": "same-venue",
+            "listingId": "7d33147d-e048-4c88-8940-621b1e87f1f5",
+            "reason": "same brand and same address: the seed row is the Queensway Paramount, and the candidate adds the branch name",
+            "question": "This venue sits at the same location as Paramount Fine Foods, but its identity does not match. Is it the same restaurant?",
+            "evidence": [
+                "candidate: Paramount Fine Foods Queensway â€” 1585 The Queensway (43.6170629, -79.542104)",
+                "same place: \"Paramount Fine Foods\" â€” The Queensway, Toronto [7d33147d-e048-4c88-8940-621b1e87f1f5]"
+            ]
+        }
+    ]
+}

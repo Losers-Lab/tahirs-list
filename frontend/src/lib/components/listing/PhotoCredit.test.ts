@@ -12,13 +12,15 @@ import PhotoCredit from './PhotoCredit.svelte';
 describe('PhotoCredit', () => {
 	it('renders the attribution and licence, linked to the source page', () => {
 		render(PhotoCredit, {
-			attribution: 'A. Person / Wikimedia Commons',
+			attribution: 'A. Person / Wikimedia Commons, CC BY 2.0',
 			licence: 'CC_BY',
 			sourceUrl: 'https://commons.wikimedia.org/wiki/File:Example.jpg'
 		});
 
 		const link = screen.getByRole('link');
-		expect(link).toHaveTextContent('A. Person / Wikimedia Commons · CC_BY');
+		// The credit already names its licence; the enum must not be appended twice.
+		expect(link).toHaveTextContent('A. Person / Wikimedia Commons, CC BY 2.0');
+		expect(link).not.toHaveTextContent('CC_BY');
 		expect(link).toHaveAttribute('href', 'https://commons.wikimedia.org/wiki/File:Example.jpg');
 		expect(link).toHaveAttribute('rel', 'nofollow noopener noreferrer');
 	});
