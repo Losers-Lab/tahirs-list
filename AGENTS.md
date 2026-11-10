@@ -286,6 +286,17 @@ fiftieth — follows this discipline **without being asked**:
     sensitive work (auth, trust, integrations) additionally requires Omar's
     explicit approval.
   - CI/build status must be green on the PR head before merging.
+- **Browser pass for frontend PRs (MANDATORY — founder directive, 2026-11-10):**
+  every PR that touches `frontend/` must be exercised in a real browser before
+  merge, and the PR must show screenshots of the changed states. Component/jsdom
+  tests do not count: they cannot see hydration, CSS, native `<dialog>`, the
+  image pipeline, or the app's CSP/HSTS behaviour. Run Playwright (or Puppeteer)
+  in a container against a locally built stack — never against
+  `dev.tahirslist.com` — keep the script under `e2e/` so the pass is repeatable,
+  and save screenshots under `docs/features/<STORY>/screenshots/` (embedded in a
+  PR comment). The script must assert the ACs and exit non-zero on mismatch: a
+  demo that always passes is not a gate. `e2e/README.md` has the exact
+  invocation (ports, host mapping, admin promotion, known pitfalls).
 - **Security review division of labor (founder-ratified):**
   - **Omar (Security Reviewer — static, code-level):** reviews diffs/PRs for
     vulnerability classes; approves/blocks PRs on security grounds; defines
