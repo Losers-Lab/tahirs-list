@@ -2,6 +2,21 @@
 
 > **Purpose:** read the design in ten minutes, then approve or name the diagram to change · **Derived from:** 00–07 · **Delta:** decision table at the end
 
+## Approval
+
+| Field | Value |
+|---|---|
+| Approved by | Founder (owner), in session |
+| Date | 2026-11-10 |
+| Design commit | `0a59ee2` — the PR #89 head as approved |
+| PR | #89 |
+| Resolved by the owner | L-1 (restaurants only), L-3 (a bakery is a restaurant), L-4 (owner → free → Places cache); D-1, D-2, D-3, D-6, D-7, D-11, D-12 |
+| Accepted as defaults | D-4 (evidence columns), D-5 (type not in the API yet), D-8 (credit on detail and cards), D-9 (bytes then credit row), D-10 (report-only review queue) |
+| Conditions | none |
+| Implementation | starts at `09-work-items.md`; TDD per WI on this branch |
+
+The design is frozen at `0a59ee2`. Later edits to 09/10 add work items and evidence; they do not change the design. A change to the design itself goes back through this walkthrough.
+
 Read in this order. Each section is three bullets: what the diagram **shows**,
 what it **locks in**, and what I **need** from you. The decision table at the
 end is what approval actually covers.
