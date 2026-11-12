@@ -1,8 +1,10 @@
 package com.tahirslist.application.ingestion
 
+import com.tahirslist.domain.restaurant.AdmissionDecision
 import com.tahirslist.domain.restaurant.CertificationClaim
 import com.tahirslist.domain.restaurant.CertificationTier
 import com.tahirslist.domain.restaurant.CrossContamination
+import com.tahirslist.domain.restaurant.EnrichmentSource
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.Provenance
 import com.tahirslist.domain.restaurant.VerificationBasis
@@ -92,6 +94,12 @@ enum class RejectReason {
 
     /** A claim already points at a different listing. */
     CLAIM_CONFLICT,
+
+    /** SC-231: the row is not a restaurant, so it never becomes a candidate (L-1). */
+    NOT_A_RESTAURANT,
+
+    /** SC-231: nothing decided that the row is a restaurant; it is held for a curator. */
+    UNDECIDED_VENUE,
 }
 
 /** One accounted-for row that will not be loaded, with a human-readable reason. */
@@ -101,6 +109,8 @@ data class IngestReject(
     val source: String? = null,
     val sourceRecordRef: String? = null,
     val name: String? = null,
+    /** SC-231: the class the admission gate recognised, for the report's grouping. */
+    val venueClass: String? = null,
 ) {
     init {
         require(detail.isNotBlank()) { "a reject must explain itself" }
@@ -135,12 +145,28 @@ data class IngestionCandidate(
     val metro: String? = null,
     /** Curated manual rows carry an explicit value; ignored for Tier-1 rows. */
     val manualCrossContamination: CrossContamination = CrossContamination.DEFAULT,
+    /**
+     * SC-231: the gate's verdict. Present for every ingested row; null for a
+     * curated manual row, which is restaurant-only by curation.
+     */
+    val admission: AdmissionDecision.Admitted? = null,
+    /** SC-231: the cuisine the assigner decided, with the evidence that produced it. */
+    val cuisineName: String? = null,
+    val cuisineSource: EnrichmentSource? = null,
+    /** SC-231: two cuisine families in one name — reported, never resolved by guessing. */
+    val cuisineConflict: String? = null,
 ) {
     init {
         require(name.isNotBlank()) { "candidate name must not be blank" }
         require(address.isNotBlank()) { "candidate address must not be blank" }
         require(claims.isNotEmpty()) { "a candidate must carry at least one citation claim" }
         require(VENUE_KEY.matches(venueKey)) { "candidate venueKey must be a lowercase SHA-256 hex" }
+        require((cuisineName == null) == (cuisineSource == null)) {
+            "a cuisine and its evidence travel together"
+        }
+        require(cuisineName == null || cuisineConflict == null) {
+            "a decided cuisine cannot also be a conflict"
+        }
     }
 
     /** The claim that decides the row's trust outcome: highest tier, then source priority. */

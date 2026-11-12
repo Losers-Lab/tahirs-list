@@ -418,4 +418,69 @@ class RestaurantListingTest : FunSpec({
         listing.postal shouldBe "78759"
         listing.country shouldBe "US"
     }
+
+    // ---- SC-231: enrichment fields -----------------------------------------
+
+    fun imported(venueType: VenueType? = null, venueTypeSource: EnrichmentSource? = null) =
+        RestaurantListing.imported(
+            name = "Noor",
+            address = "500 Bloor St W",
+            location = LatLng(43.66, -79.43),
+            provenance = Provenance("certifier-hms"),
+            venueKey = "a".repeat(64),
+            verificationStatus = VerificationStatus.VERIFIED,
+            verificationBasis = VerificationBasis.CERTIFIER_REGISTRY,
+            venueType = venueType,
+            venueTypeSource = venueTypeSource,
+            cuisine = Cuisine("afghan"),
+            cuisineSource = EnrichmentSource.NAME_KEYWORD,
+        )
+
+    test("imported() keeps a venue type with the evidence that produced it") {
+        val listing = imported(VenueType.BAKERY, EnrichmentSource.NAME_KEYWORD)
+
+        listing.venueType shouldBe VenueType.BAKERY
+        listing.venueTypeSource shouldBe EnrichmentSource.NAME_KEYWORD
+        listing.cuisineSource shouldBe EnrichmentSource.NAME_KEYWORD
+    }
+
+    test("imported() refuses a type with no evidence behind it") {
+        shouldThrow<IllegalArgumentException> {
+            imported(VenueType.RESTAURANT, venueTypeSource = null)
+        }
+    }
+
+    test("the pairing also holds after a copy, not only at construction") {
+        // The load fills nulls with copy(); a copy must not be able to orphan the value.
+        val listing = imported(VenueType.CAFE, EnrichmentSource.SOURCE_CATEGORY)
+
+        shouldThrow<IllegalArgumentException> { listing.copy(venueTypeSource = null) }
+        shouldThrow<IllegalArgumentException> { listing.copy(venueType = null) }
+    }
+
+    test("a cuisine source without a cuisine is not auditable") {
+        shouldThrow<IllegalArgumentException> {
+            imported().copy(cuisine = null)
+        }
+    }
+
+    test("enrichment fields default to empty so existing rows stay valid") {
+        val listing = RestaurantListing.fromStorage(
+            id = Uuid.random(),
+            name = "Legacy",
+            address = "1 St",
+            location = LatLng(0.0, 0.0),
+            cuisine = null,
+            ownerId = null,
+            brandId = null,
+            provenance = null,
+            verificationStatus = VerificationStatus.UNVERIFIED,
+            createdAt = Clock.System.now(),
+        )
+
+        listing.venueType shouldBe null
+        listing.venueTypeSource shouldBe null
+        listing.cuisineSource shouldBe null
+        listing.coverPhoto shouldBe null
+    }
 })

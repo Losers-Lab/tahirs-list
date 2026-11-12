@@ -4,6 +4,8 @@ import io.kotest.matchers.shouldBe
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
+import java.time.Instant
+import java.time.ZoneOffset
 import java.util.UUID
 import javax.imageio.ImageIO
 
@@ -206,6 +208,47 @@ class ListingImageEndpointTest : KtorPostgresTest() {
             full.status shouldBe 200
             full.header("Content-Type") shouldBe "image/jpeg"
             full.header("Content-Disposition") shouldBe "inline"
+        }
+
+        // ---- SC-231 UC-03 P1: a Places cache stops being served at its expiry ----
+
+        test("a Places cache is served while it is live and 404s once it expires") {
+            val session = signupAndLogin("img-cache-expiry@example.com")
+            val listingId = createListing(session.accessToken, session.accountId)
+            putImage(listingId, jpegBytes(), bearer = session.accessToken).status shouldBe 204
+
+            insertCoverCache(listingId, expiresAt = Instant.now().plusSeconds(3600))
+            getImage(listingId).status shouldBe 200
+
+            insertCoverCache(listingId, expiresAt = Instant.now().minusSeconds(60))
+            val expired = getImage(listingId)
+            expired.status shouldBe 404
+            expired.json()["code"].asString() shouldBe "not_found"
+        }
+    }
+
+    /** Put a Places cache row on the listing, as the photo pass would. */
+    private fun insertCoverCache(listingId: String, expiresAt: Instant) {
+        SharedPostgres.dataSource.connection.use { connection ->
+            connection.prepareStatement(
+                """
+                INSERT INTO listing_cover_photos (
+                    listing_id, source_kind, storage_class, attribution,
+                    google_place_id, google_photo_name, expires_at
+                ) VALUES (?, 'GOOGLE_PLACES', 'CACHE', 'Google Maps, A. Reviewer', 'ChIJ', 'places/abc/photos/def', ?)
+                ON CONFLICT (listing_id) DO UPDATE SET
+                    source_kind = EXCLUDED.source_kind,
+                    storage_class = EXCLUDED.storage_class,
+                    attribution = EXCLUDED.attribution,
+                    google_place_id = EXCLUDED.google_place_id,
+                    google_photo_name = EXCLUDED.google_photo_name,
+                    expires_at = EXCLUDED.expires_at
+                """.trimIndent(),
+            ).use { statement ->
+                statement.setObject(1, UUID.fromString(listingId))
+                statement.setObject(2, expiresAt.atOffset(ZoneOffset.UTC))
+                statement.executeUpdate()
+            }
         }
     }
 

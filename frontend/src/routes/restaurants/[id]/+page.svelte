@@ -11,6 +11,7 @@
 	import CertificatePanel from '#lib/components/detail/CertificatePanel.svelte';
 	import MapPreview from '#lib/components/detail/MapPreview.svelte';
 	import ListingPhotoPanel from '#lib/components/listing/ListingPhotoPanel.svelte';
+	import PhotoCredit from '#lib/components/listing/PhotoCredit.svelte';
 	import FavoriteButton from '#lib/components/listing/FavoriteButton.svelte';
 	import { api } from '#lib/api/client';
 	import { sessionState } from '#lib/auth/session.svelte';
@@ -206,6 +207,11 @@
 					{/if}
 				{/snippet}
 			</ListingPhotoPanel>
+			<PhotoCredit
+				attribution={restaurant.photoAttribution}
+				licence={restaurant.photoLicence}
+				sourceUrl={restaurant.photoSourceUrl}
+			/>
 
 			<div class="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>

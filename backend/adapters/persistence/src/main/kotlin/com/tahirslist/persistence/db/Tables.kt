@@ -115,8 +115,39 @@ object RestaurantListings : Table("restaurant_listings") {
 
     /** SC-205: opaque hero-photo version (0 = no photo); V25. */
     val imageVersion = long("image_version")
+    /** SC-231: which kind of restaurant this is, and the evidence that decided it. */
+    val venueType = varchar("venue_type", 16).nullable()
+    val venueTypeSource = varchar("venue_type_source", 24).nullable()
+
+    /** SC-231: where the cuisine came from; null when an owner set it or it is unknown. */
+    val cuisineSource = varchar("cuisine_source", 24).nullable()
 
     override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * `V27__sc_231_enrichment.sql` (SC-231): one cover photo per listing.
+ *
+ * The CHECK constraints are the model, not a comment: a Places row can only be a
+ * cache with an expiry, and a free-licensed row must carry its licence.
+ */
+object ListingCoverPhotos : Table("listing_cover_photos") {
+    val listingId = uuid("listing_id")
+    val sourceKind = varchar("source_kind", 16)
+    val storageClass = varchar("storage_class", 16)
+    val licence = varchar("licence", 16).nullable()
+    val attribution = varchar("attribution", 1024)
+    val author = varchar("author", 512).nullable()
+    val sourceUrl = varchar("source_url", 1024).nullable()
+    val googlePlaceId = varchar("google_place_id", 255).nullable()
+    val googlePhotoName = varchar("google_photo_name", 1024).nullable()
+    val expiresAt = timestampWithTimeZone("expires_at").nullable()
+    val contentHash = char("content_hash", 64).nullable()
+    val width = integer("width").nullable()
+    val height = integer("height").nullable()
+    val createdAt = timestampWithTimeZone("created_at")
+
+    override val primaryKey = PrimaryKey(listingId)
 }
 
 /**

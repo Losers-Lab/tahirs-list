@@ -121,13 +121,30 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
             ?: throw InvalidInputException("variant query parameter is required")
         val variant = parseVariant(rawVariant)
             ?: throw InvalidInputException("variant must be one of the supported image variants")
+
+        // SC-231 UC-03 P1: a Places photo is a cache. Once it expires the bytes
+        // are no longer ours to serve, so the endpoint refuses rather than showing
+        // a photo whose licence window closed. A listing with no credit row (every
+        // pre-SC-231 row) keeps the old behaviour: its bytes are ours.
+        val cover = listing.photos.find(id)
+        val now = java.time.Instant.now()
+        if (cover != null && !cover.isServableAt(now)) {
+            return@get call.respondError(
+                HttpStatusCode.NotFound,
+                ErrorCodes.NOT_FOUND,
+                ErrorMessages.RESOURCE_NOT_FOUND,
+            )
+        }
+
         val stored = listing.images.load(id, variant)
             ?: return@get call.respondError(
                 HttpStatusCode.NotFound,
                 ErrorCodes.NOT_FOUND,
                 ErrorMessages.RESOURCE_NOT_FOUND,
             )
-        call.setCacheControl(PUBLIC_CACHE_CONTROL)
+        // A cache must not outlive its own expiry in a browser/CDN: bound the TTL
+        // by the remaining window instead of a flat day.
+        call.setCacheControl(coverCacheControl(cover, now))
         call.respondStoredBytes(stored.bytes, stored.contentType)
     }
 
