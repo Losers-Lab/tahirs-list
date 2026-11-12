@@ -137,13 +137,39 @@ Places was deliberately not consulted:
 Suites at this head: backend `./gradlew test` — **1080 tests, 0 failures**; frontend
 `svelte-check` 0 errors, `vitest` **240 passed**, `vite build` clean.
 
-**Observation, not fixed here (pre-existing platform behaviour).** Byte responses carry two
-`Cache-Control` values: the proxy's `public, max-age=…` and the platform's `no-store`
-(`SecurityHeadersPlugin`, SC-199). RFC 9111 makes any response carrying `no-store`
-unstorable, so a photo is not actually cached today — safe for the licence window, but the
-freshness policy is a no-op on byte responses (it works on `/v1/listings/search`). The
-bounded `max-age` is correct on the wire and takes effect once that is fixed; the plugin is
-outside this story's diff, so it is raised as a follow-up rather than changed here.
+**Observation, not fixed here (pre-existing platform behaviour).** On the wire a 200 image
+response carries **two** `Cache-Control` values, in this order: `public, max-age=…` (ours,
+bounded by the remaining window — a photo with 120 s left reports `max-age=119`) and then
+`no-store`. The second one is `SecurityHeadersPlugin` (SC-199): its guard is meant to append
+`no-store` only when no policy is set, but for a byte response `call.response.status()` is not
+yet set when `ResponseBodyReadyForSend` runs, so the "non-2xx" branch fires. RFC 9111 makes
+any response carrying `no-store` unstorable, so a photo is not actually cached today — safe
+for the licence window, but the freshness policy is a no-op on byte responses (it works on
+`/v1/listings/search`, which is a JSON response and carries the single expected value). The
+plugin is outside this story's diff; the follow-up is to treat an unset status as 2xx (or to
+key the branch on header presence only).
+
+### Deferred, with the reviewers' agreement (not silently dropped)
+
+- **`GET /v1/listings/{id}/image` answers from storage without checking the listing exists.**
+  Five orphan byte sets (ids with no row, four seed-era) still return 200 uncredited; the
+  first real `--execute` purge will mint more, because `deleteListing` removes rows only.
+  Both halves belong to one follow-up ticket (404 unless the listing exists; purge deletes
+  the stored variants).
+- **`SearchCard` carries no credit fields.** The `listing_search` index has no
+  attribution/licence columns; the shipped UI reads `BrowseCard`, so nothing renders an
+  uncredited photo today, but any future consumer of `/v1/listings/search` would. Owner
+  decision: widen the index, or drop the image fields from `SearchCard`.
+- **Bytes are written before the credit row.** A failure between the two can credit the old
+  author's bytes to the new one; only content-addressed keys fix it properly.
+- **Redirect hops are not re-checked against `PublicHttpsOnly`** (`followRedirects = true`).
+  The trigger is upstream/CDN compromise, not user input.
+- **`redact` strips a query, not a secret.** No adapter puts a key in a path today; masking
+  `key=` (and the `AIza…` shape) would remove the assumption.
+- **V28 is looser than the model in three predicates** (owner-upload `CACHE`, Places with a
+  licence, blank-but-non-null place id, whitespace-only attribution). Only reachable by
+  direct SQL, but a row the database accepts is one the read mapper throws on; a later
+  migration should close it.
 
 ## Notes
 
