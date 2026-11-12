@@ -84,6 +84,13 @@ data class RestaurantListing(
     val halalItems: Set<HalalItem> = emptySet(),
     val crossContamination: CrossContamination = CrossContamination.DEFAULT,
     val alcoholServed: Boolean = false,
+    /**
+     * SC-205: opaque version of the listing's hero photo (epoch millis of the
+     * last successful ingest; 0 = no photo). Appended to the public image URLs
+     * as `&v=` so a replaced photo is never served from a day-old cache. It is
+     * NOT the photo's identity — the listing id is.
+     */
+    val imageVersion: Long = 0,
     /** SC-231: which kind of restaurant this is, and the evidence that decided it. */
     val venueType: VenueType? = null,
     val venueTypeSource: EnrichmentSource? = null,
@@ -374,6 +381,7 @@ data class RestaurantListing(
             halalItems: Set<HalalItem> = emptySet(),
             crossContamination: CrossContamination = CrossContamination.DEFAULT,
             alcoholServed: Boolean = false,
+            imageVersion: Long = 0,
             venueType: VenueType? = null,
             venueTypeSource: EnrichmentSource? = null,
             cuisineSource: EnrichmentSource? = null,
@@ -402,6 +410,7 @@ data class RestaurantListing(
             halalItems = halalItems,
             crossContamination = crossContamination,
             alcoholServed = alcoholServed,
+            imageVersion = imageVersion,
             venueType = venueType,
             venueTypeSource = venueTypeSource,
             cuisineSource = cuisineSource,

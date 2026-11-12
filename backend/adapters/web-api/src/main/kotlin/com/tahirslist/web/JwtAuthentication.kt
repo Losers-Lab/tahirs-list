@@ -3,6 +3,7 @@ package com.tahirslist.web
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.crypto.RSASSAVerifier
 import com.nimbusds.jwt.SignedJWT
+import com.tahirslist.application.listing.Actor
 import com.tahirslist.domain.account.Role
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -133,3 +134,19 @@ internal fun ApplicationCall.requireAccountId(): Uuid =
         jwtPrincipal()?.subject
             ?: throw InvalidInputException(ErrorMessages.AUTHENTICATION_REQUIRED),
     )
+
+/**
+ * SC-205: the verified actor (account id + role) used by authorization decisions.
+ *
+ * Both fields come from the JWT the provider above already validated; the role
+ * is guaranteed to be one of the [Role] names by [JwtVerifier], so
+ * `Role.valueOf` cannot throw for a token that reached this point.
+ */
+internal fun ApplicationCall.requireActor(): Actor {
+    val principal = jwtPrincipal()
+        ?: throw InvalidInputException(ErrorMessages.AUTHENTICATION_REQUIRED)
+    return Actor(
+        accountId = Uuid.parse(principal.subject),
+        role = Role.valueOf(principal.role),
+    )
+}

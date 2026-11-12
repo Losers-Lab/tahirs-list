@@ -288,6 +288,40 @@ class ExposedRestaurantListingRepositoryTest : FunSpec() {
             }
         }
 
+        test("bumpImageVersion is monotonic and round-trips through findById (SC-205)") {
+            runTest {
+                val owner = accounts.save(
+                    Account.new(email = Email("photo-${Uuid.random()}@example.com"), passwordHash = "argon2id\$h"),
+                )
+                val listing = RestaurantListing.new(
+                    name = "Photo Grill",
+                    address = "1 Photo St",
+                    location = LatLng(43.8, -79.5),
+                    cuisine = Cuisine("mediterranean"),
+                    ownerId = owner.id,
+                )
+                val saved = listings.save(listing)
+                saved.imageVersion shouldBe 0L
+
+                val first = listings.bumpImageVersion(saved.id)!!
+                first shouldNotBe 0L
+                listings.findById(saved.id)!!.imageVersion shouldBe first
+
+                val second = listings.bumpImageVersion(saved.id)!!
+                (second > first) shouldBe true
+                listings.findById(saved.id)!!.imageVersion shouldBe second
+
+                // The version is an attribute, not a rewrite of the row.
+                listings.findById(saved.id)!!.name shouldBe "Photo Grill"
+            }
+        }
+
+        test("bumpImageVersion returns null for an unknown id and writes nothing (SC-205)") {
+            runTest {
+                listings.bumpImageVersion(Uuid.random()) shouldBe null
+            }
+        }
+
         test("save mirrors the listing into the listing_search read model atomically (sc-10)") {
             runTest {
                 val owner = accounts.save(Account.new(email = Email("mirror@example.com"), passwordHash = "argon2id\$h"))

@@ -17,6 +17,19 @@ interface RestaurantListingRepository {
     suspend fun findById(id: Uuid): RestaurantListing?
 
     /**
+     * SC-205: stamp a new hero-photo version on the listing and return it.
+     *
+     * The version is monotonic (`GREATEST(image_version + 1, nowMillis)`), so a
+     * successful upload always changes the public image URL even if the clock
+     * goes backwards. It is the commit point of an image write: callers stamp it
+     * only after every object variant is stored.
+     *
+     * @return the new version, or `null` when no listing has [id] (the row
+     *         vanished between the load and the write).
+     */
+    suspend fun bumpImageVersion(id: Uuid): Long?
+
+    /**
      * Full replace of a listing's editable content fields (sc-23/47/48 owner
      * listing edit), persisted atomically with its search mirror and child
      * stores. Identity and governance fields (id, owner, verification status,

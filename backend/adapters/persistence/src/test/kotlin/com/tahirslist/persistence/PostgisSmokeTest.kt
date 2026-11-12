@@ -58,9 +58,10 @@ class PostgisSmokeTest : FunSpec() {
             // columns (V20), the sc-73 certificate_key column on reviews
             // (V21), the sc-211 ingestion schema (V22), the SC-198
             // geocoded_addresses cache table (V23), the sc-211 round-2
-            // trust + location correction (V24), SC-231's enrichment columns and
+            // trust + location correction (V24), the SC-205 image version +
+            // ADMIN role (V25/V26), and SC-231's enrichment columns and
             // cover-photo table (V27/V28) all run cleanly on a real PostGIS DB.
-            result.migrationsExecuted shouldBe 26
+            result.migrationsExecuted shouldBe 28
         }
     }
 }

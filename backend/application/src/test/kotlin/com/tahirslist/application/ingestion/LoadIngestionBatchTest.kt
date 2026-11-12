@@ -40,6 +40,8 @@ private class FakeListings(
     var appliedMerges: List<ListingMerge>? = null
     var appliedReattachments: List<ClaimReattachment>? = null
 
+    override suspend fun bumpImageVersion(id: Uuid): Long? = null
+
     override suspend fun findClaim(source: String, sourceRecordRef: String): RestaurantListing? =
         claims["$source::$sourceRecordRef"]
 

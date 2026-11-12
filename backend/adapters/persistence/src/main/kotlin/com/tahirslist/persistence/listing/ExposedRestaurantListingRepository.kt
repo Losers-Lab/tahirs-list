@@ -125,8 +125,8 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         if (listing.crossContamination.isIndexQualified()) {
             executeUpdate(
                 """
-                INSERT INTO listing_search (id, name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO listing_search (id, name, address, city, province, postal, country, location, cuisine, is_hand_cut, is_delivery, verification_status, price, rating, alcohol_served, halal_scope, cross_contamination, image_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO UPDATE SET
                     name = EXCLUDED.name,
                     address = EXCLUDED.address,
@@ -143,7 +143,8 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                     rating = EXCLUDED.rating,
                     alcohol_served = EXCLUDED.alcohol_served,
                     halal_scope = EXCLUDED.halal_scope,
-                    cross_contamination = EXCLUDED.cross_contamination
+                    cross_contamination = EXCLUDED.cross_contamination,
+                    image_version = EXCLUDED.image_version
                 """.trimIndent(),
                 listOf(
                     ListingSearch.id bind listing.id,
@@ -164,6 +165,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
                     ListingSearch.alcoholServed bind listing.alcoholServed,
                     ListingSearch.halalScope bind listing.halalScope.name,
                     ListingSearch.crossContamination bind listing.crossContamination.name,
+                    ListingSearch.imageVersion bind listing.imageVersion,
                 ),
                 StatementType.INSERT,
             )
@@ -851,8 +853,41 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         }
     }
 
-    override suspend fun updateVerificationStatus(id: Uuid, status: VerificationStatus): RestaurantListing? {
-        // Update the source row; no-op path returns 0 rows. The search mirror is
+    /**
+     * SC-205: stamp the hero-photo version and return it.
+     *
+     * The value is monotonic even if the clock moves backwards
+     * (`GREATEST(image_version + 1, now_millis)`), so a successful upload always
+     * changes the public image URL. A missing listing returns `null` and writes
+     * nothing; the object bytes may already be stored (see Q-2/D-6).
+     */
+    override suspend fun bumpImageVersion(id: Uuid): Long? = suspendTransaction(db) {
+        val nowMillis = Clock.System.now().toEpochMilliseconds()
+        val newVersion = queryRows(
+            """
+            UPDATE restaurant_listings
+               SET image_version = GREATEST(image_version + 1, ?)
+             WHERE id = ?
+            RETURNING image_version
+            """.trimIndent(),
+            listOf(
+                RestaurantListings.imageVersion bind nowMillis,
+                RestaurantListings.id bind id,
+            ),
+        ) { it.getLong("image_version") }.firstOrNull() ?: return@suspendTransaction null
+
+        // The search mirror carries the same stamp, so a replaced photo changes
+        // its card URL on the next search too (same transaction — no window in
+        // which the two surfaces disagree).
+        executeUpdate(
+            "UPDATE listing_search SET image_version = ? WHERE id = ?",
+            listOf(ListingSearch.imageVersion bind newVersion, ListingSearch.id bind id),
+        )
+
+        newVersion
+    }
+
+    override suspend fun updateVerificationStatus(id: Uuid, status: VerificationStatus): RestaurantListing? {        // Update the source row; no-op path returns 0 rows. The search mirror is
         // kept in sync in the SAME transaction so a promotion is atomically
         // visible to the public read surface (sc-73 → sc-49 verified display).
         val rows = suspendTransaction(db) {
@@ -944,6 +979,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
         venueKey = rs.getString("venue_key"),
         verificationStatus = VerificationStatus.valueOf(rs.getString("verification_status")),
         createdAt = rs.getTimestamp("created_at").toInstant().toKotlinInstant(),
+        imageVersion = rs.getLong("image_version"),
         venueType = rs.getString("venue_type")?.let { VenueType.valueOf(it) },
         venueTypeSource = rs.getString("venue_type_source")?.let { EnrichmentSource.valueOf(it) },
         cuisineSource = rs.getString("cuisine_source")?.let { EnrichmentSource.valueOf(it) },
@@ -979,6 +1015,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             restaurant_listings.brand_id, restaurant_listings.provenance,
             restaurant_listings.venue_key, restaurant_listings.verification_status,
             restaurant_listings.created_at,
+            restaurant_listings.image_version,
             restaurant_listings.venue_type, restaurant_listings.venue_type_source,
             restaurant_listings.cuisine_source
         """.trimIndent()

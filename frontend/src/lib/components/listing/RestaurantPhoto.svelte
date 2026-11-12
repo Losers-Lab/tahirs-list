@@ -7,8 +7,10 @@
 		alt: string;
 		sizes: string;
 		eager?: boolean;
+		/** Called once every candidate has failed, so a caller can show a real empty state. */
+		onUnavailable?: () => void;
 	};
-	let { src, fallbackSrc, srcset, alt, sizes, eager = false }: Props = $props();
+	let { src, fallbackSrc, srcset, alt, sizes, eager = false, onUnavailable }: Props = $props();
 
 	// Source chain: primary, then fallback, deduped. Advancing on each error lets
 	// a 404 swap to the guaranteed thumbnail instead of a blank card; the
@@ -35,6 +37,11 @@
 	// Only the primary source has the multi-width variants; the guaranteed
 	// fallback thumbnail is a single width.
 	const responsiveSrcset = $derived(attempt === 0 ? srcset : undefined);
+
+	// Every candidate has failed (or none exist): the listing has no usable photo.
+	$effect(() => {
+		if (!current && onUnavailable) onUnavailable();
+	});
 </script>
 
 {#if current}

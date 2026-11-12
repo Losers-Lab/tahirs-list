@@ -4,6 +4,7 @@ import com.tahirslist.application.image.StoredImage
 import com.tahirslist.application.listing.ListingSearchFilters
 import com.tahirslist.application.listing.ListingSearchRequestParser
 import com.tahirslist.application.listing.SearchSettings
+import com.tahirslist.application.verification.NotListingOwnerException
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.VerificationStatus
 import io.ktor.http.HttpStatusCode
@@ -151,6 +152,22 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
 
     authenticate(JWT_AUTH_PROVIDER) {
 
+        /**
+         * SC-205: may the caller change this listing's photo? Same rule as the
+         * write (`PhotoWritePolicy`), and only a boolean — never the owner's id.
+         */
+        get("/v1/listings/{id}/manage") {
+            val id = call.pathUuid("id")
+            val actor = call.requireActor()
+            val outcome = listing.manage.execute(id, actor)
+                ?: return@get call.respondError(
+                    HttpStatusCode.NotFound,
+                    ErrorCodes.LISTING_NOT_FOUND,
+                    ErrorMessages.RESOURCE_NOT_FOUND,
+                )
+            call.respond(HttpStatusCode.OK, ManageResponse(canManage = outcome.canManage))
+        }
+
         post("/v1/listings") {
             val request = call.receiveJson<CreateListingRequest>()
             requireValid(request.validationMessages())
@@ -199,12 +216,24 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
 
         put("/v1/listings/{id}/image") {
             val id = call.pathUuid("id")
-            val ownerId = call.requireAccountId()
+            val actor = call.requireActor()
+            // Authorize BEFORE reading the multipart body: otherwise any
+            // authenticated account could make the server parse and discard 8 MiB
+            // for a listing it may not write. The use case re-checks the policy
+            // (one source of truth, two gates).
+            val manage = listing.manage.execute(id, actor)
+                ?: return@put call.respondError(
+                    HttpStatusCode.NotFound,
+                    ErrorCodes.LISTING_NOT_FOUND,
+                    ErrorMessages.RESOURCE_NOT_FOUND,
+                )
+            if (!manage.canManage) throw NotListingOwnerException(id, actor.accountId)
+
             val form = call.receiveForm()
             val image = form.requiredFile("image", ErrorMessages.IMAGE_PART_REQUIRED)
             listing.addImage.execute(
                 listingId = id,
-                ownerId = ownerId,
+                actor = actor,
                 original = StoredImage(bytes = image.bytes, contentType = image.contentType),
             )
             call.respond(HttpStatusCode.NoContent)

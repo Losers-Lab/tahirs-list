@@ -1777,6 +1777,74 @@
         }
       }
     },
+    "/v1/listings/{id}/manage": {
+      "get": {
+        "tags": [
+          "listing-controller"
+        ],
+        "summary": "May the caller change this listing's photo?",
+        "description": "Answers the same question as `PUT /v1/listings/{id}/image`: the recorded owner or an account whose verified JWT carries `role: ADMIN`. Returns only a boolean — never the owner's id — so the public detail payload stays viewer-neutral. SC-205.",
+        "operationId": "listingManage",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the caller may manage the listing's photo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required (`unauthorized`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No listing has that id (`listing_not_found`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error (`internal_error`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "tags": [
@@ -2804,6 +2872,18 @@
         "required": [
           "subjectId",
           "role"
+        ]
+      },
+      "ManageResponse": {
+        "description": "Whether the calling account may add or replace this listing's hero photo (SC-205).",
+        "type": "object",
+        "properties": {
+          "canManage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "canManage"
         ]
       },
       "HealthResponse": {

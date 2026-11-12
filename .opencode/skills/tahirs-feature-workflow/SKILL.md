@@ -136,10 +136,16 @@ fixes, not the verdicts.
 Self-review → security (static) → QA (dynamic). Blocking vs `nit:`/`optional:`.
 Fix, reply per thread, re-request.
 
+**Frontend PRs also need a browser pass** (founder rule, 2026-11-10): run the
+story's Playwright/Puppeteer script in a container against a locally built
+stack, assert the ACs, and embed the screenshots in the PR. jsdom tests do not
+satisfy this. A browser pass that finds a bug is a QA finding like any other —
+fix it and re-run. `e2e/README.md` has the invocation.
+
 Converged when: no blocking threads; every AC proven; traceability complete;
-suites green on head; `Verdict: APPROVE` from **both** Omar and Yusuf recorded on
-the PR; **two consecutive clean rounds**; diagrams updated; deferrals are
-Shortcut stories.
+suites green on head; **frontend: browser pass green with screenshots on the
+PR**; `Verdict: APPROVE` from **both** Omar and Yusuf recorded on the PR; **two
+consecutive clean rounds**; diagrams updated; deferrals are Shortcut stories.
 
 Three rounds without convergence → escalate with a one-paragraph summary. That
 asks the owner for a decision, not a code review; merge still needs both

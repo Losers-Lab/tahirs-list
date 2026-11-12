@@ -126,16 +126,24 @@ internal fun parseVariant(raw: String): ImageVariant? = when (raw.lowercase()) {
     else -> null
 }
 
-internal fun ApplicationCall.imageUrl(id: Uuid, variant: ImageVariant): String =
-    "${baseUrl()}/v1/listings/$id/image?variant=${variantSlug(variant)}"
+/**
+ * The public image URL. [version] is the listing's opaque photo version
+ * (SC-205): when non-zero it is appended as `&v=`, which the image route
+ * ignores but which changes the cache key, so a replaced photo is not served
+ * from the pre-replace entry (`public, max-age=86400`).
+ */
+internal fun ApplicationCall.imageUrl(id: Uuid, variant: ImageVariant, version: Long = 0): String {
+    val base = "${baseUrl()}/v1/listings/$id/image?variant=${variantSlug(variant)}"
+    return if (version > 0) "$base&v=$version" else base
+}
 
 internal fun ApplicationCall.certificateUrl(id: Uuid): String =
     "${baseUrl()}/v1/listings/$id/certificate"
 
 /** The sc-183 responsive width set a frontend may turn into a `srcset`. */
-internal fun ApplicationCall.imageSrcset(id: Uuid): List<SrcsetEntry> =
+internal fun ApplicationCall.imageSrcset(id: Uuid, version: Long = 0): List<SrcsetEntry> =
     ImageVariant.thumbnailVariants.map { variant ->
-        SrcsetEntry(width = variant.widthPx!!, url = imageUrl(id, variant))
+        SrcsetEntry(width = variant.widthPx!!, url = imageUrl(id, variant, version))
     }
 
 internal fun ApplicationCall.toBrowseCard(listing: RestaurantListing): BrowseCard = BrowseCard(
@@ -153,8 +161,8 @@ internal fun ApplicationCall.toBrowseCard(listing: RestaurantListing): BrowseCar
     halalScope = listing.halalScope.name,
     isDelivery = listing.isDelivery,
     verificationStatus = listing.verificationStatus.name,
-    imageThumbnailUrl = imageUrl(listing.id, ImageVariant.THUMBNAIL_400),
-    imageSrcset = imageSrcset(listing.id),
+    imageThumbnailUrl = imageUrl(listing.id, ImageVariant.THUMBNAIL_400, listing.imageVersion),
+    imageSrcset = imageSrcset(listing.id, listing.imageVersion),
     photoAttribution = credit(listing)?.attribution,
     photoLicence = credit(listing)?.licence?.name,
     photoSource = credit(listing)?.sourceKind?.name,
@@ -197,8 +205,8 @@ internal fun ApplicationCall.toSearchCard(result: ListingSearchResult): SearchCa
     halalScope = result.halalScope.name,
     isDelivery = result.isDelivery,
     verificationStatus = result.verificationStatus.name,
-    imageThumbnailUrl = imageUrl(result.id, ImageVariant.THUMBNAIL_400),
-    imageSrcset = imageSrcset(result.id),
+    imageThumbnailUrl = imageUrl(result.id, ImageVariant.THUMBNAIL_400, result.imageVersion),
+    imageSrcset = imageSrcset(result.id, result.imageVersion),
     rating = result.rating?.value?.toDouble(),
     distanceMiles = result.distanceMiles,
 )
@@ -222,15 +230,19 @@ internal suspend fun ApplicationCall.toDetail(
     crossContamination = listing.crossContamination.name,
     isDelivery = listing.isDelivery,
     verificationStatus = listing.verificationStatus.name,
-    imageThumbnailUrl = imageUrl(listing.id, ImageVariant.THUMBNAIL_400),
-    imageSrcset = imageSrcset(listing.id),
-    imageUrl = imageUrl(listing.id, ImageVariant.FULL),
+    imageThumbnailUrl = imageUrl(listing.id, ImageVariant.THUMBNAIL_400, listing.imageVersion),
+    imageSrcset = imageSrcset(listing.id, listing.imageVersion),
+    imageUrl = imageUrl(listing.id, ImageVariant.FULL, listing.imageVersion),
     certificate = certificateDetails(listing, reviews),
     photoAttribution = credit(listing)?.attribution,
     photoLicence = credit(listing)?.licence?.name,
     photoSource = credit(listing)?.sourceKind?.name,
     photoSourceUrl = credit(listing)?.sourceUrl,
 )
+
+/** SC-205: whether the calling account may change this listing's photo. */
+@Serializable
+data class ManageResponse(val canManage: Boolean)
 
 /**
  * The certificate display facts for a VERIFIED listing. Source of truth is the

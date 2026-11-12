@@ -141,6 +141,7 @@ class FakeListingRepository(private val listing: RestaurantListing?) : Restauran
     override suspend fun findById(id: Uuid): RestaurantListing? = listing?.takeIf { it.id == id }
     override suspend fun update(listing: RestaurantListing): RestaurantListing? = listing
     override suspend fun updateVerificationStatus(id: Uuid, status: VerificationStatus): RestaurantListing? = listing
+    override suspend fun bumpImageVersion(id: Uuid): Long? = listing?.takeIf { it.id == id }?.imageVersion
     override suspend fun findAll(): List<RestaurantListing> = listOfNotNull(listing)
     override suspend fun findClaim(source: String, sourceRecordRef: String): RestaurantListing? = null
     override suspend fun findByVenueKey(venueKey: String): RestaurantListing? = null

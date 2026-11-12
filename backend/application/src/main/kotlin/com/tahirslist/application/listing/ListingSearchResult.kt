@@ -42,4 +42,6 @@ data class ListingSearchResult(
     val verificationStatus: VerificationStatus,
     val rating: Rating?,
     val distanceMiles: Double,
+    /** SC-205: hero-photo version, appended to the card's image URLs as `&v=`. */
+    val imageVersion: Long = 0,
 )
