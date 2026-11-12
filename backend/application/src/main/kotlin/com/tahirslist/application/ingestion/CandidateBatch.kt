@@ -107,7 +107,9 @@ private data class CandidateDto(
         admission = venueType?.let { type ->
             AdmissionDecision.Admitted(
                 venueType = VenueType.valueOf(type),
-                source = EnrichmentSource.valueOf(venueTypeSource!!),
+                source = EnrichmentSource.valueOf(requireNotNull(venueTypeSource) {
+                    "a candidate with a venue type must name the evidence that produced it"
+                }),
             )
         },
         cuisineName = cuisine,

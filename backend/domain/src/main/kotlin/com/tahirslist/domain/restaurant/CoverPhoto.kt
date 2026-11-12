@@ -36,6 +36,12 @@ data class CoverPhoto(
     init {
         require(attribution.isNotBlank()) { "A cover photo must carry the credit that shows with it." }
 
+        // The credit link is rendered as an anchor. A `javascript:`/`data:` value
+        // there is stored XSS in our own origin, so only https is accepted.
+        require(sourceUrl == null || sourceUrl.startsWith("https://")) {
+            "A cover photo's source link must be https."
+        }
+
         if (sourceKind.isPermanent) {
             require(storageClass == PhotoStorage.PERMANENT) {
                 "$sourceKind may be stored permanently; a cache would throw the photo away."

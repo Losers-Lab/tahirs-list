@@ -801,7 +801,7 @@ class ExposedRestaurantListingRepository(private val db: Database) : RestaurantL
             UPDATE restaurant_listings SET
                 name = ?, address = ?,
                 location = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
-                cuisine = ?, is_hand_cut = ?, is_delivery = ?,
+                cuisine = ?, cuisine_source = NULL, is_hand_cut = ?, is_delivery = ?,
                 price = ?, rating = ?, alcohol_served = ?,
                 halal_scope = ?, cross_contamination = ?
             WHERE id = ?

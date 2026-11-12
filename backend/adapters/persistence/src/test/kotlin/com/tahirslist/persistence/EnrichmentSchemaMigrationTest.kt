@@ -51,14 +51,20 @@ class EnrichmentSchemaMigrationTest : FunSpec() {
             storageClass: String = "PERMANENT",
             licence: String? = "CC_BY",
             expiresAt: String? = null,
+            placeId: String? = null,
+            author: String? = "A. Person",
+            sourceUrl: String? = "https://commons.wikimedia.org/wiki/File:X.jpg",
         ): String = """
             INSERT INTO listing_cover_photos
-                (listing_id, source_kind, storage_class, licence, attribution, expires_at)
+                (listing_id, source_kind, storage_class, licence, attribution, expires_at, google_place_id, author, source_url)
             VALUES (
                 '$listingId', '$sourceKind', '$storageClass',
                 ${licence?.let { "'$it'" } ?: "NULL"},
                 'Photo credit',
-                ${expiresAt?.let { "'$it'::timestamptz" } ?: "NULL"}
+                ${expiresAt?.let { "'$it'::timestamptz" } ?: "NULL"},
+                ${placeId?.let { "'$it'" } ?: "NULL"},
+                ${author?.let { "'$it'" } ?: "NULL"},
+                ${sourceUrl?.let { "'$it'" } ?: "NULL"}
             )
         """.trimIndent()
 
@@ -119,11 +125,27 @@ class EnrichmentSchemaMigrationTest : FunSpec() {
 
                 // Permanent Places photo: the terms say no.
                 shouldThrow<ExposedSQLException> {
-                    postgis.execute(photoSql(listing, sourceKind = "GOOGLE_PLACES", storageClass = "PERMANENT"))
+                    postgis.execute(
+                        photoSql(listing, sourceKind = "GOOGLE_PLACES", storageClass = "PERMANENT", placeId = "ChIJ"),
+                    )
                 }
                 // Cache with no expiry could be served forever.
                 shouldThrow<ExposedSQLException> {
-                    postgis.execute(photoSql(listing, sourceKind = "GOOGLE_PLACES", storageClass = "CACHE", licence = null))
+                    postgis.execute(
+                        photoSql(listing, sourceKind = "GOOGLE_PLACES", storageClass = "CACHE", licence = null, placeId = "ChIJ"),
+                    )
+                }
+                // A cache with no place id cannot be refreshed.
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(
+                        photoSql(
+                            listing,
+                            sourceKind = "GOOGLE_PLACES",
+                            storageClass = "CACHE",
+                            licence = null,
+                            expiresAt = "2026-12-10T00:00:00Z",
+                        ),
+                    )
                 }
 
                 postgis.execute(
@@ -133,6 +155,7 @@ class EnrichmentSchemaMigrationTest : FunSpec() {
                         storageClass = "CACHE",
                         licence = null,
                         expiresAt = "2026-12-10T00:00:00Z",
+                        placeId = "ChIJ",
                     ),
                 )
                 postgis.count("SELECT count(*) FROM listing_cover_photos WHERE listing_id = '$listing'") shouldBe 1
@@ -147,7 +170,27 @@ class EnrichmentSchemaMigrationTest : FunSpec() {
                 shouldThrow<ExposedSQLException> {
                     postgis.execute(photoSql(listing, sourceKind = "WIKIMEDIA", licence = null))
                 }
+                // A cache would throw the permanent photo away.
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(photoSql(listing, sourceKind = "WIKIMEDIA", licence = "CC_BY", storageClass = "CACHE", expiresAt = "2026-12-10T00:00:00Z"))
+                }
+                // CC-BY without an author is not the credit the licence requires.
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(photoSql(listing, sourceKind = "WIKIMEDIA", licence = "CC_BY", author = null))
+                }
                 postgis.execute(photoSql(listing, sourceKind = "WIKIMEDIA", licence = "CC_BY_SA"))
+            }
+        }
+
+        test("a credit link must be https and the credit must not be blank") {
+            runTest {
+                val listing = UUID.randomUUID()
+                postgis.execute(listingSql(id = listing))
+
+                shouldThrow<ExposedSQLException> {
+                    postgis.execute(photoSql(listing, sourceUrl = "javascript:alert(1)"))
+                }
+                postgis.execute(photoSql(listing, sourceUrl = "https://commons.wikimedia.org/wiki/File:X.jpg"))
             }
         }
 

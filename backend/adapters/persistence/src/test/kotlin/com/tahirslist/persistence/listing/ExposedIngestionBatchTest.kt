@@ -283,6 +283,42 @@ class ExposedIngestionBatchTest : FunSpec() {
             }
         }
 
+        test("an owner cuisine edit clears the derived source (provenance is not carried over)") {
+            runTest {
+                listings.applyBatch(
+                    listOf(
+                        ListingWrite(
+                            WriteTarget.Insert,
+                            candidate(
+                                admission = AdmissionDecision.Admitted(
+                                    VenueType.RESTAURANT,
+                                    EnrichmentSource.SOURCE_CATEGORY,
+                                ),
+                                cuisine = "lebanese",
+                                cuisineSource = EnrichmentSource.BRAND_MAP,
+                            ),
+                        ),
+                    ),
+                )
+                val seeded = listings.findByVenueKey(VENUE_KEY) ?: error("listing not found")
+
+                val edited = listings.update(
+                    seeded.copy(cuisine = Cuisine("syrian")),
+                ) ?: error("listing vanished")
+
+                edited.cuisine?.value shouldBe "syrian"
+                // The owner's value is not a brand-map decision.
+                edited.cuisineSource shouldBe null
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listing_cuisines WHERE listing_id = '${edited.id}'",
+                ) shouldBe 1
+                postgis.count(
+                    "SELECT count(*) FROM restaurant_listing_cuisines " +
+                        "WHERE listing_id = '${edited.id}' AND cuisine = 'syrian'",
+                ) shouldBe 1
+            }
+        }
+
         test("a claim conflict aborts the whole batch") {
             runTest {
                 insertDefault()
