@@ -14,6 +14,8 @@ import com.tahirslist.domain.restaurant.RestaurantListing
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.awt.Color
 import java.awt.image.BufferedImage
@@ -56,6 +58,10 @@ class AttachCoverPhotoTest : FunSpec({
 
         override suspend fun save(listingId: Uuid, photo: CoverPhoto) {
             existing[listingId] = photo
+        }
+
+        override suspend fun delete(listingId: Uuid) {
+            existing.remove(listingId)
         }
     }
 
@@ -254,5 +260,43 @@ class AttachCoverPhotoTest : FunSpec({
     test("a preview of an empty catalogue is a review of no rows") {
         val review = pass(FakePhotos()).preview(emptyList())
         review.rows shouldHaveSize 0
+    }
+
+    test("a failing fetch never puts the keyed url in the reported reason") {
+        val target = listing()
+        val source = FakeSource(places = placesCandidate())
+        val leaking = ImageFetcher {
+            throw ImageFetchException(
+                "non-2xx https://places.example/media?maxWidthPx=1600&key=AIzaSECRET: HTTP 429",
+            )
+        }
+
+        val result = pass(FakePhotos(), source, fetcher = leaking)
+            .execute(pass(FakePhotos(), source, fetcher = leaking).preview(listOf(target)))
+
+        val rejected = result.outcomes.single().shouldBeInstanceOf<PhotoOutcome.Rejected>()
+        val text = rejected.reasons.joinToString(" ")
+        text shouldNotContain "AIzaSECRET"
+        text shouldContain "places.example/media"
+    }
+
+    test("a replace that cannot credit a photo removes the uncredited bytes") {
+        val target = listing()
+        var deleted = false
+        val pass = AttachCoverPhoto(
+            photos = FakePhotos(),
+            sources = listOf(FakeSource()),
+            fetcher = ImageFetcher { bytes },
+            hero = IngestHeroImage(InMemoryImagePort()),
+            clock = clock,
+            hasBytes = { true },
+            deleteBytes = { deleted = true },
+        )
+
+        val result = pass.execute(pass.preview(listOf(target)), replace = true)
+
+        deleted shouldBe true
+        val rejected = result.outcomes.single().shouldBeInstanceOf<PhotoOutcome.Rejected>()
+        rejected.reasons.joinToString(" ") shouldContain "uncredited image already stored was removed"
     }
 })

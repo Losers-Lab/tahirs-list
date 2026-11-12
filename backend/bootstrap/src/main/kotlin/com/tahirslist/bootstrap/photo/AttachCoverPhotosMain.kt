@@ -93,6 +93,10 @@ fun main(args: Array<String>) = runBlocking {
             fetcher = HttpImageFetcher(),
             hero = IngestHeroImage(images),
             hasBytes = { images.load(it, ImageVariant.THUMBNAIL_400) != null },
+            deleteBytes = { id ->
+                (listOf(ImageVariant.FULL) + ImageVariant.thumbnailVariants)
+                    .forEach { images.delete(id, it) }
+            },
         )
 
         val scope = listings.findAll()

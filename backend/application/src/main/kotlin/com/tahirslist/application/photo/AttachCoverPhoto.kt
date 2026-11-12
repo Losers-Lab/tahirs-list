@@ -12,6 +12,7 @@ import java.security.MessageDigest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.CancellationException
 
 /** What the pass would do with one listing, decided without any network call. */
 data class PhotoRow(
@@ -113,6 +114,12 @@ class AttachCoverPhoto(
      * seed photo it knows nothing about, which is not "no photo yet".
      */
     private val hasBytes: suspend (Uuid) -> Boolean = { false },
+    /**
+     * Removes a listing's stored variants. Used when a replace was asked for and
+     * every candidate is refused: bytes with no credit row must not stay behind to
+     * be served, so the uncredited leftovers go.
+     */
+    private val deleteBytes: suspend (Uuid) -> Unit = {},
 ) {
 
     /** Decide what would happen, without a network call or a write. */
@@ -165,14 +172,15 @@ class AttachCoverPhoto(
 
         for (candidate in candidates) {
             refusal(candidate)?.let {
-                reasons += "${candidate.sourceKind}: $it"
+                reasons += "${candidate.sourceKind}: ${redact(it)}"
                 continue
             }
 
             val bytes = try {
                 fetcher.fetch(candidate.fetchUrl!!)
             } catch (e: ImageFetchException) {
-                reasons += "${candidate.sourceKind}: fetch failed — ${e.message}"
+                // The message is copied into the run report; never let a keyed URL through.
+                reasons += "${candidate.sourceKind}: fetch failed — ${redact(e.message.orEmpty())}"
                 continue
             }
 
@@ -186,21 +194,31 @@ class AttachCoverPhoto(
                     },
                 )
             } catch (e: IllegalArgumentException) {
-                reasons += "${candidate.sourceKind}: ${e.message}"
+                reasons += "${candidate.sourceKind}: ${redact(e.message.orEmpty())}"
                 continue
             }
 
             try {
                 hero.ingest(id, StoredImage(bytes = bytes, contentType = "application/octet-stream"))
-            } catch (e: IllegalArgumentException) {
-                // Undecodable or too large: nothing was persisted, so the row fails
-                // and keeps whatever photo it had.
-                reasons += "${candidate.sourceKind}: store failed — ${e.message}"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Undecodable, too large, or a storage failure: nothing was credited,
+                // so the row fails and keeps whatever photo it had.
+                reasons += "${candidate.sourceKind}: store failed — ${redact(e.message.orEmpty())}"
                 continue
             }
 
             photos.save(id, photo)
             return PhotoOutcome.Attached(id, name, photo)
+        }
+
+        // No candidate survived. Bytes with no credit row must not be served, so a
+        // deliberate replace removes them; a default run leaves legacy seed photos
+        // alone (it never gets here for a listing that has bytes).
+        if (row.current == null && replace && hasBytes(id)) {
+            deleteBytes(id)
+            reasons += "the uncredited image already stored was removed"
         }
 
         return if (reasons.isEmpty()) {
@@ -240,6 +258,13 @@ class AttachCoverPhoto(
 
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    /**
+     * Strips any query string from text that reaches the report: a Places media
+     * URL carries the API key there, and the report is printed and written to disk.
+     */
+    private fun redact(text: String): String =
+        text.replace(Regex("(https://[^\\s?]+)\\?[^\\s]+"), "$1?…")
 
     /** The clock as the domain's `java.time.Instant` (the domain stays JDK-typed here). */
     private fun nowAsJava(): java.time.Instant =
