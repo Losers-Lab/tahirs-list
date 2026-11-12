@@ -69,7 +69,9 @@ class HmsTranslatorTest : FunSpec({
         listing.standard.handCut shouldBe HandCutDeclaration.HAND_CUT
         listing.name shouldBe "Test Kitchen"
         listing.city shouldBe "Dallas"
-        listing.region shouldBe "Texas"
+        listing.region shouldBe "TX"
+        // HMS publishes "United States Of America"; the catalogue field is 16.
+        listing.country shouldBe "United States"
         listing.latitude shouldBe 32.7767
         listing.expiresOn shouldBe LocalDate.parse("2026-12-31")
         listing.isHandCut shouldBe true

@@ -58,7 +58,7 @@ class FakeFeed(
 
 fun namedGeocoder() = FakeGeocoder { address ->
     val name = address.substringBefore(',')
-    place("$name, Toronto, Ontario, Canada")
+    place("$name, Toronto, Ontario, Canada", name = name)
 }
 
 class RunSampleIngestionTest : FunSpec({
@@ -185,7 +185,7 @@ class RunSampleIngestionTest : FunSpec({
     }
 
     test("a row with no coordinates is geocoded once to decide its metro, and the build reuses it") {
-        val geocoder = FakeGeocoder { place("Toronto, Ontario, Canada") }
+        val geocoder = namedGeocoder()
         val row = sourceListing(
             source = "hma",
             record = "M-1",
@@ -208,7 +208,7 @@ class RunSampleIngestionTest : FunSpec({
     }
 
     test("a row outside every circle is skipped without a geocoder call and reported as a gap") {
-        val geocoder = FakeGeocoder { place("Toronto, Ontario, Canada") }
+        val geocoder = namedGeocoder()
         val run = RunSampleIngestion(
             feeds = listOf(
                 FakeFeed(

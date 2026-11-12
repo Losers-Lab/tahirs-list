@@ -68,25 +68,92 @@ class HmaParserTest : FunSpec({
         lahore.name shouldBe "Lahore Tikka House"
         lahore.address.line shouldBe "1365 Gerrard St E"
         lahore.address.city shouldBe "Toronto"
-        lahore.address.region shouldBe "Ontario"
+        lahore.address.region shouldBe "ON"
         lahore.address.postalCode shouldBe "M4L 1Z3"
         lahore.phone shouldNotBe null
         lahore.website.orEmpty() shouldContain "lahoretikkahouse.com"
         lahore.certificationStatement shouldNotBe null
     }
 
-    test("every recorded outlet yields a city") {
+    test("a city is read only when the address separates one") {
         val outlets = HmaParser.parse(fixture("/hma-outlets.json")).outlets
+        val bySlug = outlets.associateBy { it.slug }
 
-        outlets.all { it.address.city != null } shouldBe true
+        bySlug.getValue("lahore-tikka-house").address.city shouldBe "Toronto"
+        bySlug.getValue("d-spot-desserts-ellesmere").address.city shouldBe "Scarborough"
+        // These two publish the city glued to the street; storing the whole
+        // segment as a city would put a street number in the catalogue.
+        bySlug.getValue("passage-to-india").address.city shouldBe null
+        bySlug.getValue("chachees-chai-cafe-scarborough").address.city shouldBe null
+        // Whatever is read as a city must look like one.
+        outlets.mapNotNull { it.address.city }.forEach { city ->
+            city.any(Char::isDigit) shouldBe false
+            city.equals("Canada", ignoreCase = true) shouldBe false
+        }
     }
 
     test("splits addresses without inventing missing parts") {
         HmaParser.parseAddress("1365 Gerrard St E, Toronto, Ontario, M4L 1Z3") shouldBe
-            HmaAddress("1365 Gerrard St E", "Toronto", "Ontario", "M4L 1Z3")
+            HmaAddress("1365 Gerrard St E", "Toronto", "ON", "M4L 1Z3")
         HmaParser.parseAddress("2501 Hampshire Gate #7b, Oakville, ON L6H 6C8") shouldBe
             HmaAddress("2501 Hampshire Gate #7b", "Oakville", "ON", "L6H 6C8")
         HmaParser.parseAddress("") shouldBe HmaAddress(null, null, null, null)
+    }
+
+    test("a trailing country never becomes the city") {
+        HmaParser.parseAddress("55 Mountainash Rd, Brampton, ON L6R 1W4, Canada") shouldBe
+            HmaAddress("55 Mountainash Rd", "Brampton", "ON", "L6R 1W4")
+        HmaParser.parseAddress("7690 Markham Road, Markham, ON, Canada L3S3K1") shouldBe
+            HmaAddress("7690 Markham Road", "Markham", "ON", "L3S 3K1")
+    }
+
+    test("province abbreviations with a dot are recognised") {
+        HmaParser.parseAddress("2535 Appleby Line Unit #3, Burlington, Ont. L7L 0B6") shouldBe
+            HmaAddress("2535 Appleby Line Unit #3", "Burlington", "ON", "L7L 0B6")
+    }
+
+    test("a postal code written before the city is lifted, not kept as the city") {
+        HmaParser.parseAddress("5165 Dixie Road,L4W4G1 Mississauga") shouldBe
+            HmaAddress("5165 Dixie Road", "Mississauga", null, "L4W 4G1")
+    }
+
+    test("a broken postal code is dropped rather than stored as the city") {
+        val address = HmaParser.parseAddress("1 Wexford Road, Unit 7A, Brampton, ON, L6Z2WL")
+
+        address.city shouldBe "Brampton"
+        address.region shouldBe "ON"
+        address.postalCode shouldBe null
+        address.line shouldBe "1 Wexford Road, Unit 7A"
+    }
+
+    test("a city glued to the street stays in the line and the city is null, not garbage") {
+        val address = HmaParser.parseAddress("3417 Derry Road East Mississauga, ON L4T 1A8 Canada")
+
+        address.city shouldBe null
+        address.region shouldBe "ON"
+        address.postalCode shouldBe "L4T 1A8"
+        address.line shouldBe "3417 Derry Road East Mississauga"
+    }
+
+    test("the real Scarborough address keeps its city") {
+        HmaParser.parseAddress("2058 Ellesmere Rd Unit 6, Scarborough, ON M1H 2V6") shouldBe
+            HmaAddress("2058 Ellesmere Rd Unit 6", "Scarborough", "ON", "M1H 2V6")
+    }
+
+    test("a hyphenated place name is not split by its province letters") {
+        // "Niagara-on-the-Lake" contains "on"; the province match is bounded by
+        // hyphens too, so the city survives intact.
+        HmaParser.parseAddress("1 Main St, Niagara-on-the-Lake, ON L0S 1J0") shouldBe
+            HmaAddress("1 Main St", "Niagara-on-the-Lake", "ON", "L0S 1J0")
+    }
+
+    test("a postal code in its own segment before the city is still read") {
+        HmaParser.parseAddress("1 Main St, L5N 5Z2, Mississauga, Ontario") shouldBe
+            HmaAddress("1 Main St", "Mississauga", "ON", "L5N 5Z2")
+    }
+
+    test("a postal code is normalised to upper case with its space") {
+        HmaParser.parseAddress("1 Main St, Mississauga, ON n1r7z1").postalCode shouldBe "N1R 7Z1"
     }
 
     test("malformed JSON is a parse failure") {

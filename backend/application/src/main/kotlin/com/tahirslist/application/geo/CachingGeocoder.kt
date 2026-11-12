@@ -50,6 +50,9 @@ class CachingGeocoder(
 
         val place = delegate.geocode(address) ?: return null
 
+        // The store has no name column: a cache hit returns the point and label
+        // without the provider's name. Only match confirmation uses `name`, and
+        // ingestion calls the provider adapter directly.
         try {
             store.save(
                 GeocodedAddress(
