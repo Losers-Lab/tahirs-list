@@ -182,8 +182,8 @@ private fun useCaseModule(config: AppConfig): Module = module {
     // Listings
     single { CreateListing(get(), get()) }
     single { UpdateListing(get()) }
-    single { AddListingImage(get(), get()) }
-    single { RemoveListingImage(get(), get()) }
+    single { AddListingImage(get(), get(), get()) }
+    single { RemoveListingImage(get(), get(), get()) }
     single { IngestHeroImage(get()) }
 
     // Favorites

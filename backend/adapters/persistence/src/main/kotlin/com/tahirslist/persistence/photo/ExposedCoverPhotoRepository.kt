@@ -38,8 +38,7 @@ class ExposedCoverPhotoRepository(private val db: Database) : CoverPhotoReposito
         ) { it.toCoverPhoto() }.firstOrNull()
     }
 
-    override suspend fun save(listingId: Uuid, photo: CoverPhoto) {
-        suspendTransaction(db) {
+    override suspend fun save(listingId: Uuid, photo: CoverPhoto) {        suspendTransaction(db) {
             executeUpdate(
                 """
                 INSERT INTO listing_cover_photos (
@@ -78,6 +77,14 @@ class ExposedCoverPhotoRepository(private val db: Database) : CoverPhotoReposito
                     ListingCoverPhotos.height bind photo.height,
                 ),
                 StatementType.INSERT,
+            )
+        }
+    }
+    override suspend fun delete(listingId: Uuid) {
+        suspendTransaction(db) {
+            executeUpdate(
+                "DELETE FROM listing_cover_photos WHERE listing_id = ?",
+                listOf(ListingCoverPhotos.listingId bind listingId),
             )
         }
     }

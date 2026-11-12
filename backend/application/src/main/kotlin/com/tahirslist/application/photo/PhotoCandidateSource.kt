@@ -15,6 +15,9 @@ interface CoverPhotoRepository {
     suspend fun find(listingId: Uuid): CoverPhoto?
 
     suspend fun save(listingId: Uuid, photo: CoverPhoto)
+
+    /** Remove the credit row (owner removed their image). Idempotent. */
+    suspend fun delete(listingId: Uuid)
 }
 
 /**

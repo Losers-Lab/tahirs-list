@@ -4,7 +4,11 @@ import com.tahirslist.application.favorite.ListingNotFoundException
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.IngestHeroImage
 import com.tahirslist.application.image.StoredImage
+import com.tahirslist.application.photo.CoverPhotoRepository
 import com.tahirslist.application.verification.NotListingOwnerException
+import com.tahirslist.domain.restaurant.CoverPhoto
+import com.tahirslist.domain.restaurant.PhotoSourceKind
+import com.tahirslist.domain.restaurant.PhotoStorage
 import kotlin.uuid.Uuid
 
 /**
@@ -35,6 +39,7 @@ import kotlin.uuid.Uuid
 class AddListingImage(
     private val listings: RestaurantListingRepository,
     private val images: ImagePort,
+    private val photos: CoverPhotoRepository,
 ) {
 
     private val ingest: IngestHeroImage = IngestHeroImage(images)
@@ -48,5 +53,17 @@ class AddListingImage(
         }
 
         ingest.ingest(listingId, original)
+
+        // SC-231: the credit row is what makes the photo servable and what protects
+        // it from the enrichment pass. An owner upload is permanent and carries no
+        // third-party licence, and writing it here is what INV-14 depends on.
+        photos.save(
+            listingId,
+            CoverPhoto(
+                sourceKind = PhotoSourceKind.OWNER_UPLOAD,
+                storageClass = PhotoStorage.PERMANENT,
+                attribution = "Photo uploaded by the business",
+            ),
+        )
     }
 }
