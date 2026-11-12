@@ -25,21 +25,26 @@
 				: ''
 	);
 
+	// The credit link is an anchor: anything but https (a `javascript:` value, say)
+	// is dropped and the credit renders as plain text.
+	const safeUrl = $derived(sourceUrl && /^https:\/\//i.test(sourceUrl) ? sourceUrl : undefined);
+
 	const classes = $derived(
 		variant === 'card'
-			? 'absolute right-0 bottom-0 z-10 bg-ink-900/70 px-1.5 py-0.5 text-[10px] leading-tight text-cream-50'
+			? 'absolute right-0 bottom-0 z-10 bg-ink-900/70 px-1.5 py-0.5 text-[11px] leading-tight text-cream-50'
 			: 'mt-2 text-caption text-ink-500'
 	);
 </script>
 
 {#if label}
 	<p class={classes}>
-		{#if sourceUrl}
+		{#if safeUrl}
 			<a
-				href={sourceUrl}
+				href={safeUrl}
 				rel="nofollow noopener noreferrer"
 				target="_blank"
-				class="underline decoration-dotted underline-offset-2 hover:text-ink-700">{label}</a
+				class="underline decoration-dotted underline-offset-2 hover:text-ink-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cream-50"
+				>{label}</a
 			>
 		{:else}
 			{label}

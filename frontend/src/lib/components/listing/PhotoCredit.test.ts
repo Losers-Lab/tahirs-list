@@ -39,4 +39,14 @@ describe('PhotoCredit', () => {
 		expect(container.querySelector('p')).toBeNull();
 		expect(container.textContent?.trim()).toBe('');
 	});
+
+	it('drops a non-https source link instead of rendering it as an anchor', () => {
+		render(PhotoCredit, {
+			attribution: 'Someone / Wikimedia Commons, CC BY-SA 4.0',
+			sourceUrl: 'javascript:alert(1)'
+		});
+
+		expect(screen.queryByRole('link')).toBeNull();
+		expect(screen.getByText(/Someone \/ Wikimedia Commons/)).toBeInTheDocument();
+	});
 });

@@ -126,7 +126,8 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
         // a photo whose licence window closed. A listing with no credit row (every
         // pre-SC-231 row) keeps the old behaviour: its bytes are ours.
         val cover = listing.photos.find(id)
-        if (cover != null && !cover.isServableAt(java.time.Instant.now())) {
+        val now = java.time.Instant.now()
+        if (cover != null && !cover.isServableAt(now)) {
             return@get call.respondError(
                 HttpStatusCode.NotFound,
                 ErrorCodes.NOT_FOUND,
@@ -140,7 +141,9 @@ fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = Searc
                 ErrorCodes.NOT_FOUND,
                 ErrorMessages.RESOURCE_NOT_FOUND,
             )
-        call.setCacheControl(PUBLIC_CACHE_CONTROL)
+        // A cache must not outlive its own expiry in a browser/CDN: bound the TTL
+        // by the remaining window instead of a flat day.
+        call.setCacheControl(coverCacheControl(cover, now))
         call.respondStoredBytes(stored.bytes, stored.contentType)
     }
 

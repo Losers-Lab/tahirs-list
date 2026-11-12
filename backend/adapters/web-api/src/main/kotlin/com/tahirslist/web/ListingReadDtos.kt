@@ -169,6 +169,19 @@ internal fun ApplicationCall.toBrowseCard(listing: RestaurantListing): BrowseCar
 internal fun credit(listing: RestaurantListing) =
     listing.coverPhoto?.takeIf { it.isServableAt(java.time.Instant.now()) }
 
+/**
+ * SC-231: a cached photo must not outlive its own expiry in a browser or CDN.
+ * A permanent photo keeps the normal day; a cache is bounded by the remaining
+ * window, so the licence deadline is respected by every cache on the path.
+ */
+internal fun coverCacheControl(cover: com.tahirslist.domain.restaurant.CoverPhoto?, now: java.time.Instant): String {
+    if (cover == null || cover.storageClass == com.tahirslist.domain.restaurant.PhotoStorage.PERMANENT) {
+        return "public, max-age=86400"
+    }
+    val remaining = java.time.Duration.between(now, cover.expiresAt).seconds.coerceIn(0, 86_400)
+    return "public, max-age=$remaining"
+}
+
 internal fun ApplicationCall.toSearchCard(result: ListingSearchResult): SearchCard = SearchCard(
     id = result.id.toString(),
     name = result.name,
