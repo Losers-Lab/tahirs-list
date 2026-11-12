@@ -34,6 +34,18 @@ fun main(args: Array<String>) = runBlocking {
     val execute = options.flag("execute")
     val backup = options["backup"]
 
+    // The guard is evaluated before anything else, so `--execute` can never be a
+    // silent no-op just because the selection happened to be empty.
+    if (execute) {
+        if (backup == null) {
+            error("refusing --execute without --backup=<dump file>: take a dump first")
+        }
+        val dump = Path.of(backup)
+        if (!Files.isRegularFile(dump) || Files.size(dump) == 0L) {
+            error("refusing --execute: backup '$backup' does not exist or is empty")
+        }
+    }
+
     val config = loadConfig()
     Migrations.migrate(
         jdbcUrl = config.database.jdbcUrl,
@@ -68,14 +80,6 @@ fun main(args: Array<String>) = runBlocking {
             return@runBlocking
         }
 
-        if (backup == null) {
-            error("refusing --execute without --backup=<dump file>: take a dump first")
-        }
-        val dump = Path.of(backup)
-        if (!Files.isRegularFile(dump) || Files.size(dump) == 0L) {
-            error("refusing --execute: backup '$backup' does not exist or is empty")
-        }
-
         doomed.forEach { row ->
             deleteListing(dataSource, row.listing.id.toString())
             println("purged ${row.listing.name} (${row.listing.id})")
@@ -90,21 +94,28 @@ fun main(args: Array<String>) = runBlocking {
 data class PurgeCandidate(val listing: RestaurantListing, val reason: String)
 
 /**
- * Remove one listing and its search-mirror row in a single transaction. Every
- * child table (claims, cuisines, halal items, favourites, reviews, the cover
- * photo) cascades from `restaurant_listings`.
+ * Remove one listing and every child row that does not cascade, in one
+ * transaction.
+ *
+ * `external_certification_claims` is `ON DELETE RESTRICT` and
+ * `halal_certification_reviews` is `NO ACTION` (V22/V13), so they must go before
+ * the listing or the delete fails — every ingested row carries at least one claim.
+ * Cuisines, halal items, favourites and the cover photo cascade.
  */
-private fun deleteListing(dataSource: javax.sql.DataSource, id: String) {
+internal fun deleteListing(dataSource: javax.sql.DataSource, id: String) {
     dataSource.connection.use { connection ->
         connection.autoCommit = false
         try {
-            connection.prepareStatement("DELETE FROM listing_search WHERE id = ?").use { statement ->
-                statement.setObject(1, java.util.UUID.fromString(id))
-                statement.executeUpdate()
-            }
-            connection.prepareStatement("DELETE FROM restaurant_listings WHERE id = ?").use { statement ->
-                statement.setObject(1, java.util.UUID.fromString(id))
-                statement.executeUpdate()
+            listOf(
+                "DELETE FROM external_certification_claims WHERE listing_id = ?",
+                "DELETE FROM halal_certification_reviews WHERE listing_id = ?",
+                "DELETE FROM listing_search WHERE id = ?",
+                "DELETE FROM restaurant_listings WHERE id = ?",
+            ).forEach { sql ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.setObject(1, java.util.UUID.fromString(id))
+                    statement.executeUpdate()
+                }
             }
             connection.commit()
         } catch (e: Exception) {
@@ -127,6 +138,9 @@ internal object PurgeSelection {
 
     fun select(listings: List<RestaurantListing>, policy: AdmissionPolicy = AdmissionPolicy()): List<PurgeCandidate> =
         listings.mapNotNull { listing ->
+            // Only ingested rows: an owner's listing and a seed row are never this
+            // tool's business, whatever their name looks like.
+            if (listing.provenance == null || listing.ownerId != null) return@mapNotNull null
             val decision = policy.decide(category = "", name = listing.name)
             if (decision is AdmissionDecision.Excluded) {
                 PurgeCandidate(listing, "${decision.venueClass.name.lowercase()}: ${decision.reason}")
