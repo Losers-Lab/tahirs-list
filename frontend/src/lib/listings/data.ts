@@ -115,6 +115,12 @@ export function toRestaurant(b: BrowseListing | ListingDetail): Restaurant {
 		...(thumbnail ? { imageThumbnailUrl: thumbnail } : {}),
 		// sc-183: normalize every srcset entry URL to the same-origin proxy path.
 		...(srcset?.length ? { imageSrcset: srcset } : {}),
+		// SC-231: carry the photo credit through unchanged. `photoSourceUrl` is an
+		// external page, so it is NOT rewritten to the proxy path.
+		...(b.photoAttribution ? { photoAttribution: b.photoAttribution } : {}),
+		...(b.photoLicence ? { photoLicence: b.photoLicence } : {}),
+		...(b.photoSource ? { photoSource: b.photoSource } : {}),
+		...(b.photoSourceUrl ? { photoSourceUrl: b.photoSourceUrl } : {}),
 		...(imageUrl ? { imageUrl } : {}),
 		// sc-73 read surface: carry the certificate display facts (certifier /
 		// reviewedOn / expiresOn / certificateUrl) through so the detail page's

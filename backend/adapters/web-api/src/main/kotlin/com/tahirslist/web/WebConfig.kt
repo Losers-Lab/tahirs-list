@@ -14,6 +14,7 @@ import com.tahirslist.application.listing.ListingSearchQuery
 import com.tahirslist.application.listing.RemoveListingImage
 import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.application.listing.UpdateListing
+import com.tahirslist.application.photo.CoverPhotoRepository
 import com.tahirslist.application.verification.CertificationImageStorage
 import com.tahirslist.application.verification.ClaimListing
 import com.tahirslist.application.verification.HalalCertificationReviewRepository
@@ -79,6 +80,8 @@ data class ListingUseCases(
     val images: ImagePort,
     val certificates: CertificationImageStorage,
     val reviews: HalalCertificationReviewRepository,
+    /** SC-231: the cover photo's credit and its cache expiry, for the image endpoint. */
+    val photos: CoverPhotoRepository,
 )
 
 /** Favourites use cases (sc-50/51/52). */

@@ -35,14 +35,27 @@ import kotlinx.coroutines.test.runTest
  */
 class AddListingImageTest : FunSpec({
 
+    class FakePhotos : com.tahirslist.application.photo.CoverPhotoRepository {
+        val saved = mutableMapOf<Uuid, com.tahirslist.domain.restaurant.CoverPhoto>()
+        override suspend fun find(listingId: Uuid) = saved[listingId]
+        override suspend fun save(listingId: Uuid, photo: com.tahirslist.domain.restaurant.CoverPhoto) {
+            saved[listingId] = photo
+        }
+        override suspend fun delete(listingId: Uuid) {
+            saved.remove(listingId)
+        }
+    }
+
     lateinit var listings: RestaurantListingRepository
     lateinit var images: InMemoryImagePort
+    lateinit var photos: FakePhotos
     lateinit var useCase: AddListingImage
 
     beforeTest {
         listings = mockk()
         images = InMemoryImagePort()
-        useCase = AddListingImage(listings = listings, images = images)
+        photos = FakePhotos()
+        useCase = AddListingImage(listings = listings, images = images, photos = photos)
     }
 
     fun existingListing(
@@ -87,6 +100,21 @@ class AddListingImageTest : FunSpec({
             val full = images.load(listing.id, ImageVariant.FULL).shouldNotBeNull()
             full.contentType shouldBe "image/jpeg"
             ImageVariant.thumbnailVariants.forEach { images.load(listing.id, it).shouldNotBeNull() }
+        }
+    }
+
+    test("an owner upload writes the OWNER_UPLOAD credit row (INV-14 depends on it)") {
+        runTest {
+            val ownerId = Uuid.random()
+            val listing = existingListing(ownerId = ownerId)
+            coEvery { listings.findById(listing.id) } returns listing
+
+            useCase.execute(listing.id, ownerId, StoredImage(jpeg(), "image/jpeg"))
+
+            val photo = photos.saved[listing.id].shouldNotBeNull()
+            photo.sourceKind shouldBe com.tahirslist.domain.restaurant.PhotoSourceKind.OWNER_UPLOAD
+            photo.storageClass shouldBe com.tahirslist.domain.restaurant.PhotoStorage.PERMANENT
+            photo.licence shouldBe null
         }
     }
 

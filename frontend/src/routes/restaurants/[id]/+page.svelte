@@ -11,6 +11,7 @@
 	import CertificatePanel from '#lib/components/detail/CertificatePanel.svelte';
 	import MapPreview from '#lib/components/detail/MapPreview.svelte';
 	import RestaurantPhoto from '#lib/components/listing/RestaurantPhoto.svelte';
+	import PhotoCredit from '#lib/components/listing/PhotoCredit.svelte';
 	import FavoriteButton from '#lib/components/listing/FavoriteButton.svelte';
 	import type { Restaurant } from '#lib/listings/restaurants';
 	import { expiryState, fullAddress, verificationStatus } from '#lib/listings/restaurants';
@@ -166,6 +167,11 @@
 					<div class="absolute top-4 right-4"><VerifiedBadge variant="on-photo" /></div>
 				{/if}
 			</div>
+			<PhotoCredit
+				attribution={restaurant.photoAttribution}
+				licence={restaurant.photoLicence}
+				sourceUrl={restaurant.photoSourceUrl}
+			/>
 
 			<div class="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>

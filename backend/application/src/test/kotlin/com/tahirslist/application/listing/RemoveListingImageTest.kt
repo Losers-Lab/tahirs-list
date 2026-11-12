@@ -33,14 +33,27 @@ import kotlinx.coroutines.test.runTest
  */
 class RemoveListingImageTest : FunSpec({
 
+    class FakePhotos : com.tahirslist.application.photo.CoverPhotoRepository {
+        val saved = mutableMapOf<Uuid, com.tahirslist.domain.restaurant.CoverPhoto>()
+        override suspend fun find(listingId: Uuid) = saved[listingId]
+        override suspend fun save(listingId: Uuid, photo: com.tahirslist.domain.restaurant.CoverPhoto) {
+            saved[listingId] = photo
+        }
+        override suspend fun delete(listingId: Uuid) {
+            saved.remove(listingId)
+        }
+    }
+
     lateinit var listings: RestaurantListingRepository
     lateinit var images: InMemoryImagePort
+    lateinit var photos: FakePhotos
     lateinit var useCase: RemoveListingImage
 
     beforeTest {
         listings = mockk()
         images = InMemoryImagePort()
-        useCase = RemoveListingImage(listings = listings, images = images)
+        photos = FakePhotos()
+        useCase = RemoveListingImage(listings = listings, images = images, photos = photos)
     }
 
     fun existingListing(
@@ -129,6 +142,27 @@ class RemoveListingImageTest : FunSpec({
                 useCase.execute(id, Uuid.random())
             }
             ex.listingId shouldBe id
+        }
+    }
+
+    test("removing the image also removes its credit row") {
+        runTest {
+            val ownerId = Uuid.random()
+            val listing = existingListing(ownerId = ownerId)
+            coEvery { listings.findById(listing.id) } returns listing
+            seedAllVariants(listing.id)
+            photos.save(
+                listing.id,
+                com.tahirslist.domain.restaurant.CoverPhoto(
+                    sourceKind = com.tahirslist.domain.restaurant.PhotoSourceKind.OWNER_UPLOAD,
+                    storageClass = com.tahirslist.domain.restaurant.PhotoStorage.PERMANENT,
+                    attribution = "Photo uploaded by the business",
+                ),
+            )
+
+            useCase.execute(listing.id, ownerId)
+
+            photos.saved[listing.id] shouldBe null
         }
     }
 })

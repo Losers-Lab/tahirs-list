@@ -32,7 +32,7 @@ class HmsTranslator(
                 city = record.address.city,
                 region = record.address.state,
                 postalCode = null,
-                country = record.address.country,
+                country = CountryNames.canonical(record.address.country),
                 latitude = record.location?.latitude,
                 longitude = record.location?.longitude,
                 phone = record.phone,

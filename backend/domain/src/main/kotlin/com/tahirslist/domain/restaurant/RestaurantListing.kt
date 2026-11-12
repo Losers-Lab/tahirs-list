@@ -84,7 +84,23 @@ data class RestaurantListing(
     val halalItems: Set<HalalItem> = emptySet(),
     val crossContamination: CrossContamination = CrossContamination.DEFAULT,
     val alcoholServed: Boolean = false,
+    /** SC-231: which kind of restaurant this is, and the evidence that decided it. */
+    val venueType: VenueType? = null,
+    val venueTypeSource: EnrichmentSource? = null,
+    /** SC-231: where the cuisine came from; null when an owner set it or it is unknown. */
+    val cuisineSource: EnrichmentSource? = null,
+    /** SC-231: the one cover photo, when there is one. */
+    val coverPhoto: CoverPhoto? = null,
 ) {
+
+    init {
+        require((venueType == null) == (venueTypeSource == null)) {
+            "A venue type and the evidence that produced it travel together."
+        }
+        require(cuisineSource == null || cuisine != null) {
+            "A cuisine source without a cuisine is not auditable."
+        }
+    }
 
     /**
      * Produce an updated copy of this listing's *editable content fields*
@@ -265,6 +281,10 @@ data class RestaurantListing(
             halalItems: Set<HalalItem> = emptySet(),
             crossContamination: CrossContamination = CrossContamination.DEFAULT,
             alcoholServed: Boolean = false,
+            venueType: VenueType? = null,
+            venueTypeSource: EnrichmentSource? = null,
+            cuisineSource: EnrichmentSource? = null,
+            coverPhoto: CoverPhoto? = null,
         ): RestaurantListing {
             val trimmedName = name.trim()
             val trimmedAddress = address.trim()
@@ -273,6 +293,12 @@ data class RestaurantListing(
             require(provenance != null) { "An imported listing must carry a provenance stamp." }
             require(VENUE_KEY.matches(venueKey)) {
                 "venueKey must be a 64-character lowercase hex string."
+            }
+            require((venueType == null) == (venueTypeSource == null)) {
+                "An imported venue type must name the evidence that produced it."
+            }
+            require(cuisineSource == null || cuisine != null) {
+                "A cuisine source without a cuisine is not auditable."
             }
             when (verificationStatus) {
                 VerificationStatus.VERIFIED -> {
@@ -312,6 +338,10 @@ data class RestaurantListing(
                 halalItems = halalItems,
                 crossContamination = crossContamination,
                 alcoholServed = alcoholServed,
+                venueType = venueType,
+                venueTypeSource = venueTypeSource,
+                cuisineSource = cuisineSource,
+                coverPhoto = coverPhoto,
             )
         }
 
@@ -344,6 +374,10 @@ data class RestaurantListing(
             halalItems: Set<HalalItem> = emptySet(),
             crossContamination: CrossContamination = CrossContamination.DEFAULT,
             alcoholServed: Boolean = false,
+            venueType: VenueType? = null,
+            venueTypeSource: EnrichmentSource? = null,
+            cuisineSource: EnrichmentSource? = null,
+            coverPhoto: CoverPhoto? = null,
         ): RestaurantListing = RestaurantListing(
             id = id,
             name = name,
@@ -368,6 +402,10 @@ data class RestaurantListing(
             halalItems = halalItems,
             crossContamination = crossContamination,
             alcoholServed = alcoholServed,
+            venueType = venueType,
+            venueTypeSource = venueTypeSource,
+            cuisineSource = cuisineSource,
+            coverPhoto = coverPhoto,
         )
     }
 }

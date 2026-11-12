@@ -34,6 +34,9 @@ class HttpImageFetcherTest : FunSpec() {
     }
 
     init {
+        /** The fixture server is loopback http on purpose; the policy has its own tests. */
+        val permissive = UrlPolicy { }
+
         test("sends a non-empty descriptive User-Agent, not the bare Java UA") {
             val server = serverWith { headers, _ ->
                 val ua = headers["user-agent"]?.firstOrNull()
@@ -41,7 +44,8 @@ class HttpImageFetcherTest : FunSpec() {
                 200 to ua.orEmpty().toByteArray()
             }
             try {
-                val body = HttpImageFetcher().fetch("http://127.0.0.1:${server.address.port}/img")
+                val body = HttpImageFetcher(urlPolicy = permissive)
+                    .fetch("http://127.0.0.1:${server.address.port}/img")
                 val ua = body.toString(Charsets.UTF_8)
                 ua.isNotBlank() shouldBe true
                 ua shouldNotContain "Java-http-client"
@@ -54,7 +58,8 @@ class HttpImageFetcherTest : FunSpec() {
         test("accepts a 200 image and returns its bytes") {
             val server = serverWith { _, _ -> 200 to "jpeg-bytes".toByteArray() }
             try {
-                HttpImageFetcher().fetch("http://127.0.0.1:${server.address.port}/img")
+                HttpImageFetcher(urlPolicy = permissive)
+                    .fetch("http://127.0.0.1:${server.address.port}/img")
                     .toString(Charsets.UTF_8) shouldBe "jpeg-bytes"
             } finally {
                 server.stop(0)
@@ -65,11 +70,54 @@ class HttpImageFetcherTest : FunSpec() {
             val server = serverWith { _, _ -> 403 to "forbidden".toByteArray() }
             try {
                 shouldThrow<ImageFetchException> {
-                    HttpImageFetcher().fetch("http://127.0.0.1:${server.address.port}/img")
+                    HttpImageFetcher(urlPolicy = permissive)
+                        .fetch("http://127.0.0.1:${server.address.port}/img")
                 }
             } finally {
                 server.stop(0)
             }
+        }
+
+        test("refuses a body over the byte cap instead of buffering it") {
+            val server = serverWith { _, _ -> 200 to ByteArray(64) { 1 } }
+            try {
+                val ex = shouldThrow<ImageFetchException> {
+                    HttpImageFetcher(maxBytes = 8, urlPolicy = permissive)
+                        .fetch("http://127.0.0.1:${server.address.port}/img")
+                }
+                ex.message.orEmpty() shouldContain "cap"
+            } finally {
+                server.stop(0)
+            }
+        }
+
+        test("an error message names the url without its query — a key must not leak") {
+            val server = serverWith { _, _ -> 429 to ByteArray(0) }
+            try {
+                val ex = shouldThrow<ImageFetchException> {
+                    HttpImageFetcher(urlPolicy = permissive)
+                        .fetch("http://127.0.0.1:${server.address.port}/media?maxWidthPx=1600&key=AIzaSECRET")
+                }
+                ex.message.orEmpty() shouldNotContain "AIzaSECRET"
+                ex.message.orEmpty() shouldContain "/media"
+            } finally {
+                server.stop(0)
+            }
+        }
+
+        test("the production policy refuses plain http, loopback and private targets") {
+            val policy = PublicHttpsOnly
+
+            shouldThrow<ImageFetchException> { policy.check(java.net.URI("http://commons.wikimedia.org/x.jpg")) }
+            shouldThrow<ImageFetchException> { policy.check(java.net.URI("https://127.0.0.1/x.jpg")) }
+            shouldThrow<ImageFetchException> { policy.check(java.net.URI("https://localhost/x.jpg")) }
+            shouldThrow<ImageFetchException> { policy.check(java.net.URI("https://10.0.0.5/x.jpg")) }
+            shouldThrow<ImageFetchException> { policy.check(java.net.URI("file:///etc/passwd")) }
+        }
+
+        test("the production policy allows a public https target") {
+            // A literal public IP needs no DNS, so this test never depends on network.
+            PublicHttpsOnly.check(java.net.URI("https://8.8.8.8/wikipedia/commons/x.jpg"))
         }
     }
 }
