@@ -73,7 +73,7 @@ database is on `feat/SC-205-photo-upload`'s `V25`/`V26` and could not boot this 
 | load | `:bootstrap:loadIngestBatch --execute` | `load-20261110T161700Z`: inserted 43, upgraded 1 (Paramount Queensway → the seed row), claims 44 |
 | verify | psql | 44 rows carry `venue_type`; 5 carry `cuisine` + `cuisine_source`; the 5 also have `restaurant_listing_cuisines` rows; `listing_search` = 73 |
 | purge | `:bootstrap:purgeNonRestaurants` | **0 rows**: the three meat markets never entered, because the gate ran first. The purge remains the remediation for the existing catalogue; its selection is proven by `PurgeNonRestaurantsTest` |
-| photos | `:bootstrap:attachCoverPhotos --execute --replace` | **2 attached**, 62 gaps, **9 refused with reasons** (`the file is 3933 km from this listing`, `does not name Toronto`, …) |
+| photos | `:bootstrap:attachCoverPhotos --execute --replace` | **53 attached** (51 Google Places as 30-day caches, 2 Wikimedia permanent), **20 refused with reasons**, 0 silent gaps |
 
 Then the app was booted from this branch (`:3003` → backend `:8081`) and driven with
 Playwright. The script reads the API first and asserts the browser text contains what the
@@ -83,9 +83,16 @@ API says — a screenshot alone is not evidence.
 |---|---|
 | `search?q=<name>` card shows `lebanese` | **true** (`search-cuisine.png`) |
 | detail page shows `lebanese` | **true** (`detail-cuisine.png`) |
-| detail page shows the credit `Jamie from Toronto, ON, Wikimedia Commons, CC BY 2.0` | **true** (`detail-photo-credit.png`) |
+| detail page shows the credit | **true** (`detail-photo-credit.png`, `Google Maps, Drew Hayes`) |
 | search card shows the same credit over the photo | **true** (`search-photo-credit.png`) |
-| the hero `<img>` really decoded (`/v1/listings/{id}/image?variant=full`) | **true**, `naturalWidth = 500` |
+| the hero `<img>` really decoded (`/v1/listings/{id}/image?variant=full`) | **true**, `naturalWidth = 1600` |
+
+The four cuisine rows that also got a photo (Imperial Biryani, Kababjees, Khorasan Kabab,
+Samosa Paradise) are Places caches expiring `2026-12-12`; a served photo therefore carries
+its credit and its cache window in the same row. `Paramount Fine Foods Queensway` was
+refused — Places calls it *Paramount Middle Eastern Kitchen - The Queensway*, a different
+name whose address the listing's `New York, NY, USA` line cannot corroborate. That is the
+near-miss rule working, not a missing feature.
 
 Machine-readable: `runtime-proof/facts.json`.
 

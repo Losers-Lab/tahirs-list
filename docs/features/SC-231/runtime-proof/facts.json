@@ -5,16 +5,16 @@
     "cuisine": "lebanese"
   },
   "creditPick": {
-    "id": "b7bc346d-e63d-4898-9f25-60a4d91a7195",
-    "name": "Lahore Tikka House",
-    "source": "WIKIMEDIA",
-    "licence": "CC_BY",
-    "attribution": "Jamie from Toronto, ON, Wikimedia Commons, CC BY 2.0"
+    "id": "c47a4b77-99e5-404e-8382-cf74917d34f6",
+    "name": "Afrah",
+    "source": "GOOGLE_PLACES",
+    "licence": null,
+    "attribution": "Google Maps, Drew Hayes"
   },
   "counts": {
     "listings": 73,
     "withCuisine": 5,
-    "withPhotoCredit": 2
+    "withPhotoCredit": 53
   },
   "browser": {
     "searchShowsCuisine": true,
@@ -22,9 +22,9 @@
     "detailShowsCredit": true,
     "searchShowsCredit": true,
     "heroImage": {
-      "src": "/v1/listings/b7bc346d-e63d-4898-9f25-60a4d91a7195/image?variant=full",
+      "src": "/v1/listings/c47a4b77-99e5-404e-8382-cf74917d34f6/image?variant=full",
       "loaded": true,
-      "width": 500
+      "width": 1600
     }
   }
 }

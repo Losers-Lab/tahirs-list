@@ -22,6 +22,28 @@ class PhotoSourceMappingTest : FunSpec({
         VenueMatch.namesAgree("Noor", "Noor Halal Pizza") shouldBe false
     }
 
+    test("a punctuation variant of the same words agrees") {
+        // Places writes "and" where the directory writes "&".
+        VenueMatch.namesAgree("Mannan Bakery & Restaurant", "Mannan Bakery and Restaurant") shouldBe true
+        VenueMatch.namesAgree("The Halal Guys", "Halal Guys") shouldBe true
+        VenueMatch.namesAgree("Addys BBQ", "ADDY'S BBQ") shouldBe true
+    }
+
+    test("a distinctive single word may open a longer Places name") {
+        VenueMatch.namesAgree("Sizzlings", "Sizzlings - Halal Hot Chicken, Burgers, and Gyros") shouldBe true
+        // Four letters is not distinctive enough to stand alone.
+        VenueMatch.namesAgree("Dera", "Dera Restaurant") shouldBe false
+    }
+
+    test("a wrong postal code does not veto an exact street match") {
+        // Places returns a fuller address with a postal the listing does not carry.
+        VenueMatch.addressAgrees(
+            "287 King St W",
+            "M5V 2T6",
+            "287 King St W, Toronto, ON M5V 1J5, Canada",
+        ) shouldBe true
+    }
+
     test("a Commons file title is stripped before matching") {
         VenueMatch.fileTitle("File:Firin Bakery, Toronto.jpg") shouldBe "Firin Bakery, Toronto"
         VenueMatch.namesAgree("Firin Bakery", VenueMatch.fileTitle("File:Firin Bakery.jpg")) shouldBe true
