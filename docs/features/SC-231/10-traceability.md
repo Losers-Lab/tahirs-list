@@ -104,9 +104,51 @@ The name rule had accepted them. `CommonsPlace` now requires the file's own GPS 
 categories/description. Re-running refused all nine with the distance or the missing city,
 and kept the two that are actually of the place.
 
+## Round 2 — after the review fixes (2026-11-12)
+
+Review round 1 (Omar static, Yusuf dynamic) returned `CHANGES REQUESTED` on `8d64a92`. The
+behaviour-changing fixes and the evidence for each:
+
+| finding | fix | proven by |
+|---|---|---|
+| the Places key reached `photo-report.md`/stdout through `ImageFetchException` URLs | `HttpImageFetcher` reports the URL **without its query**; `AttachCoverPhoto` redacts once more before a reason is stored | `HttpImageFetcherTest` ("an error message names the url without its query"), `AttachCoverPhotoTest` ("a failing fetch never puts the keyed url in the reported reason") |
+| no scheme/host allow-list on fetch targets | `PublicHttpsOnly` (`UrlPolicy`): https, no loopback/private/link-local, resolved names checked | `HttpImageFetcherTest` (refusal cases) |
+| no byte cap | `MAX_BYTES` 8 MiB from `Content-Length` **and** from the body | `HttpImageFetcherTest` ("refuses a body over the byte cap") |
+| the purge CLI could not delete a row (`external_certification_claims` RESTRICT, `halal_certification_reviews` NO ACTION) | child rows deleted first, one transaction; selection restricted to ingested (`provenance != null`), ownerless rows | `PurgeNonRestaurantsTest` ("deleting a listing removes its claim and review first") |
+| the backup guard ran after the empty-selection return | guard moved to the top of `main`, before any DB work | dry runs below: both refusals fire |
+| an owner upload wrote no credit row (INV-14 unenforced) | `AddListingImage` saves `OWNER_UPLOAD`/`PERMANENT`; `RemoveListingImage` deletes it | `AddListingImageTest`, `RemoveListingImageTest` |
+| orphan bytes served uncredited (Moon Restaurant, Yemen Cafe) | a replace that cannot credit a photo deletes the stored variants | `AttachCoverPhotoTest` ("a replace that cannot credit a photo removes the uncredited bytes") + the live run below |
+| `Cache-Control` outlived the cache window | `coverCacheControl` bounds `max-age` by the remaining expiry | `ListingRoutes` (bounded header) |
+| owner cuisine edit left `cuisine_source` | `update` sets `cuisine_source = NULL` | `ExposedIngestionBatchTest` (cuisine-source clear) |
+| `javascript:` could reach a credit `href` | `CoverPhoto` requires https `sourceUrl`; `PhotoCredit` drops a non-https link | `EnrichmentSchemaMigrationTest`, `PhotoCredit.test.ts` |
+| the DB accepted rows the Kotlin model forbids | `V28__sc_231_photo_constraints.sql` closes the gap (free = permanent, Places needs a place id, credit not blank, CC-BY needs an author, https link, cuisine source needs a cuisine) | `EnrichmentSchemaMigrationTest` |
+
+Re-run against `halal_sc231` **without** a Places key — the round-1 key is being rotated, so
+Places was deliberately not consulted:
+
+| step | command | result |
+|---|---|---|
+| purge (dry run) | `:bootstrap:purgeNonRestaurants` | 73 listings, **0 to purge** |
+| purge guard | `--execute` (no `--backup`), then `--backup=/tmp/nope.dump` | refused both times before any query: *"refusing --execute without --backup"*, *"backup '/tmp/nope.dump' does not exist or is empty"* |
+| photos | `:bootstrap:attachCoverPhotos --execute --replace` | 2 attached (Wikimedia: Lahore Tikka House, Uncle's Fried Chicken), **2 refused and their uncredited bytes removed** (Moon Restaurant, Yemen Cafe), 51 Places caches kept (report: `gap: no source offered a photo`, credit row untouched) |
+| storage | MinIO `heroes/<id>` | the two orphan directories are gone; the 51 Places + 2 Wikimedia rows survive |
+| app | Playwright (`proof.cjs`, bypassCSP) | cuisine on the search card and detail, credit on the detail and the card, hero `naturalWidth = 1600`, 73 / 5 / 53 |
+
+Suites at this head: backend `./gradlew test` — **1080 tests, 0 failures**; frontend
+`svelte-check` 0 errors, `vitest` **240 passed**, `vite build` clean.
+
+**Observation, not fixed here (pre-existing platform behaviour).** Byte responses carry two
+`Cache-Control` values: the proxy's `public, max-age=…` and the platform's `no-store`
+(`SecurityHeadersPlugin`, SC-199). RFC 9111 makes any response carrying `no-store`
+unstorable, so a photo is not actually cached today — safe for the licence window, but the
+freshness policy is a no-op on byte responses (it works on `/v1/listings/search`). The
+bounded `max-age` is correct on the wire and takes effect once that is fixed; the plugin is
+outside this story's diff, so it is raised as a follow-up rather than changed here.
+
 ## Notes
 
 - **Migration renumbered V25 → V27 (2026-11-10).** `feat/SC-205-photo-upload` already claims `V25__sc_205_image_version.sql` and `V26__add_admin_role.sql`, and the shared dev database has both applied. Two files called `V25` would either collide at merge time or fail Flyway validation on the next boot, so this branch moved to **V27** and left the gap. Verified by `EnrichmentSchemaMigrationTest` against a fresh database.
+- **V28 adds constraints only (2026-11-12).** V27 created the columns/table; V28 makes the database agree with what `CoverPhoto`/`RestaurantListing` already require (see the round-2 table). Both are applied to the proof database (`halal_sc231` is at 28); never edit either — add a version.
 - The pre-approval spike (`VenueType.kt`, `ingestion/enrich/*`) was **removed** on approval: it modelled one nine-value enum, which the approved design replaced with `VenueClass` (recognise) + `VenueType` (publish). Keeping it would have left two contradictory vocabularies in the tree.
 - `SC-227` (PR #84) adds `GeocodedPlace.osmKey/osmValue`. Until it merges, WI-7's OSM step cannot fire and the report states it, as designed.
 - **The same dependency reaches the photo pass:** `OsmPhotoSource` needs the matched feature's `image` / `wikimedia_commons` tags, so the pass asks Commons then Places. The CLI prints `osm: unavailable on this build`.
