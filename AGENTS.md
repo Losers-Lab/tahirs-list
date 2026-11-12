@@ -205,11 +205,21 @@ fiftieth — follows this discipline **without being asked**:
    is stated in the outro, never assumed.
 6. Before claiming KB work done: `basic-memory okf check` passes and inbound
    links still resolve.
+7. **Push the KB after writing it** (founder, 2026-11-09). The `basic-memory`
+   MCP writes files into the local `tahirs-list-kb` checkout and never runs
+   git, so an uncommitted note exists on one machine only and is invisible to
+   everyone else. After any `bm_write`/`bm_edit`: run
+   `uvx --python 3.12 basic-memory okf check .` in that repo, then
+   `git add -A && git commit && git push origin main` — **no PR, no branch**.
+   Other sessions' notes may be sitting uncommitted there too; include them
+   rather than leaving them stranded.
 
 **Enforcement:**
 
 - Sessions cite which KB notes they read (paths) and which they wrote when
   reporting status. A status report without a memory line is incomplete.
+- A KB note is delivered when it is on `origin/main` of `tahirs-list-kb`, not
+  when the MCP tool returned success.
 - Any convergence decision made *without* consulting the KB is a process bug
   to be flagged by reviewers, same as a skipped PR review.
 

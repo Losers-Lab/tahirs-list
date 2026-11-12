@@ -32,6 +32,29 @@ class SearchListingsForAgentTest : FunSpec({
         result.count shouldBe 1
     }
 
+    test("snapsCoordinatesBeforeSearch at the default 4 dp (SC-199 D-4)") {
+        val query = RecordingSearchQuery()
+        SearchListingsForAgent(query, RecordingGeocoder(place())).execute(
+            AgentSearchRequest(
+                location = SearchLocation.Coordinates(com.tahirslist.domain.restaurant.LatLng(1.23456, 2.34567)),
+                radiusMiles = 3.0,
+            ),
+        )
+
+        query.center shouldBe com.tahirslist.domain.restaurant.LatLng(1.2346, 2.3457)
+    }
+
+    test("snapsGeocodedCentreTooAtConfiguredPrecision (SC-199 D-1)") {
+        val query = RecordingSearchQuery()
+        SearchListingsForAgent(
+            query,
+            RecordingGeocoder(place(lat = 45.123456, lng = -75.987654)),
+            com.tahirslist.domain.restaurant.CoordinatePrecision.THREE_DECIMALS,
+        ).execute(AgentSearchRequest(SearchLocation.Place("Ottawa"), radiusMiles = 1.0))
+
+        query.center shouldBe com.tahirslist.domain.restaurant.LatLng(45.123, -75.988)
+    }
+
     test("coordinatesSkipGeocoding") {
         val geocoder = RecordingGeocoder(place())
         val query = RecordingSearchQuery()

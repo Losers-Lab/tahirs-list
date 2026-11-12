@@ -242,11 +242,19 @@ fun Application.configureWebPlugins(
 
 /**
  * Adds the `no-store` cache policy to responses that did not opt into an
- * explicit one (the public image/certificate proxies set `public, max-age`).
+ * explicit one (the public image/certificate proxies set `public, max-age`, and
+ * the location search sets its freshness window).
+ *
+ * A non-2xx status always wins: an endpoint that opted into caching and then
+ * failed must not remain cacheable (SC-199, Omar finding 4). `ResponseHeaders`
+ * has no removal on this Ktor version, so `no-store` is added alongside; RFC 9111
+ * §5.2 makes any cacheable response carrying `no-store` unstorable.
  */
 private val SecurityHeadersPlugin = createApplicationPlugin("SecurityHeaders") {
     on(ResponseBodyReadyForSend) { call, _ ->
-        if (call.response.headers[HttpHeaders.CacheControl] == null) {
+        val cacheableStatus = call.response.status()?.value in 200..299
+        val already = call.response.headers[HttpHeaders.CacheControl]
+        if (!cacheableStatus || already == null) {
             call.response.headers.append(HttpHeaders.CacheControl, "no-store")
         }
     }

@@ -3,6 +3,7 @@ package com.tahirslist.application.listing
 import com.tahirslist.application.favorite.ListingNotFoundException
 import com.tahirslist.application.image.ImagePort
 import com.tahirslist.application.image.ImageVariant
+import com.tahirslist.application.photo.CoverPhotoRepository
 import com.tahirslist.application.verification.NotListingOwnerException
 import kotlin.uuid.Uuid
 
@@ -29,6 +30,7 @@ import kotlin.uuid.Uuid
 class RemoveListingImage(
     private val listings: RestaurantListingRepository,
     private val images: ImagePort,
+    private val photos: CoverPhotoRepository,
 ) {
 
     /** Every variant a listing's single hero image occupies (FULL + sc-183 thumbs). */
@@ -44,5 +46,8 @@ class RemoveListingImage(
         }
 
         allVariants.forEach { images.delete(listingId, it) }
+        // SC-231: no bytes, no credit. A stale row would 404 anyway once its
+        // (permanent) photo is gone, and would block the pass from attaching one.
+        photos.delete(listingId)
     }
 }

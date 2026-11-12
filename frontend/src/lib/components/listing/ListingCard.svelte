@@ -1,5 +1,6 @@
 <script lang="ts">
 	import RestaurantPhoto from './RestaurantPhoto.svelte';
+	import PhotoCredit from './PhotoCredit.svelte';
 	import FavoriteButton from './FavoriteButton.svelte';
 	import VerifiedBadge from '#lib/components/trust/VerifiedBadge.svelte';
 	import UnverifiedTag from '#lib/components/trust/UnverifiedTag.svelte';
@@ -55,6 +56,12 @@
 				<VerifiedBadge variant="on-photo" />
 			</div>
 		{/if}
+		<PhotoCredit
+			attribution={restaurant.photoAttribution}
+			licence={restaurant.photoLicence}
+			sourceUrl={restaurant.photoSourceUrl}
+			variant="card"
+		/>
 	</div>
 
 	<div class="p-5">

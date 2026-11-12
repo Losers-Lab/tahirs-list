@@ -89,6 +89,26 @@ class ErrorMappingTest : FunSpec({
         }
     }
 
+    test("an error replaces an opt-in cache policy, so a failure is never cacheable (SC-199 finding 4)") {
+        testApplication {
+            application {
+                configureWebPlugins(testJson(), testJwtConfig(), testRateLimitConfig())
+                routing {
+                    get("/v1/listings/boom-after-header") {
+                        call.response.headers.append(HttpHeaders.CacheControl, "public, max-age=60")
+                        throw IllegalStateException("late failure")
+                    }
+                }
+            }
+
+            val response = client.get("/v1/listings/boom-after-header")
+
+            response.status shouldBe HttpStatusCode.InternalServerError
+            val policies = response.headers.getAll(HttpHeaders.CacheControl).orEmpty().joinToString(", ")
+            policies shouldContain "no-store"
+        }
+    }
+
     test("the public health route carries the baseline edge security headers and no-store cache policy") {
         testApplication {
             application {

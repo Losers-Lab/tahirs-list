@@ -26,6 +26,7 @@ import com.tahirslist.application.listing.ListingSearchQuery
 import com.tahirslist.application.listing.RemoveListingImage
 import com.tahirslist.application.listing.RestaurantListingRepository
 import com.tahirslist.application.listing.UpdateListing
+import com.tahirslist.application.photo.CoverPhotoRepository
 import com.tahirslist.application.verification.CertificationImageStorage
 import com.tahirslist.application.verification.ClaimListing
 import com.tahirslist.application.verification.DeferToHumanProvider
@@ -54,6 +55,7 @@ import com.tahirslist.persistence.favorite.ExposedFavoritesRepository
 import com.tahirslist.persistence.image.ExposedSeedPhotoListingResolver
 import com.tahirslist.persistence.listing.ExposedListingSearchQuery
 import com.tahirslist.persistence.listing.ExposedRestaurantListingRepository
+import com.tahirslist.persistence.photo.ExposedCoverPhotoRepository
 import com.tahirslist.persistence.verification.ExposedHalalCertificationReviewRepository
 import com.tahirslist.storage.s3.S3StorageConfig
 import com.tahirslist.storage.s3.createCertificationStorage
@@ -133,6 +135,7 @@ private fun infrastructureModule(config: AppConfig): Module = module {
     single<ListingSearchQuery> { ExposedListingSearchQuery(get()) }
     single<HalalCertificationReviewRepository> { ExposedHalalCertificationReviewRepository(get()) }
     single<SeedPhotoListingResolver> { ExposedSeedPhotoListingResolver(get()) }
+    single<CoverPhotoRepository> { ExposedCoverPhotoRepository(get()) }
 
     // --- Object storage: real S3-compatible store when configured, else in-memory ---
     val storage = config.storage
@@ -179,8 +182,8 @@ private fun useCaseModule(config: AppConfig): Module = module {
     // Listings
     single { CreateListing(get(), get()) }
     single { UpdateListing(get()) }
-    single { AddListingImage(get(), get()) }
-    single { RemoveListingImage(get(), get()) }
+    single { AddListingImage(get(), get(), get()) }
+    single { RemoveListingImage(get(), get(), get()) }
     single { IngestHeroImage(get()) }
 
     // Favorites
@@ -195,7 +198,7 @@ private fun useCaseModule(config: AppConfig): Module = module {
     single { IngestSeedHeroPhotos(get(), get(), get()) }
 
     // Agent surface (SC-209)
-    single { SearchListingsForAgent(get(), get()) }
+    single { SearchListingsForAgent(get(), get(), config.search.centrePrecision) }
     single { GetListingForAgent(get(), get()) }
 
     // Seed ingest runner (launched from Application when enabled)
@@ -234,6 +237,7 @@ private fun webModule(config: AppConfig): Module = module {
     single { AuthUseCases(get(), get(), get(), get(), get()) }
     single {
         ListingUseCases(
+            get(),
             get(),
             get(),
             get(),

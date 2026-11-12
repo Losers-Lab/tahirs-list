@@ -1,0 +1,30 @@
+{
+  "cuisinePick": {
+    "id": "7d33147d-e048-4c88-8940-621b1e87f1f5",
+    "name": "Paramount Fine Foods Queensway",
+    "cuisine": "lebanese"
+  },
+  "creditPick": {
+    "id": "c47a4b77-99e5-404e-8382-cf74917d34f6",
+    "name": "Afrah",
+    "source": "GOOGLE_PLACES",
+    "licence": null,
+    "attribution": "Google Maps, Drew Hayes"
+  },
+  "counts": {
+    "listings": 73,
+    "withCuisine": 5,
+    "withPhotoCredit": 53
+  },
+  "browser": {
+    "searchShowsCuisine": true,
+    "detailShowsCuisine": true,
+    "detailShowsCredit": true,
+    "searchShowsCredit": true,
+    "heroImage": {
+      "src": "/v1/listings/c47a4b77-99e5-404e-8382-cf74917d34f6/image?variant=full",
+      "loaded": true,
+      "width": 1600
+    }
+  }
+}

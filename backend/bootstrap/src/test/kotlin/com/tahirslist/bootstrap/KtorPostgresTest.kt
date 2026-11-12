@@ -13,6 +13,7 @@ import com.tahirslist.bootstrap.config.JwtSettings
 import com.tahirslist.bootstrap.config.McpSettings
 import com.tahirslist.bootstrap.config.RateLimitSettings
 import com.tahirslist.bootstrap.config.SeedIngestSettings
+import com.tahirslist.application.listing.SearchSettings
 import com.tahirslist.persistence.db.DatabaseFactory
 import com.tahirslist.persistence.db.Migrations
 import com.zaxxer.hikari.HikariDataSource
@@ -207,6 +208,8 @@ const val TEST_PASSWORD = "s3cr3t-password"
 abstract class KtorPostgresTest(
     private val rateLimit: RateLimitSettings = DEFAULT_RATE_LIMIT,
     private val mcpSettings: McpSettings = DEFAULT_MCP,
+    /** Search tuning (SC-199): lets a spec boot with a non-default precision/window. */
+    private val searchSettings: SearchSettings = SearchSettings(),
     /** Extra Koin definitions appended after the production graph. */
     private val extraModules: List<Module> = emptyList(),
 ) : FunSpec() {
@@ -226,7 +229,7 @@ abstract class KtorPostgresTest(
         beforeSpec {
             // Start + migrate the shared container before the app boots.
             SharedPostgres.migrateOnce()
-            appConfig = testConfig(rateLimit)
+            appConfig = testConfig(rateLimit, searchSettings)
             server = embeddedServer(ServerCIO, host = "127.0.0.1", port = 0) {
                 module(appConfig, extraModules)
             }
@@ -382,7 +385,10 @@ abstract class KtorPostgresTest(
         return response.json()["id"].asString()
     }
 
-    private fun testConfig(rateLimit: RateLimitSettings): AppConfig = AppConfig(
+    private fun testConfig(
+        rateLimit: RateLimitSettings,
+        searchSettings: SearchSettings = SearchSettings(),
+    ): AppConfig = AppConfig(
         host = "127.0.0.1",
         port = 0,
         profile = "test",
@@ -407,6 +413,7 @@ abstract class KtorPostgresTest(
         verification = null,
         seedIngest = SeedIngestSettings(enabled = false),
         mcp = mcpSettings,
+        search = searchSettings,
     )
 }
 

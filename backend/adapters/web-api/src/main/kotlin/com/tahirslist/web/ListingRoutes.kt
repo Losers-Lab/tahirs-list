@@ -3,6 +3,7 @@ package com.tahirslist.web
 import com.tahirslist.application.image.StoredImage
 import com.tahirslist.application.listing.ListingSearchFilters
 import com.tahirslist.application.listing.ListingSearchRequestParser
+import com.tahirslist.application.listing.SearchSettings
 import com.tahirslist.domain.restaurant.LatLng
 import com.tahirslist.domain.restaurant.VerificationStatus
 import io.ktor.http.HttpStatusCode
@@ -29,14 +30,17 @@ import io.ktor.server.routing.put
  * client supplies coordinates, so a listing is always saveable independently of
  * any external geocoding provider.
  */
-fun Route.listingRoutes(listing: ListingUseCases) {
+fun Route.listingRoutes(listing: ListingUseCases, search: SearchSettings = SearchSettings()) {
 
     // ---- public read surface -------------------------------------------------
 
     get("/v1/listings/search") {
         // Missing / malformed centre or radius is a client error (400), never a
         // 500: the public search vocabulary is closed.
-        val parsedCenter = parseCenter(call.request.queryParameters["center"])
+        val parsedCenter = ListingSearchRequestParser.centre(
+            parseCenter(call.request.queryParameters["center"]),
+            search.centrePrecision,
+        )
         val radius = ListingSearchRequestParser.radius(
             call.request.queryParameters["radius"]?.toDoubleOrNull()
                 ?: throw IllegalArgumentException("radius is required"),
@@ -60,7 +64,11 @@ fun Route.listingRoutes(listing: ListingUseCases) {
             offset = call.intQueryParameter("offset", default = 0).coerceAtLeast(0),
             limit = call.intQueryParameter("limit", default = 50).coerceIn(1, 100),
         )
-        call.respond(HttpStatusCode.OK, results.map { call.toSearchCard(it) })
+        // Build the body before opting into caching, so a mapping failure cannot
+        // leave a public policy on an error response.
+        val cards = results.map { call.toSearchCard(it) }
+        SearchCachePolicy.applyTo(call, search)
+        call.respond(HttpStatusCode.OK, cards)
     }
 
     get("/v1/listings") {
@@ -112,13 +120,30 @@ fun Route.listingRoutes(listing: ListingUseCases) {
             ?: throw InvalidInputException("variant query parameter is required")
         val variant = parseVariant(rawVariant)
             ?: throw InvalidInputException("variant must be one of the supported image variants")
+
+        // SC-231 UC-03 P1: a Places photo is a cache. Once it expires the bytes
+        // are no longer ours to serve, so the endpoint refuses rather than showing
+        // a photo whose licence window closed. A listing with no credit row (every
+        // pre-SC-231 row) keeps the old behaviour: its bytes are ours.
+        val cover = listing.photos.find(id)
+        val now = java.time.Instant.now()
+        if (cover != null && !cover.isServableAt(now)) {
+            return@get call.respondError(
+                HttpStatusCode.NotFound,
+                ErrorCodes.NOT_FOUND,
+                ErrorMessages.RESOURCE_NOT_FOUND,
+            )
+        }
+
         val stored = listing.images.load(id, variant)
             ?: return@get call.respondError(
                 HttpStatusCode.NotFound,
                 ErrorCodes.NOT_FOUND,
                 ErrorMessages.RESOURCE_NOT_FOUND,
             )
-        call.setCacheControl(PUBLIC_CACHE_CONTROL)
+        // A cache must not outlive its own expiry in a browser/CDN: bound the TTL
+        // by the remaining window instead of a flat day.
+        call.setCacheControl(coverCacheControl(cover, now))
         call.respondStoredBytes(stored.bytes, stored.contentType)
     }
 

@@ -1,5 +1,7 @@
 package com.tahirslist.bootstrap.config
 
+import com.tahirslist.application.listing.SearchSettings
+import com.tahirslist.domain.restaurant.CoordinatePrecision
 import com.tahirslist.verification.ai.HostedVisionConfig
 
 /**
@@ -20,6 +22,7 @@ data class AppConfig(
     val seedIngest: SeedIngestSettings,
     val mcp: McpSettings = McpSettings(),
     val geocodeCache: GeocodeCacheSettings = GeocodeCacheSettings(),
+    val search: SearchSettings = SearchSettings(),
 ) {
     val isProduction: Boolean get() = profile.split(",").map { it.trim() }.contains("prod")
 }
@@ -152,5 +155,36 @@ fun loadConfig(env: (String) -> String? = System::getenv): AppConfig {
         geocodeCache = GeocodeCacheSettings(
             ttlDays = env("APP_GEOCODE_CACHE_TTL_DAYS")?.toIntOrNull() ?: 90,
         ),
+        search = SearchSettings(
+            centrePrecision = searchPrecision(env("APP_SEARCH_CENTRE_DECIMALS")),
+            cacheMaxAgeSeconds = seconds(env("APP_SEARCH_CACHE_MAX_AGE_SECONDS"), 60, "APP_SEARCH_CACHE_MAX_AGE_SECONDS"),
+            sMaxAgeSeconds = seconds(env("APP_SEARCH_CACHE_S_MAXAGE_SECONDS"), 300, "APP_SEARCH_CACHE_S_MAXAGE_SECONDS"),
+            staleWhileRevalidateSeconds = seconds(env("APP_SEARCH_CACHE_SWR_SECONDS"), 60, "APP_SEARCH_CACHE_SWR_SECONDS"),
+        ),
     )
 }
+
+/**
+ * A trust-relevant duration: absent means the ratified default, but a malformed
+ * value fails startup instead of silently becoming the default (SC-199 review,
+ * finding 7).
+ */
+private fun seconds(raw: String?, default: Long, name: String): Long {
+    val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return default
+    return value.toLongOrNull()
+        ?: throw IllegalArgumentException("$name must be a whole number of seconds, got: $value")
+}
+
+/**
+ * SC-199 D-1: the centre precision is exactly 3 or 4 decimals. A malformed value
+ * fails startup rather than silently choosing a precision nobody ratified.
+ */
+private fun searchPrecision(raw: String?): CoordinatePrecision =
+    when (raw?.trim()?.takeIf { it.isNotEmpty() }) {
+        null -> CoordinatePrecision.FOUR_DECIMALS
+        "3" -> CoordinatePrecision.THREE_DECIMALS
+        "4" -> CoordinatePrecision.FOUR_DECIMALS
+        else -> throw IllegalArgumentException(
+            "APP_SEARCH_CENTRE_DECIMALS must be 3 or 4, got: $raw",
+        )
+    }

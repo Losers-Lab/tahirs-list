@@ -80,6 +80,11 @@ export type Restaurant = {
 	 * `imageThumbnailUrl`.
 	 */
 	imageSrcset?: ImageSrcsetEntry[];
+	/** SC-231: the credit the photo's source requires, when a photo is shown. */
+	photoAttribution?: string;
+	photoLicence?: string;
+	photoSource?: string;
+	photoSourceUrl?: string;
 	/**
 	 * sc-157: detail-page full-res original. The detail hero is the only surface
 	 * that requests this variant. Absent → same quiet placeholder as cards.

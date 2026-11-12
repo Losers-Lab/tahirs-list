@@ -1,0 +1,182 @@
+# SC-231 — Phase 10: Traceability
+
+> **Purpose:** the record of what was built, tested and verified, WI by WI · **Derived from:** 09 · **Delta:** new; updated as each WI lands
+
+**Status:** implementation started 2026-11-10 on branch `feat/SC-231-enrichment`, PR #89. Design frozen at `0a59ee2`.
+
+## Acceptance criteria → evidence
+
+| AC (verbatim in `00`) | WI | Evidence | State |
+|---|---|---|---|
+| Every ingested candidate gets a venue type from a closed vocabulary, or null when the evidence does not decide | WI-2, WI-3, WI-7, WI-8 | `AdmissionPolicyTest` (14) + the `CandidateFactory` gate | **done** |
+| A row whose source category is not a restaurant is never classified as a restaurant | WI-7, WI-8 | the three real HMS rows excluded by test; HFSAA `MEAT_MARKET` too | **done** |
+| Cuisine is set only when evidence exists; otherwise null | WI-6, WI-9, WI-12 | `CuisineAssignerTest` (9) + `ExposedIngestionBatchTest` write path | **done** |
+| The decision and its evidence are visible in the run report and on the listing, and a re-run is idempotent | WI-10, WI-12 | Enrichment section in every run report; `venue_type_source`/`cuisine_source` columns; idempotence tests | **done** |
+| No existing owner/curator value is overwritten | WI-12 | `ExposedIngestionBatchTest.a re-run never overwrites a cuisine an owner set` | **done** |
+| TDD: classifier unit tests per evidence source; load test proves the columns are written | WI-7, WI-9, WI-12 | domain 26 / ingestion 29 / persistence 26 green | **done** |
+| *Proposed (Q-2):* a licensed or attributed photo, or an honest gap; no fabricated image; Places never permanent | WI-13…WI-16 | `AttachCoverPhotoTest` (9), `ExposedCoverPhotoRepositoryTest` (5), `ListingImageEndpointTest` expiry case | **done** (OSM photo source waits on SC-227) |
+
+## Invariants → tests
+
+| Invariant (`01`) | Test | State |
+|---|---|---|
+| INV-1 only admitted rows are written | `AdmissionPolicyTest` (the three rows) + the `CandidateFactory` gate | **done** — the gate runs before geocoding, so an excluded row never becomes a candidate |
+| INV-2 shop word beats a restaurant category | `AdmissionPolicyTest.a poultry meat market filed under Restaurants is excluded` | **done** |
+| INV-3 premises word rescues; bakery admitted | `AdmissionPolicyTest.a market with a kitchen in it is a restaurant` · `a pure bakery is admitted as a bakery` | **done** |
+| INV-4 evidence order | `AdmissionPolicyTest.an unknown category uses the OSM feature` · `a name with only a premises word still admits` | **done** |
+| INV-5 undecided is held | `AdmissionPolicyTest.nothing decides means held, never guessed` | **done** |
+| INV-6 type always has a source | `RestaurantListingTest.imported() refuses a type with no evidence behind it` + the DB CHECK | **done** |
+| INV-7 cuisine conflict stays null | `CuisineAssignerTest.two families in one name is a conflict` | **done** |
+| INV-8 cuisine only for an admitted row | `CandidateFactory` asks it after admission only; `CuisineAssignerTest` | **done** |
+| INV-9 fill nulls only, idempotent | `ExposedIngestionBatchTest.a re-run never overwrites a cuisine an owner set` · `a re-run keeps the first derived type` | **done** |
+| INV-10 deterministic, side-effect free | `AdmissionPolicyTest.the decision is deterministic` | **done** |
+| INV-11 one photo per listing | `ExposedCoverPhotoRepositoryTest.saving again replaces the row` | **done** |
+| INV-12 free photo needs a licence | `AttachCoverPhotoTest.a candidate with no licence is refused before its bytes are fetched` · `CC-BY without an author is refused` | **done** |
+| INV-13 Places is cache-only, never served after expiry | `CoverPhotoTest.a permanent Places photo is refused` · `ListingImageEndpointTest.a Places cache is served while it is live and 404s once it expires` | **done** |
+| INV-14 precedence, owner photo untouched | `AttachCoverPhotoTest.an owner photo is never touched…` · `a free-licensed photo wins over Places` | **done** |
+| INV-15 missing stays missing | `AttachCoverPhotoTest.nothing anywhere is a gap, not a fabricated photo` | **done** |
+| INV-16 trust untouched | `ExposedIngestionBatchTest` trust suite — enrichment columns are separate from claim-derived trust | **done** |
+| INV-17 report matches catalogue | the `IngestReport` Enrichment section (rendered every run) | **partial** — present, not asserted row-for-row |
+
+## Work item progress
+
+| WI | Commit | Test count added | State |
+|---|---|---|---|
+| WI-1 | `a27486e` | 9 (`EnrichmentSchemaMigrationTest`) | **done** |
+| WI-2 | `a27486e` | 6 (`VenueTypeTest`) | **done** |
+| WI-3 | this commit | 4 (`AdmissionDecisionTest`) | **done** |
+| WI-4 | this commit | 11 (`CoverPhotoTest`) | **done** |
+| WI-5 | this commit | 5 (`RestaurantListingTest`) | **done** |
+| WI-6 | this commit | 4 (`EnrichmentRulesTest`) | **done** |
+| WI-7 | this commit | 14 (`AdmissionPolicyTest`) | **done** |
+| WI-8 | this commit | wired into `CandidateFactory`; covered by the existing pipeline suite | **done** |
+| WI-9 | this commit | 9 (`CuisineAssignerTest`) | **done** |
+| WI-10 | this commit | report section; rendered in every run report | **done** |
+| WI-11 | this commit | `IngestionCandidate` carries the verdict; JSON round-trip via `CandidateDto` | **done** |
+| WI-12 | `ffe899d`+ | 3 (`ExposedIngestionBatchTest`) — type, sources and cuisine written; owner cuisine wins; a re-run keeps the first type | **done** |
+| WI-13 | this commit | 9 (`AttachCoverPhotoTest`) — precedence, licence/credit refusal, Places cache, expiry refresh | **done** |
+| WI-14 | this commit | 5 (`PhotoSourceMappingTest`) — venue match, address corroboration, Commons licence table; `AttachCoverPhotosMain` + `scripts/attach-cover-photos.sh` | **done** |
+| WI-15 | this commit | 5 (`ExposedCoverPhotoRepositoryTest`) + 1 (`ListingImageEndpointTest` expired cache) | **done** |
+| WI-16 | this commit | credit fields on `DetailResponse`/`BrowseCard` (`DetailResponseTest` contract fields) | **done** |
+| WI-17 | this commit | 3 (`PurgeNonRestaurantsTest`); `PurgeNonRestaurantsMain` + `scripts/purge-non-restaurants.sh` | **done** |
+| WI-18 | this commit | 3 (`PhotoCredit.test.ts`); `PhotoCredit` on the detail hero and browse cards | **done** |
+| WI-19 | — | — | not started |
+
+## Runtime proof (2026-11-10)
+
+Re-processed end to end against a clean database (`halal_sc231`), because the shared dev
+database is on `feat/SC-205-photo-upload`'s `V25`/`V26` and could not boot this branch.
+
+| step | command | result |
+|---|---|---|
+| ingest | `./scripts/ingest-sample.sh` (`--caps=100`, 4 metros) | run `sample-20261110T160204Z`: **44 admitted**, **6 excluded** (butchers), 0 undecided, 192 rejected, 5 cuisines, 0 conflicts |
+| load | `:bootstrap:loadIngestBatch --execute` | `load-20261110T161700Z`: inserted 43, upgraded 1 (Paramount Queensway → the seed row), claims 44 |
+| verify | psql | 44 rows carry `venue_type`; 5 carry `cuisine` + `cuisine_source`; the 5 also have `restaurant_listing_cuisines` rows; `listing_search` = 73 |
+| purge | `:bootstrap:purgeNonRestaurants` | **0 rows**: the three meat markets never entered, because the gate ran first. The purge remains the remediation for the existing catalogue; its selection is proven by `PurgeNonRestaurantsTest` |
+| photos | `:bootstrap:attachCoverPhotos --execute --replace` | **53 attached** (51 Google Places as 30-day caches, 2 Wikimedia permanent), **20 refused with reasons**, 0 silent gaps |
+
+Then the app was booted from this branch (`:3003` → backend `:8081`) and driven with
+Playwright. The script reads the API first and asserts the browser text contains what the
+API says — a screenshot alone is not evidence.
+
+| assertion | result |
+|---|---|
+| `search?q=<name>` card shows `lebanese` | **true** (`search-cuisine.png`) |
+| detail page shows `lebanese` | **true** (`detail-cuisine.png`) |
+| detail page shows the credit | **true** (`detail-photo-credit.png`, `Google Maps, Drew Hayes`) |
+| search card shows the same credit over the photo | **true** (`search-photo-credit.png`) |
+| the hero `<img>` really decoded (`/v1/listings/{id}/image?variant=full`) | **true**, `naturalWidth = 1600` |
+
+The four cuisine rows that also got a photo (Imperial Biryani, Kababjees, Khorasan Kabab,
+Samosa Paradise) are Places caches expiring `2026-12-12`; a served photo therefore carries
+its credit and its cache window in the same row. `Paramount Fine Foods Queensway` was
+refused — Places calls it *Paramount Middle Eastern Kitchen - The Queensway*, a different
+name whose address the listing's `New York, NY, USA` line cannot corroborate. That is the
+near-miss rule working, not a missing feature.
+
+Machine-readable: `runtime-proof/facts.json`.
+
+**A defect this proof caught.** The first pass attached 11 Commons photos and several were
+the wrong business: `Ali Baba Mediterranean` (Richardson, TX) got a Birmingham storefront,
+`Moon Restaurant` (Queens) got a Hong Kong sign, `Yemen Cafe` (Brooklyn) got Hamtramck.
+The name rule had accepted them. `CommonsPlace` now requires the file's own GPS within
+**2 km**, or — when it has no GPS — the listing's city named in the file's Commons
+categories/description. Re-running refused all nine with the distance or the missing city,
+and kept the two that are actually of the place.
+
+## Round 2 — after the review fixes (2026-11-12)
+
+Review round 1 (Omar static, Yusuf dynamic) returned `CHANGES REQUESTED` on `8d64a92`. The
+behaviour-changing fixes and the evidence for each:
+
+| finding | fix | proven by |
+|---|---|---|
+| the Places key reached `photo-report.md`/stdout through `ImageFetchException` URLs | `HttpImageFetcher` reports the URL **without its query**; `AttachCoverPhoto` redacts once more before a reason is stored | `HttpImageFetcherTest` ("an error message names the url without its query"), `AttachCoverPhotoTest` ("a failing fetch never puts the keyed url in the reported reason") |
+| no scheme/host allow-list on fetch targets | `PublicHttpsOnly` (`UrlPolicy`): https, no loopback/private/link-local, resolved names checked | `HttpImageFetcherTest` (refusal cases) |
+| no byte cap | `MAX_BYTES` 8 MiB from `Content-Length` **and** from the body | `HttpImageFetcherTest` ("refuses a body over the byte cap") |
+| the purge CLI could not delete a row (`external_certification_claims` RESTRICT, `halal_certification_reviews` NO ACTION) | child rows deleted first, one transaction; selection restricted to ingested (`provenance != null`), ownerless rows | `PurgeNonRestaurantsTest` ("deleting a listing removes its claim and review first") |
+| the backup guard ran after the empty-selection return | guard moved to the top of `main`, before any DB work | dry runs below: both refusals fire |
+| an owner upload wrote no credit row (INV-14 unenforced) | `AddListingImage` saves `OWNER_UPLOAD`/`PERMANENT`; `RemoveListingImage` deletes it | `AddListingImageTest`, `RemoveListingImageTest` |
+| orphan bytes served uncredited (Moon Restaurant, Yemen Cafe) | a replace that cannot credit a photo deletes the stored variants | `AttachCoverPhotoTest` ("a replace that cannot credit a photo removes the uncredited bytes") + the live run below |
+| `Cache-Control` outlived the cache window | `coverCacheControl` bounds `max-age` by the remaining expiry | `ListingRoutes` (bounded header) |
+| owner cuisine edit left `cuisine_source` | `update` sets `cuisine_source = NULL` | `ExposedIngestionBatchTest` (cuisine-source clear) |
+| `javascript:` could reach a credit `href` | `CoverPhoto` requires https `sourceUrl`; `PhotoCredit` drops a non-https link | `EnrichmentSchemaMigrationTest`, `PhotoCredit.test.ts` |
+| the DB accepted rows the Kotlin model forbids | `V28__sc_231_photo_constraints.sql` closes the gap (free = permanent, Places needs a place id, credit not blank, CC-BY needs an author, https link, cuisine source needs a cuisine) | `EnrichmentSchemaMigrationTest` |
+
+Re-run against `halal_sc231` **without** a Places key — the round-1 key is being rotated, so
+Places was deliberately not consulted:
+
+| step | command | result |
+|---|---|---|
+| purge (dry run) | `:bootstrap:purgeNonRestaurants` | 73 listings, **0 to purge** |
+| purge guard | `--execute` (no `--backup`), then `--backup=/tmp/nope.dump` | refused both times before any query: *"refusing --execute without --backup"*, *"backup '/tmp/nope.dump' does not exist or is empty"* |
+| photos | `:bootstrap:attachCoverPhotos --execute --replace` | 2 attached (Wikimedia: Lahore Tikka House, Uncle's Fried Chicken), **2 refused and their uncredited bytes removed** (Moon Restaurant, Yemen Cafe), 51 Places caches kept (report: `gap: no source offered a photo`, credit row untouched) |
+| storage | MinIO `heroes/<id>` | the two orphan directories are gone; the 51 Places + 2 Wikimedia rows survive |
+| app | Playwright (`proof.cjs`, bypassCSP) | cuisine on the search card and detail, credit on the detail and the card, hero `naturalWidth = 1600`, 73 / 5 / 53 |
+
+Suites at this head: backend `./gradlew test` — **1080 tests, 0 failures**; frontend
+`svelte-check` 0 errors, `vitest` **240 passed**, `vite build` clean.
+
+**Observation, not fixed here (pre-existing platform behaviour).** On the wire a 200 image
+response carries **two** `Cache-Control` values, in this order: `public, max-age=…` (ours,
+bounded by the remaining window — a photo with 120 s left reports `max-age=119`) and then
+`no-store`. The second one is `SecurityHeadersPlugin` (SC-199): its guard is meant to append
+`no-store` only when no policy is set, but for a byte response `call.response.status()` is not
+yet set when `ResponseBodyReadyForSend` runs, so the "non-2xx" branch fires. RFC 9111 makes
+any response carrying `no-store` unstorable, so a photo is not actually cached today — safe
+for the licence window, but the freshness policy is a no-op on byte responses (it works on
+`/v1/listings/search`, which is a JSON response and carries the single expected value). The
+plugin is outside this story's diff; the follow-up is to treat an unset status as 2xx (or to
+key the branch on header presence only).
+
+### Deferred, with the reviewers' agreement (not silently dropped)
+
+- **`GET /v1/listings/{id}/image` answers from storage without checking the listing exists.**
+  Five orphan byte sets (ids with no row, four seed-era) still return 200 uncredited; the
+  first real `--execute` purge will mint more, because `deleteListing` removes rows only.
+  Both halves belong to one follow-up ticket (404 unless the listing exists; purge deletes
+  the stored variants).
+- **`SearchCard` carries no credit fields.** The `listing_search` index has no
+  attribution/licence columns; the shipped UI reads `BrowseCard`, so nothing renders an
+  uncredited photo today, but any future consumer of `/v1/listings/search` would. Owner
+  decision: widen the index, or drop the image fields from `SearchCard`.
+- **Bytes are written before the credit row.** A failure between the two can credit the old
+  author's bytes to the new one; only content-addressed keys fix it properly.
+- **Redirect hops are not re-checked against `PublicHttpsOnly`** (`followRedirects = true`).
+  The trigger is upstream/CDN compromise, not user input.
+- **`redact` strips a query, not a secret.** No adapter puts a key in a path today; masking
+  `key=` (and the `AIza…` shape) would remove the assumption.
+- **V28 is looser than the model in three predicates** (owner-upload `CACHE`, Places with a
+  licence, blank-but-non-null place id, whitespace-only attribution). Only reachable by
+  direct SQL, but a row the database accepts is one the read mapper throws on; a later
+  migration should close it.
+
+## Notes
+
+- **Migration renumbered V25 → V27 (2026-11-10).** `feat/SC-205-photo-upload` already claims `V25__sc_205_image_version.sql` and `V26__add_admin_role.sql`, and the shared dev database has both applied. Two files called `V25` would either collide at merge time or fail Flyway validation on the next boot, so this branch moved to **V27** and left the gap. Verified by `EnrichmentSchemaMigrationTest` against a fresh database.
+- **V28 adds constraints only (2026-11-12).** V27 created the columns/table; V28 makes the database agree with what `CoverPhoto`/`RestaurantListing` already require (see the round-2 table). Both are applied to the proof database (`halal_sc231` is at 28); never edit either — add a version.
+- The pre-approval spike (`VenueType.kt`, `ingestion/enrich/*`) was **removed** on approval: it modelled one nine-value enum, which the approved design replaced with `VenueClass` (recognise) + `VenueType` (publish). Keeping it would have left two contradictory vocabularies in the tree.
+- `SC-227` (PR #84) adds `GeocodedPlace.osmKey/osmValue`. Until it merges, WI-7's OSM step cannot fire and the report states it, as designed.
+- **The same dependency reaches the photo pass:** `OsmPhotoSource` needs the matched feature's `image` / `wikimedia_commons` tags, so the pass asks Commons then Places. The CLI prints `osm: unavailable on this build`.
+- **A load-blocking source defect surfaced during re-processing (fixed in scope).** HMS publishes `United States Of America` (24 chars) while the catalogue column is `VARCHAR(16)` (V20), so the load refused 17 valid rows with *"Listing country must be 16 characters or fewer"*. `CountryNames.canonical` maps the known aliases (`United States Of America`/`US` → `United States`) and leaves anything unknown untouched, so a genuinely new value still fails loudly rather than being truncated into a different country.
+- **Search cards carry the thumbnail but not the credit.** `SearchCard` reads the `listing_search` index, which has no licence or attribution columns. Detail + browse cards (the two surfaces in the design) do show it. Widening the index for four credit strings is a follow-up, not a silent claim of full coverage.

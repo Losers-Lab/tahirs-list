@@ -73,6 +73,12 @@ data class IngestReport(
         appendLine()
 
         if (candidates.isNotEmpty()) {
+            appendLine("## Enrichment")
+            appendLine()
+            appendEnrichment(candidates, rejects)
+        }
+
+        if (candidates.isNotEmpty()) {
             appendLine("## Candidates and claims")
             appendLine()
             appendLine("Every row below is a candidate for the reviewed load. The claim keys are the")
@@ -121,6 +127,74 @@ data class IngestReport(
     }
 
     private fun String.cell(): String = replace("|", "\\|").replace("\n", " ").trim()
+
+    /**
+     * SC-231 UC-04: what the gate admitted, what it excluded and why, and what
+     * could not be decided. The section is always present — an empty one is a
+     * fact, not an omission.
+     */
+    private fun StringBuilder.appendEnrichment(
+        candidates: List<IngestionCandidate>,
+        rejects: List<IngestReject>,
+    ) {
+        val admitted = candidates.mapNotNull { it.admission }
+        val excluded = rejects.filter { it.reason == RejectReason.NOT_A_RESTAURANT }
+        val undecided = rejects.filter { it.reason == RejectReason.UNDECIDED_VENUE }
+        val withCuisine = candidates.filter { it.cuisineName != null }
+        val conflicts = candidates.filter { it.cuisineConflict != null }
+
+        appendLine("| metric | value |")
+        appendLine("|---|---:|")
+        appendLine("| admitted as restaurants | ${admitted.size} |")
+        appendLine("| excluded as non-restaurants | ${excluded.size} |")
+        appendLine("| undecided (held for a curator) | ${undecided.size} |")
+        appendLine("| cuisine set | ${withCuisine.size} |")
+        appendLine("| cuisine conflicts | ${conflicts.size} |")
+        appendLine("| weak (name-keyword) decisions | ${admitted.count { it.source.isWeak } + withCuisine.count { it.cuisineSource?.isWeak == true }} |")
+        appendLine()
+
+        if (admitted.isNotEmpty()) {
+            appendLine("### Admitted by type")
+            appendLine()
+            appendLine("| type | count |")
+            appendLine("|---|---:|")
+            admitted.groupingBy { it.venueType }.eachCount().toSortedMap()
+                .forEach { (type, count) -> appendLine("| $type | $count |") }
+            appendLine()
+        }
+
+        if (excluded.isNotEmpty()) {
+            appendLine("### Excluded by class")
+            appendLine()
+            appendLine("| class | count | example reason |")
+            appendLine("|---|---:|---|")
+            excluded.groupBy { it.venueClass ?: "OTHER" }.toSortedMap().forEach { (cls, rows) ->
+                appendLine("| $cls | ${rows.size} | ${rows.first().detail.cell()} |")
+            }
+            appendLine()
+        }
+
+        if (undecided.isNotEmpty()) {
+            appendLine("### Undecided — held, not loaded")
+            appendLine()
+            undecided.sortedBy { it.name.orEmpty() }.forEach {
+                appendLine("- ${it.name.orEmpty()} — ${it.detail.cell()}")
+            }
+            appendLine()
+        }
+
+        if (conflicts.isNotEmpty()) {
+            appendLine("### Cuisine review queue")
+            appendLine()
+            conflicts.sortedBy { it.name }.forEach {
+                appendLine("- ${it.name} — ${it.cuisineConflict?.cell().orEmpty()}")
+            }
+            appendLine()
+        }
+
+        appendLine("_Photo pass not run for this batch._")
+        appendLine()
+    }
 
     private fun sourceOrder(source: String): Int = when (source) {
         "hms" -> 0
